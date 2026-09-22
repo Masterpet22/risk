@@ -84,7 +84,7 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
     const result=blitz(state,best.from,best.to);
     if(result.ok){
       const al=result.rounds.reduce((s,r)=>s+r.attackerLosses,0),dl=result.rounds.reduce((s,r)=>s+r.defenderLosses,0),last=result.rounds.at(-1);
-      report.battles.push({from:terr(state,best.from).name,to:terr(state,best.to).name,fromId:best.from,toId:best.to,defenderId,beforeState,afterState:beforeState?structuredClone(state):null,rounds:result.rounds.length,attackerLosses:al,defenderLosses:dl,conquered:result.conquered,eliminated:last.eliminated,bonus:last.bonus});
+      report.battles.push({from:terr(state,best.from).name,to:terr(state,best.to).name,fromId:best.from,toId:best.to,defenderId,beforeState,afterState:beforeState?structuredClone(state):null,roundResults:defenderId===0?result.rounds:null,rounds:result.rounds.length,attackerLosses:al,defenderLosses:dl,conquered:result.conquered,eliminated:last.eliminated,bonus:last.bonus});
       report.attackerLosses+=al;report.defenderLosses+=dl;if(result.conquered)report.conquests++;if(last.eliminated!==null)report.eliminated.push(state.players[last.eliminated].name);
     }
   }

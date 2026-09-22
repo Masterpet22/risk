@@ -77,7 +77,73 @@ async function playAttackApproach(from,to){
   await new Promise(resolve=>setTimeout(resolve,reduced?90:330));
   layer.remove();
 }
-async function doAttack(fast){if(rolling)return;rolling=true;const from=selectedFrom,to=selectedTo,max=fast?Math.min(3,state.territories[from].troops-1):selectedDice,def=Math.min(2,state.territories[to].troops);await playAttackApproach(from,to);els.diceModal.classList.remove('hidden');$('#diceTitle').textContent='Los dados están rodando…';$('#battleRoute').textContent=`${tById(from).name} ataca ${tById(to).name}`;$('#comparison').innerHTML='';$('#closeDice').classList.remove('visible');let fa=Array(max).fill(1),fd=Array(def).fill(1);const draw=()=>{$('#attackerDice').innerHTML=fa.map(v=>`<i class="big-die rolling">${v}</i>`).join('');$('#defenderDice').innerHTML=fd.map(v=>`<i class="big-die rolling">${v}</i>`).join('')};draw();const ticker=setInterval(()=>{fa=fa.map(()=>1+Math.floor(Math.random()*6));fd=fd.map(()=>1+Math.floor(Math.random()*6));draw()},105);await new Promise(r=>setTimeout(r,950));clearInterval(ticker);const result=fast?blitz(state,from,to):attackRound(state,from,to,selectedDice),r=fast?result.rounds.at(-1):result;if(!result.ok||!r){els.diceModal.classList.add('hidden');rolling=false;return}$('#attackerDice').innerHTML=diceMarkup(r.attackerDice,r.rawAttackerDice);$('#defenderDice').innerHTML=diceMarkup(r.defenderDice,r.rawDefenderDice);const al=fast?result.rounds.reduce((s,x)=>s+x.attackerLosses,0):r.attackerLosses,dl=fast?result.rounds.reduce((s,x)=>s+x.defenderLosses,0):r.defenderLosses,bonus=state.rulesMode==='terrain'?`<div class="bonus-note">${r.bonus.attacker?`Atacante +1: ${r.bonus.attackerReasons.join(', ')}.`:'Atacante sin bono.'} ${r.bonus.defender?`Defensor +1: ${r.bonus.defenderReasons.join(', ')}.`:'Defensor sin bono.'}</div>`:'';$('#diceTitle').textContent=r.conquered?'¡Territorio conquistado!':'Resultado de la tirada';$('#comparison').innerHTML=`${bonus}${comparisonMarkup(r)}<div class="battle-summary"><strong>${fast?`${result.rounds.length} rondas. `:''}Pérdidas:</strong> ${al} atacante · ${dl} defensor.${r.conquered?' El territorio cambia de dueño.':' Puedes seguir o retirarte.'}</div>`;$('#closeDice').classList.add('visible');if(r.conquered){selectedFrom=to;selectedTo=null}else if(state.territories[from].troops<2){selectedFrom=selectedTo=null}render();rolling=false}
+let diceResolve=null;
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+function setBattleTone(tone){
+  const card=els.diceModal.querySelector('.dice-card');
+  card.classList.remove('outcome-victory','outcome-defeat','outcome-neutral');
+  card.classList.add(`outcome-${tone}`);
+}
+function roundTone(round,defending){
+  const ownLosses=defending?round.defenderLosses:round.attackerLosses;
+  const enemyLosses=defending?round.attackerLosses:round.defenderLosses;
+  return ownLosses<enemyLosses?'victory':ownLosses>enemyLosses?'defeat':'neutral';
+}
+async function presentDiceRounds(rounds,{from,to,defending=false,fast=false}){
+  if(!rounds.length)return;
+  const title=$('#diceTitle'),comparison=$('#comparison'),close=$('#closeDice');
+  $('#battleRoute').textContent=`${from} ataca ${to}`;
+  close.classList.remove('visible');
+  close.textContent=defending?'Ver resultado de la defensa':'Ver el mapa y continuar';
+  els.diceModal.classList.remove('hidden');
+  for(let i=0;i<rounds.length;i++){
+    const round=rounds[i],label=`Tirada ${i+1} de ${rounds.length}`;
+    setBattleTone('neutral');
+    title.textContent=`${label} · dados en juego`;
+    comparison.innerHTML='';
+    const attackerCount=round.rawAttackerDice.length,defenderCount=round.rawDefenderDice.length;
+    const draw=()=>{
+      $('#attackerDice').innerHTML=Array.from({length:attackerCount},()=>`<i class="big-die rolling">${1+Math.floor(Math.random()*6)}</i>`).join('');
+      $('#defenderDice').innerHTML=Array.from({length:defenderCount},()=>`<i class="big-die rolling">${1+Math.floor(Math.random()*6)}</i>`).join('');
+    };
+    draw();
+    const ticker=setInterval(draw,95);
+    await pause(420);
+    clearInterval(ticker);
+    $('#attackerDice').innerHTML=diceMarkup(round.attackerDice,round.rawAttackerDice);
+    $('#defenderDice').innerHTML=diceMarkup(round.defenderDice,round.rawDefenderDice);
+    title.textContent=label;
+    setBattleTone(roundTone(round,defending));
+    comparison.innerHTML=`${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.conquered?' Territorio conquistado.':''}</div>`;
+    if(i<rounds.length-1)await pause(1100);
+  }
+  const totalA=rounds.reduce((sum,round)=>sum+round.attackerLosses,0);
+  const totalD=rounds.reduce((sum,round)=>sum+round.defenderLosses,0);
+  const conquered=rounds.at(-1).conquered;
+  const finalTone=defending?(conquered?'defeat':'victory'):(conquered?'victory':fast?'defeat':roundTone(rounds.at(-1),false));
+  setBattleTone(finalTone);
+  title.textContent=defending?(conquered?'Perdiste el territorio':'Tu territorio resistió'):(conquered?'¡Territorio conquistado!':fast?'Ataque detenido':'Resultado de la tirada');
+  comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${fast?`${rounds.length} ${rounds.length===1?'tirada':'tiradas'} · `:''}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.</div>`);
+  close.classList.add('visible');close.focus();
+  await new Promise(resolve=>{diceResolve=resolve});
+}
+
+async function doAttack(fast){
+  if(rolling)return;
+  rolling=true;
+  const from=selectedFrom,to=selectedTo;
+  try{
+    await playAttackApproach(from,to);
+    const result=fast?blitz(state,from,to):attackRound(state,from,to,selectedDice);
+    const rounds=fast?result.rounds:result.ok?[result]:[];
+    if(!result.ok||!rounds.length)return;
+    if(rounds.at(-1).conquered){selectedFrom=to;selectedTo=null}
+    else if(state.territories[from].troops<2){selectedFrom=selectedTo=null}
+    render();
+    await presentDiceRounds(rounds,{from:tById(from).name,to:tById(to).name,fast});
+  }finally{rolling=false}
+}
 
 function showAiSummary(report){return new Promise(resolve=>{aiResolve=resolve;$('#aiTitle').textContent=`Turno de ${report.playerName}`;const battles=report.battles.slice(-4).map(b=>`<div class="ai-battle"><span>${b.from} → ${b.to}${b.conquered?' · conquistado':''}</span><span>${b.rounds} tirada${b.rounds===1?'':'s'} · pérdidas ${b.attackerLosses}/${b.defenderLosses}</span></div>`).join('');$('#aiSummary').innerHTML=`<div class="ai-kpis"><div class="ai-kpi"><strong>${report.reinforcements}</strong><span>REFUERZOS</span></div><div class="ai-kpi"><strong>${report.battles.length}</strong><span>ATAQUES</span></div><div class="ai-kpi"><strong>${report.conquests}</strong><span>CONQUISTAS</span></div></div>${battles||'<div class="battle-summary">No encontró un ataque favorable este turno.</div>'}${report.eliminated.length?`<div class="battle-summary">Eliminó a ${report.eliminated.join(', ')}.</div>`:''}`;els.aiModal.classList.remove('hidden');$('#closeAi').focus()})}
 function closeAiSummary(){els.aiModal.classList.add('hidden');if(aiResolve){const resolve=aiResolve;aiResolve=null;resolve()}}
@@ -85,8 +151,11 @@ async function showDefenseAttack(battle){
   state=battle.beforeState;render(false);
   await playAttackApproach(battle.fromId,battle.toId);
   state=battle.afterState;render(false);
+  await presentDiceRounds(battle.roundResults,{from:battle.from,to:battle.to,defending:true,fast:true});
   const remaining=state.territories[battle.toId].troops;
   const lost=battle.conquered;
+  els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-defeat',lost);
+  els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-victory',!lost);
   $('#defenseTitle').textContent=lost?'Has perdido un territorio':'Tu territorio resistió el ataque';
   $('#defenseRoute').textContent=`${battle.from} → ${battle.to}`;
   $('#defenseOutcome').innerHTML=`<strong>${battle.to}</strong><span>${lost?'Conquistado por el enemigo':`${remaining} tropa${remaining===1?'':'s'} restante${remaining===1?'':'s'}`}</span><small>Tu defensa perdió ${battle.defenderLosses} tropa${battle.defenderLosses===1?'':'s'}; el atacante perdió ${battle.attackerLosses}.</small>`;
@@ -94,7 +163,7 @@ async function showDefenseAttack(battle){
   await new Promise(resolve=>{defenseResolve=resolve});
 }
 function closeDefense(){els.defenseModal.classList.add('hidden');if(defenseResolve){const resolve=defenseResolve;defenseResolve=null;resolve()}}
-$('#continueDefense').onclick=closeDefense;$('#closeAi').onclick=closeAiSummary;$('#closeDice').onclick=()=>{els.diceModal.classList.add('hidden');render()};els.routesBtn.onclick=()=>{routesAll=!routesAll;updateConnections()};
+$('#continueDefense').onclick=closeDefense;$('#closeAi').onclick=closeAiSummary;$('#closeDice').onclick=()=>{els.diceModal.classList.add('hidden');if(diceResolve){const resolve=diceResolve;diceResolve=null;resolve()}};els.routesBtn.onclick=()=>{routesAll=!routesAll;updateConnections()};
 els.phaseBtn.onclick=()=>{if(!state||rolling)return;if(state.phase==='gameover'){openStart();return}if(state.phase==='attack'){if(!setPhase(state,'fortify'))return showToast('Debes combatir al menos una vez');selectedFrom=selectedTo=null;render()}else if(state.phase==='fortify'){setPhase(state,'close');selectedFrom=selectedTo=null;render()}else if(state.phase==='close'){const earned=state.conqueredThisTurn;endTurn(state);selectedFrom=selectedTo=null;render();if(earned)showToast('Carta robada');runAiTurns()}};
 async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await new Promise(r=>setTimeout(r,650));const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();for(const battle of report.battles.filter(b=>b.defenderId===0)){await showDefenseAttack(battle)}state=pendingAiState;pendingAiState=null;render();if(report.ok)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;render()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}

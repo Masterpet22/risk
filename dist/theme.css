@@ -54,6 +54,17 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 @keyframes attackRouteFlow{to{stroke-dashoffset:-18}}@keyframes clashBurst{0%{opacity:1;r:6;fill-opacity:.95;stroke-opacity:1}100%{opacity:0;r:38;fill-opacity:0;stroke-opacity:0}}
 @media(prefers-reduced-motion:reduce){.attack-route,.clash-ring{animation:none!important}}
 .defense-card{border-color:#9c5a55;background:linear-gradient(145deg,#283247,#111d2e)}.defense-card .eyebrow{color:#ffb4a8}.defense-card h2{font:700 1.9rem 'Marcellus',serif;margin:10px 0 14px}.defense-outcome{display:grid;gap:7px;padding:16px;border:1px solid #bd7465;border-radius:11px;background:#3a2527a8}.defense-outcome strong{font-size:1.18rem}.defense-outcome span{color:#ffcb8f;font-weight:800}.defense-outcome small{color:#d8e6ed;font-size:.88rem;line-height:1.5}
+.modal-backdrop:not(.hidden){animation:noticeBackdrop .24s ease-out both}.modal-backdrop:not(.hidden) .modal{animation:noticeArrival .34s cubic-bezier(.2,.9,.24,1.1) both}
+@keyframes noticeBackdrop{from{opacity:0}to{opacity:1}}@keyframes noticeArrival{from{opacity:0;transform:translateY(22px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.dice-card.outcome-victory,.defense-card.outcome-victory{--result:#4ce0a4;--result-bg:#123d32;border-color:var(--result);box-shadow:0 24px 75px #000c,0 0 34px #4ce0a42b}
+.dice-card.outcome-defeat,.defense-card.outcome-defeat{--result:#ff7777;--result-bg:#49242e;border-color:var(--result);box-shadow:0 24px 75px #000c,0 0 34px #ff77772e}
+.dice-card.outcome-neutral{--result:#f7c750;--result-bg:#3b321f;border-color:var(--result)}
+.dice-card[class*="outcome-"] h2,.defense-card[class*="outcome-"] h2,.defense-card[class*="outcome-"] .eyebrow{color:var(--result)}
+.dice-card[class*="outcome-"] .dice-arena,.dice-card[class*="outcome-"] .battle-summary,.dice-card[class*="outcome-"] .battle-total,.defense-card[class*="outcome-"] .defense-outcome{border:1px solid var(--result);background:var(--result-bg)}
+.dice-card[class*="outcome-"] .compare-row b,.dice-card[class*="outcome-"] .battle-total strong,.defense-card[class*="outcome-"] .defense-outcome span{color:var(--result)}
+.dice-card[class*="outcome-"] .primary-btn,.defense-card[class*="outcome-"] .primary-btn{background:var(--result);border-color:var(--result);color:#07171a}
+.battle-total{margin-top:10px;padding:12px;border-radius:9px;font-size:.94rem;line-height:1.45}
+@media(prefers-reduced-motion:reduce){.modal-backdrop:not(.hidden),.modal-backdrop:not(.hidden) .modal{animation:none!important}}
 @media(max-width:760px){
   .map-wrap{height:600px;min-height:0;overflow-x:auto;overflow-y:hidden;scrollbar-color:#426d8b #061727}
   .map-wrap #map{width:790px;height:600px;max-width:none}
