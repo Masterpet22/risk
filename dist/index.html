@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101722">
+  <meta name="description" content="Conquista un continente ficticio en este juego de estrategia territorial por turnos.">
+  <title>Fronteras de Acero</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">♜</span><div><h1>Fronteras de Acero</h1><p>Dominio continental</p></div></div>
+      <div class="round-pill"><span>RONDA</span><strong id="round">1</strong></div>
+      <div class="header-actions">
+        <button class="icon-btn" id="helpBtn" aria-label="Ver reglas" title="Reglas">?</button>
+        <button class="text-btn" id="newBtn">Nueva partida</button>
+      </div>
+    </header>
+
+    <main class="game-shell">
+      <aside class="left-panel panel">
+        <div class="eyebrow">COMANDANTES</div>
+        <div id="players" class="players"></div>
+        <div class="regions-card">
+          <div class="eyebrow">BONOS REGIONALES</div>
+          <div id="regions"></div>
+        </div>
+      </aside>
+
+      <section class="map-wrap" aria-label="Mapa del juego">
+        <div class="map-head">
+          <div><span class="eyebrow" id="turnLabel">TU TURNO</span><h2 id="phaseTitle">Despliega refuerzos</h2></div>
+          <div class="reinforcements" id="reinforceBox"><span>REFUERZOS</span><strong id="reinforcements">0</strong></div>
+        </div>
+        <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
+        <div class="map-legend"><span><i class="dot selectable"></i>Seleccionable</span><span><i class="dot target"></i>Objetivo</span><span><i class="line"></i>Frontera conectada</span></div>
+      </section>
+
+      <aside class="right-panel panel">
+        <section class="order-card" id="orderCard">
+          <div class="eyebrow">ORDEN ACTUAL</div>
+          <h2 id="orderTitle">Despliega refuerzos</h2>
+          <p id="orderText">Selecciona uno de tus territorios para fortalecerlo.</p>
+          <div id="selectionInfo" class="selection-info"></div>
+          <div id="battleResult" class="battle-result" aria-live="polite"></div>
+          <div id="actionControls" class="action-controls"></div>
+          <button id="phaseBtn" class="primary-btn">Terminar despliegue</button>
+        </section>
+        <section class="chronicle">
+          <div class="eyebrow">CRÓNICA DE GUERRA</div>
+          <div id="log" class="log"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="startModal">
+    <section class="modal start-card" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+      <div class="crest">♜</div>
+      <p class="eyebrow">JUEGO DE ESTRATEGIA TERRITORIAL</p>
+      <h2 id="startTitle">Fronteras de Acero</h2>
+      <p>Refuerza tus dominios, rompe las líneas enemigas y conquista los 24 territorios.</p>
+      <div class="setup-grid">
+        <label>Número de ejércitos<select id="playerCount"><option value="2">2 — duelo rápido</option><option value="3" selected>3 — equilibrado</option><option value="4">4 — guerra total</option></select></label>
+        <label>Dificultad<select id="difficulty"><option value="fácil">Fácil</option><option value="normal" selected>Normal</option><option value="difícil">Difícil</option></select></label>
+      </div>
+      <button class="primary-btn large" id="startBtn">Comenzar campaña</button>
+      <button class="continue-btn" id="continueBtn" hidden>Continuar partida guardada</button>
+      <p class="autosave">El progreso se guarda automáticamente en este navegador.</p>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="helpModal">
+    <section class="modal rules-card" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+      <button class="close-btn" id="closeHelp" aria-label="Cerrar">×</button>
+      <p class="eyebrow">MANUAL DE CAMPAÑA</p><h2 id="rulesTitle">Cómo conquistar el mapa</h2>
+      <ol>
+        <li><b>Refuerza.</b> Coloca todas tus nuevas tropas en territorios propios.</li>
+        <li><b>Ataca.</b> Elige un territorio con 2 o más tropas y luego un vecino enemigo. Ganan los dados más altos; los empates favorecen al defensor.</li>
+        <li><b>Fortifica.</b> Mueve tropas una vez entre dos territorios propios conectados, o termina tu turno sin mover.</li>
+        <li><b>Domina.</b> Controlar una región completa concede refuerzos adicionales. La partida termina al conquistar los 24 territorios.</li>
+      </ol>
+      <button class="primary-btn" id="gotItBtn">Entendido</button>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
