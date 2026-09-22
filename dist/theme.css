@@ -50,6 +50,9 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 /* Keep the illustrated board readable and pannable on narrow screens. */
 .map-art-shade{fill-opacity:.52}
 .map-swipe-hint{display:none}
+.attack-march{pointer-events:none}.attack-route{stroke:#fff1bf;stroke-width:4;stroke-dasharray:10 8;opacity:.9;filter:drop-shadow(0 0 8px #ffd770);animation:attackRouteFlow .4s linear infinite}.marchers{fill:var(--march-color);stroke:#f9f4df;stroke-width:1.35;paint-order:stroke;filter:drop-shadow(0 0 8px var(--march-color)) drop-shadow(0 2px 4px #000)}.marchers path{stroke-linecap:round;stroke-linejoin:round}.clash-ring{fill:#ffe18d;stroke:#fff9db;stroke-width:3;opacity:0;filter:drop-shadow(0 0 12px #ffb837)}.attack-march.impact .clash-ring{animation:clashBurst .33s ease-out forwards}.attack-march.impact .marchers{filter:drop-shadow(0 0 14px #ffe075) drop-shadow(0 2px 5px #000)}
+@keyframes attackRouteFlow{to{stroke-dashoffset:-18}}@keyframes clashBurst{0%{opacity:1;r:6;fill-opacity:.95;stroke-opacity:1}100%{opacity:0;r:38;fill-opacity:0;stroke-opacity:0}}
+@media(prefers-reduced-motion:reduce){.attack-route,.clash-ring{animation:none!important}}
 @media(max-width:760px){
   .map-wrap{height:600px;min-height:0;overflow-x:auto;overflow-y:hidden;scrollbar-color:#426d8b #061727}
   .map-wrap #map{width:790px;height:600px;max-width:none}
