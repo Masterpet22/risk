@@ -20,6 +20,16 @@
       </div>
     </header>
 
+    <nav class="turn-flow" aria-label="Flujo del turno">
+      <div class="flow-step" data-step="reinforce"><span>1</span><div><b>Reclutamiento</b><small>Coloca refuerzos</small></div></div>
+      <i>›</i>
+      <div class="flow-step" data-step="attack"><span>2</span><div><b>Combate</b><small>1 ataque obligatorio</small></div></div>
+      <i>›</i>
+      <div class="flow-step" data-step="fortify"><span>3</span><div><b>Maniobra</b><small>Mueve una vez o pasa</small></div></div>
+      <i>›</i>
+      <div class="flow-step" data-step="close"><span>4</span><div><b>Cierre</b><small>Carta y siguiente jugador</small></div></div>
+    </nav>
+
     <main class="game-shell">
       <aside class="left-panel panel">
         <div class="eyebrow">COMANDANTES</div>
@@ -35,6 +45,7 @@
           <div><span class="eyebrow" id="turnLabel">TU TURNO</span><h2 id="phaseTitle">Despliega refuerzos</h2></div>
           <div class="reinforcements" id="reinforceBox"><span>REFUERZOS</span><strong id="reinforcements">0</strong></div>
         </div>
+        <div class="map-guide" id="mapGuide"><span>1</span><strong>Selecciona un territorio propio</strong><small>Los territorios válidos brillan en tu color.</small></div>
         <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
         <div class="map-legend"><span><i class="dot selectable"></i>Seleccionable</span><span><i class="dot target"></i>Objetivo</span><span><i class="line"></i>Frontera conectada</span></div>
       </section>
@@ -44,6 +55,8 @@
           <div class="eyebrow">ORDEN ACTUAL</div>
           <h2 id="orderTitle">Despliega refuerzos</h2>
           <p id="orderText">Selecciona uno de tus territorios para fortalecerlo.</p>
+          <div class="turn-status" id="turnStatus"></div>
+          <div class="cards-box" id="cardsBox"></div>
           <div id="selectionInfo" class="selection-info"></div>
           <div id="battleResult" class="battle-result" aria-live="polite"></div>
           <div id="actionControls" class="action-controls"></div>
@@ -78,12 +91,28 @@
       <button class="close-btn" id="closeHelp" aria-label="Cerrar">×</button>
       <p class="eyebrow">MANUAL DE CAMPAÑA</p><h2 id="rulesTitle">Cómo conquistar el mapa</h2>
       <ol>
-        <li><b>Refuerza.</b> Coloca todas tus nuevas tropas en territorios propios.</li>
-        <li><b>Ataca.</b> Elige un territorio con 2 o más tropas y luego un vecino enemigo. Ganan los dados más altos; los empates favorecen al defensor.</li>
-        <li><b>Fortifica.</b> Mueve tropas una vez entre dos territorios propios conectados, o termina tu turno sin mover.</li>
-        <li><b>Domina.</b> Controlar una región completa concede refuerzos adicionales. La partida termina al conquistar los 24 territorios.</li>
+        <li><b>Reclutamiento.</b> Recibes mínimo 3 tropas, más bonos regionales y canjes de 3 cartas. Con 5 cartas, el canje es obligatorio.</li>
+        <li><b>Combate obligatorio.</b> Elige un origen con 2+ tropas y un vecino enemigo. Debes resolver al menos una tirada si existe un ataque posible.</li>
+        <li><b>Dados.</b> El atacante elige 1–3 dados y deja una tropa atrás. El defensor usa hasta 2. Se comparan de mayor a menor y los empates favorecen al defensor.</li>
+        <li><b>Maniobra.</b> Mueve tropas una sola vez entre territorios propios conectados, o pasa.</li>
+        <li><b>Cierre.</b> Si conquistaste al menos un territorio, robas una carta. Después juega el siguiente ejército.</li>
       </ol>
       <button class="primary-btn" id="gotItBtn">Entendido</button>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="diceModal">
+    <section class="modal dice-card" role="dialog" aria-modal="true" aria-labelledby="diceTitle">
+      <p class="eyebrow">RESOLUCIÓN DEL COMBATE</p>
+      <h2 id="diceTitle">Los dados están rodando…</h2>
+      <p class="battle-route" id="battleRoute"></p>
+      <div class="dice-arena">
+        <div><span>ATACANTE</span><div class="big-dice" id="attackerDice"></div></div>
+        <b class="versus">VS</b>
+        <div><span>DEFENSOR</span><div class="big-dice defender" id="defenderDice"></div></div>
+      </div>
+      <div class="comparison" id="comparison" aria-live="assertive"></div>
+      <button class="primary-btn hidden-control" id="closeDice">Ver el mapa y continuar</button>
     </section>
   </div>
 

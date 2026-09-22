@@ -47,7 +47,8 @@ const terr = id => TERRITORIES.find(t=>t.id===id);
 
 export function createGame({players=3,seed=Date.now(),human=true}={}) {
   const rng=makeRng(seed), order=shuffle(TERRITORIES.map(t=>t.id),rng);
-  const state={version:1,seed,turn:1,current:0,phase:'reinforce',winner:null,log:[],selected:null,pendingReinforcements:0,
+  const state={version:2,seed,turn:1,current:0,phase:'reinforce',winner:null,log:[],selected:null,pendingReinforcements:0,
+    attackMadeThisTurn:false,conqueredThisTurn:false,cardTradeLevel:0,
     players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:PLAYER_COLORS[i],human:human&&i===0,alive:true,cards:0})),
     territories:{},rngState:Math.floor(rng()*0xffffffff)};
   order.forEach((id,i)=>state.territories[id]={owner:i%players,troops:1});
@@ -74,9 +75,20 @@ export function reinforcementCount(state,pid){
 export const ownedIds=(s,p)=>TERRITORIES.filter(t=>s.territories[t.id].owner===p).map(t=>t.id);
 export const enemiesOf=(s,id)=>terr(id).n.filter(n=>s.territories[n].owner!==s.territories[id].owner);
 export const alliesOf=(s,id)=>terr(id).n.filter(n=>s.territories[n].owner===s.territories[id].owner);
+export function canPlayerAttack(state,pid=state.current){return ownedIds(state,pid).some(id=>state.territories[id].troops>=2&&enemiesOf(state,id).length>0);}
+
+export function tradeCards(state,pid=state.current){
+  const player=state.players[pid];
+  if(state.phase!=='reinforce'||pid!==state.current||player.cards<3)return {ok:false,bonus:0};
+  player.cards-=3;state.cardTradeLevel++;
+  const sequence=[4,6,8,10,12,15];
+  const bonus=state.cardTradeLevel<=sequence.length?sequence[state.cardTradeLevel-1]:15+(state.cardTradeLevel-sequence.length)*5;
+  state.pendingReinforcements+=bonus;addLog(state,`${player.name} canjeó 3 cartas por ${bonus} tropas.`,pid);
+  return {ok:true,bonus};
+}
 
 export function placeTroops(state,id,amount=1){
-  if(state.phase!=='reinforce'||state.pendingReinforcements<amount||state.territories[id]?.owner!==state.current||amount<1) return false;
+  if(state.phase!=='reinforce'||state.players[state.current].cards>=5||state.pendingReinforcements<amount||state.territories[id]?.owner!==state.current||amount<1) return false;
   state.territories[id].troops+=amount; state.pendingReinforcements-=amount;
   if(state.pendingReinforcements===0){ state.phase='attack'; state.selected=null; addLog(state,'Refuerzos desplegados. Fase de ataque.',state.current); }
   return true;
@@ -86,16 +98,20 @@ function nextRand(state){ state.rngState=(Math.imul(1664525,state.rngState)+1013
 function roll(state,n){ return Array.from({length:n},()=>1+Math.floor(nextRand(state)*6)).sort((a,b)=>b-a); }
 function addLog(s,text,p=null){s.log.unshift({text,p,turn:s.turn}); if(s.log.length>50)s.log.length=50;}
 
-export function attackRound(state,from,to){
+export function attackRound(state,from,to,attackerDiceCount=null){
   const a=state.territories[from],d=state.territories[to];
   if(state.phase!=='attack'||!a||!d||a.owner!==state.current||d.owner===a.owner||a.troops<2||!terr(from).n.includes(to)) return {ok:false};
-  const attacker=a.owner, defender=d.owner, ad=roll(state,Math.min(3,a.troops-1)),dd=roll(state,Math.min(2,d.troops));
+  const maxDice=Math.min(3,a.troops-1),chosen=attackerDiceCount===null?maxDice:Number(attackerDiceCount);
+  if(!Number.isInteger(chosen)||chosen<1||chosen>maxDice)return {ok:false};
+  const attacker=a.owner, defender=d.owner, ad=roll(state,chosen),dd=roll(state,Math.min(2,d.troops));
+  state.attackMadeThisTurn=true;
   let al=0,dl=0; for(let i=0;i<Math.min(ad.length,dd.length);i++){if(ad[i]>dd[i]){d.troops--;dl++;}else{a.troops--;al++;}}
   let conquered=false, eliminated=null;
   if(d.troops<=0){
     const moved=Math.max(1,Math.min(ad.length,a.troops-1)); d.owner=attacker; d.troops=moved; a.troops-=moved; conquered=true;
     addLog(state,`${terr(from).name} conquistó ${terr(to).name}.`,attacker);
-    if(ownedIds(state,defender).length===0){state.players[defender].alive=false;eliminated=defender;addLog(state,`${state.players[defender].name} ha sido eliminado.`,attacker);}
+    state.conqueredThisTurn=true;
+    if(ownedIds(state,defender).length===0){state.players[defender].alive=false;eliminated=defender;state.players[attacker].cards+=state.players[defender].cards;state.players[defender].cards=0;addLog(state,`${state.players[defender].name} ha sido eliminado. Sus cartas pasan a ${state.players[attacker].name}.`,attacker);}
     checkWinner(state);
   }
   return {ok:true,attackerDice:ad,defenderDice:dd,attackerLosses:al,defenderLosses:dl,conquered,eliminated};
@@ -114,22 +130,25 @@ function connectedOwned(state,start,target,pid){
 export function fortify(state,from,to,amount){
   const a=state.territories[from],b=state.territories[to];
   if(state.phase!=='fortify'||!a||!b||a.owner!==state.current||b.owner!==state.current||amount<1||a.troops<=amount||!connectedOwned(state,from,to,state.current))return false;
-  a.troops-=amount;b.troops+=amount;addLog(state,`${amount} unidades se movieron a ${terr(to).name}.`,state.current);endTurn(state);return true;
+  a.troops-=amount;b.troops+=amount;state.phase='close';addLog(state,`${amount} unidades se movieron a ${terr(to).name}.`,state.current);return true;
 }
 export function setPhase(state,phase){
-  if(phase==='fortify'&&state.phase==='attack'){state.phase='fortify';state.selected=null;return true;}
+  if(phase==='fortify'&&state.phase==='attack'&&(state.attackMadeThisTurn||!canPlayerAttack(state))){state.phase='fortify';state.selected=null;return true;}
+  if(phase==='close'&&state.phase==='fortify'){state.phase='close';state.selected=null;return true;}
   return false;
 }
 export function endTurn(state){
   if(state.winner!==null)return;
+  if(state.conqueredThisTurn){state.players[state.current].cards++;addLog(state,`${state.players[state.current].name} robó 1 carta por conquistar.`,state.current);}
   let next=state.current;do{next=(next+1)%state.players.length;if(next===0)state.turn++;}while(!state.players[next].alive);
-  state.current=next;state.phase='reinforce';state.selected=null;state.pendingReinforcements=reinforcementCount(state,next);addLog(state,`Turno de ${state.players[next].name}: ${state.pendingReinforcements} refuerzos.`,next);
+  state.current=next;state.phase='reinforce';state.selected=null;state.attackMadeThisTurn=false;state.conqueredThisTurn=false;state.pendingReinforcements=reinforcementCount(state,next);addLog(state,`Turno de ${state.players[next].name}: ${state.pendingReinforcements} refuerzos.`,next);
 }
 function checkWinner(state){const alive=state.players.filter(p=>p.alive);if(alive.length===1){state.winner=alive[0].id;state.phase='gameover';addLog(state,`${alive[0].name} domina todo el continente.`,alive[0].id);}}
 
 function borderScore(state,id,pid){const t=state.territories[id];const enemy=terr(id).n.filter(n=>state.territories[n].owner!==pid).reduce((s,n)=>s+state.territories[n].troops,0);return enemy+t.troops*.15;}
 export function aiTurn(state,pid=state.current,difficulty='normal'){
   if(state.winner!==null||state.current!==pid)return false;
+  while(state.players[pid].cards>=5||(state.players[pid].cards>=3&&difficulty==='difícil'))tradeCards(state,pid);
   while(state.pendingReinforcements>0){
     const own=ownedIds(state,pid).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
     placeTroops(state,own[0],1);
@@ -144,16 +163,17 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
     if(!options.length)break;
     options.sort((a,b)=>b.advantage-a.advantage||a.target-b.target);
     const best=options[0],threshold=difficulty==='fácil'?2:difficulty==='difícil'?-1:0;
-    if(best.advantage<threshold)break;
+    if(state.attackMadeThisTurn&&best.advantage<threshold)break;
     blitz(state,best.from,best.to);
   }
   if(state.winner!==null)return true;
-  state.phase='fortify';
+  setPhase(state,'fortify');
   const sources=ownedIds(state,pid).filter(id=>state.territories[id].troops>2&&enemiesOf(state,id).length===0).sort((a,b)=>state.territories[b].troops-state.territories[a].troops);
   if(sources.length){
     const borders=ownedIds(state,pid).filter(id=>enemiesOf(state,id).length).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
-    if(borders.length&&connectedOwned(state,sources[0],borders[0],pid)){fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));return true;}
+    if(borders.length&&connectedOwned(state,sources[0],borders[0],pid)){fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));endTurn(state);return true;}
   }
+  setPhase(state,'close');
   endTurn(state);return true;
 }
 
