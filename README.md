@@ -4,12 +4,12 @@ Juego de estrategia territorial por turnos, creado originalmente en Sites y publ
 
 ## Editar en local
 
-El código del juego está en `dist/`: `index.html`, `styles.css`, `app.mjs` y `engine.mjs`. No requiere instalar dependencias ni compilar.
+El juego está en `dist/`: `index.html`, `styles.css`, `theme.css`, `app.mjs`, `engine.mjs` y las ilustraciones `map-*.webp`. No requiere instalar dependencias ni compilar.
 
 Para abrirlo desde un servidor local (los módulos JavaScript necesitan HTTP), ejecuta en esta carpeta:
 
 ```powershell
-python -m http.server 8000 --directory dist
+python serve.py
 ```
 
 Después abre <http://localhost:8000>. Para comprobar la lógica del juego:
