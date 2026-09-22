@@ -45,8 +45,10 @@
           <div><span class="eyebrow" id="turnLabel">TU TURNO</span><h2 id="phaseTitle">Despliega refuerzos</h2></div>
           <div class="reinforcements" id="reinforceBox"><span>REFUERZOS</span><strong id="reinforcements">0</strong></div>
         </div>
+        <div class="map-toolbar"><span id="mapName">Fronteras de Acero</span><button id="routesBtn" aria-pressed="false">Rutas: al seleccionar</button><span class="mode-badge" id="modeBadge">CLÁSICO</span></div>
         <div class="map-guide" id="mapGuide"><span>1</span><strong>Selecciona un territorio propio</strong><small>Los territorios válidos brillan en tu color.</small></div>
         <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
+        <div class="map-tooltip hidden" id="mapTooltip"></div>
         <div class="map-legend"><span><i class="dot selectable"></i>Seleccionable</span><span><i class="dot target"></i>Objetivo</span><span><i class="line"></i>Frontera conectada</span></div>
       </section>
 
@@ -57,6 +59,7 @@
           <p id="orderText">Selecciona uno de tus territorios para fortalecerlo.</p>
           <div class="turn-status" id="turnStatus"></div>
           <div class="cards-box" id="cardsBox"></div>
+          <div class="terrain-panel hidden" id="terrainPanel"></div>
           <div id="selectionInfo" class="selection-info"></div>
           <div id="battleResult" class="battle-result" aria-live="polite"></div>
           <div id="actionControls" class="action-controls"></div>
@@ -80,6 +83,15 @@
         <label>Número de ejércitos<select id="playerCount"><option value="2">2 — duelo rápido</option><option value="3" selected>3 — equilibrado</option><option value="4">4 — guerra total</option></select></label>
         <label>Dificultad<select id="difficulty"><option value="fácil">Fácil</option><option value="normal" selected>Normal</option><option value="difícil">Difícil</option></select></label>
       </div>
+      <fieldset class="setup-section"><legend>Mapa</legend><div class="map-options" id="mapOptions">
+        <label class="option-card active"><input type="radio" name="mapChoice" value="frontier" checked><b>Fronteras de Acero</b><small>Equilibrado · muchas rutas</small></label>
+        <label class="option-card"><input type="radio" name="mapChoice" value="archipelago"><b>Archipiélago Quebrado</b><small>Islas · puentes estratégicos</small></label>
+        <label class="option-card"><input type="radio" name="mapChoice" value="rift"><b>La Gran Grieta</b><small>Pasos estrechos · defensivo</small></label>
+      </div></fieldset>
+      <fieldset class="setup-section"><legend>Reglas</legend><div class="rules-options" id="rulesOptions">
+        <label class="option-card active"><input type="radio" name="rulesMode" value="classic" checked><b>Modo clásico</b><small>Solo tropas, dados y regiones</small></label>
+        <label class="option-card"><input type="radio" name="rulesMode" value="terrain"><b>Modo terreno</b><small>Unidades, afinidades y ventaja +1</small></label>
+      </div></fieldset>
       <button class="primary-btn large" id="startBtn">Comenzar campaña</button>
       <button class="continue-btn" id="continueBtn" hidden>Continuar partida guardada</button>
       <p class="autosave">El progreso se guarda automáticamente en este navegador.</p>
@@ -96,6 +108,8 @@
         <li><b>Dados.</b> El atacante elige 1–3 dados y deja una tropa atrás. El defensor usa hasta 2. Se comparan de mayor a menor y los empates favorecen al defensor.</li>
         <li><b>Maniobra.</b> Mueve tropas una sola vez entre territorios propios conectados, o pasa.</li>
         <li><b>Cierre.</b> Si conquistaste al menos un territorio, robas una carta. Después juega el siguiente ejército.</li>
+        <li><b>Mapas.</b> Cada mapa conserva 24 territorios, pero cambia las rutas, los pasos estratégicos y el ritmo de conquista.</li>
+        <li><b>Modo terreno.</b> Infantería vence a Artillería, Artillería a Caballería y Caballería a Infantería. La ventaja suma +1 al dado mayor. El defensor también obtiene +1 cuando su unidad coincide con el terreno.</li>
       </ol>
       <button class="primary-btn" id="gotItBtn">Entendido</button>
     </section>
@@ -113,6 +127,15 @@
       </div>
       <div class="comparison" id="comparison" aria-live="assertive"></div>
       <button class="primary-btn hidden-control" id="closeDice">Ver el mapa y continuar</button>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="aiModal">
+    <section class="modal ai-card" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+      <p class="eyebrow">INFORME DEL TURNO ENEMIGO</p>
+      <h2 id="aiTitle">Movimiento de la IA</h2>
+      <div id="aiSummary" class="ai-summary"></div>
+      <button class="primary-btn" id="closeAi">Continuar</button>
     </section>
   </div>
 
