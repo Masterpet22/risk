@@ -41,6 +41,8 @@ const victim=enemiesOf(reward,strong)[0];reward.territories[strong].troops=30;re
 while(reward.territories[victim].owner!==0)attackRound(reward,strong,victim,3);
 setPhase(reward,'fortify');setPhase(reward,'close');endTurn(reward);
 if(reward.players[0].cards!==1)throw new Error('No se robó carta después de conquistar');
+if(reward.campaign.players[0].conquests!==1||reward.campaign.conquests.length!==1||reward.campaign.players[0].cards!==1)throw new Error('El resumen de campaña no registró conquista y carta');
+if(reward.campaign.players[0].lost+reward.campaign.players[1].lost<1)throw new Error('El resumen de campaña no registró bajas');
 console.log('OK: combate obligatorio, selección de dados y canje forzado verificados.');
 
 // Ventaja circular en modo terreno y ausencia de modificadores en clásico.

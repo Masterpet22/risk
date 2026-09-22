@@ -16,6 +16,7 @@
       <div class="brand"><span class="brand-mark"><span>⚑</span></span><div><h1>Fronteras de Acero</h1><p>Dominio continental</p></div></div>
       <div class="round-pill"><span>RONDA</span><strong id="round">1</strong></div>
       <div class="header-actions">
+        <button class="text-btn summary-trigger hidden" id="summaryBtn">Resumen final</button>
         <button class="icon-btn" id="helpBtn" aria-label="Ver reglas" title="Reglas">?</button>
         <button class="text-btn" id="newBtn">Nueva partida</button>
       </div>
@@ -148,6 +149,21 @@
       <h2 id="aiTitle">Movimiento de la IA</h2>
       <div id="aiSummary" class="ai-summary"></div>
       <button class="primary-btn" id="closeAi">Continuar</button>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="endModal">
+    <section class="modal end-card" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+      <div class="end-scroll">
+        <p class="eyebrow" id="endEyebrow">CAMPAÑA CONCLUIDA</p>
+        <h2 id="endTitle">Mapa conquistado</h2>
+        <p class="end-subtitle" id="endSubtitle"></p>
+        <div id="endSummary"></div>
+      </div>
+      <div class="end-actions">
+        <button class="secondary-btn" id="viewEndMap">Ver mapa</button>
+        <button class="primary-btn" id="newFromEnd">Nueva partida</button>
+      </div>
     </section>
   </div>
 
