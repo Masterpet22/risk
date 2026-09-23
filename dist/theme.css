@@ -152,7 +152,7 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 
 /* Imperfect information & Fog of War */
 .territory.intel-partial .territory-shape{opacity:.88;stroke-dasharray:4 3}
-.territory.intel-partial .army-disc{width:52px;x:-26px;fill:#19334bb0;stroke:#f7b73188}
+.territory.intel-partial .army-disc{fill:#19334bb0;stroke:#f7b73188}
 .territory.intel-partial .army-count.army-range{font-size:.76rem;letter-spacing:-.02em;fill:#ffd45f}
 .territory.intel-hidden{filter:brightness(0.68) saturate(0.55)}
 .territory.intel-hidden .territory-shape{opacity:.65;stroke:#425b70!important}
