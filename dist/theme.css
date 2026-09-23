@@ -36,7 +36,39 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 .map-guide{display:none}.map-legend{z-index:3;bottom:11px;left:20px;gap:17px;padding:7px 12px;border:1px solid #426987;border-radius:10px;background:#0a2035df;color:#cae0ed;font-size:.75rem;box-shadow:0 5px 18px #0008}.map-tooltip{z-index:8;border:1px solid #547891;background:#071827f2;color:#e9f7ff;font-size:.79rem;box-shadow:0 15px 35px #000c}
 
 /* Command and chronicle cards */
-.order-card,.chronicle{padding:16px 14px;border:1px solid #315573;border-radius:13px;background:linear-gradient(155deg,#11253a,#0d1d30);box-shadow:inset 0 1px #ffffff0d}.order-card{flex:none}.order-card .eyebrow{color:#ffd56d}.order-card .eyebrow:before{content:'⚑';margin-right:9px;color:#f5c248}.order-card h2{margin:14px 0 7px;font:700 1.46rem 'Marcellus',serif}.order-card>p{color:#b8d6e8;font-size:.88rem}.turn-status{padding:12px;border:1px solid #9f813d;border-radius:10px;background:linear-gradient(140deg,#29271d,#112235);color:#f0e5c8;font-size:.86rem}.turn-status strong{color:#ffd45f}.cards-box{padding:12px 11px;border-color:#365674;border-radius:10px;background:#10263a;color:#edf5f9;font-size:.87rem}.cards-box button{border-color:#827450;color:#f4d39a;background:#182b3b}.primary-btn{border:1px solid #ffdd7a;border-radius:11px;background:linear-gradient(125deg,#ffe07c,#e9b83d);box-shadow:inset 0 1px #fff9bf88,0 9px 25px #d3942536;color:#171603;font-size:.88rem}.primary-btn:hover{filter:brightness(1.1)}.secondary-btn{border-color:#56819e;background:#173048}.selection-item,.dice-choice button{border-color:#365774;background:#173049;color:#e8f5fa}.chronicle{flex:1;min-height:140px}.chronicle .eyebrow:before{content:'▤';margin-right:9px;color:#a6d6f2}.log{gap:13px}.log-item{font-size:.8rem;color:#c5dce9}.log-dot{box-shadow:0 0 8px var(--lc)}
+/* Tactical cards styling */
+.cards-box{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #365674;border-radius:12px;background:#0d1e2e;color:#edf5f9;font-size:.87rem;margin:10px 0}
+.cards-head{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;letter-spacing:.08em;color:#8bb3cf}
+.cards-head strong{color:#ffd45f;font-size:.85rem}
+.empty-hand{font-size:.74rem;color:#799cb3;line-height:1.4;padding:4px 0}
+.cards-list{display:grid;gap:8px}
+.card-item{padding:9px 10px;border:1px solid #294763;border-radius:8px;background:#11283d;display:flex;flex-direction:column;gap:5px;transition:border-color .18s,background .18s}
+.card-item.active-targeting{border-color:#ffd45f;background:#2b3024;box-shadow:0 0 12px #ffd45f33}
+.card-item-top{display:flex;justify-content:space-between;align-items:center}
+.card-title{font-weight:800;font-size:.82rem;color:#eaf4f9}
+.card-cost{font-size:.72rem;font-weight:700;padding:2px 7px;border-radius:10px;background:#ffd45f18;color:#ffd45f;border:1px solid #ffd45f44}
+.card-desc{font-size:.72rem;color:#9cbacf;line-height:1.35;margin:0}
+.card-action{display:flex;justify-content:flex-end;margin-top:2px}
+.play-card-btn{border:1px solid #e9b94988;background:#e9b94918;color:#f7d579;border-radius:6px;padding:4px 9px;font-size:.72rem;font-weight:700;cursor:pointer;transition:.15s}
+.play-card-btn:hover:not(:disabled){background:#e9b94935;color:#fff;border-color:#ffd45f}
+.play-card-btn:disabled{opacity:.4;cursor:not-allowed}
+.card-passive-badge{font-size:.68rem;color:#6fe4dc;font-style:italic}
+.card-targeting-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:#2a331c;border:1px solid #ffd45f;font-size:.75rem;color:#fff1b3}
+.cancel-card-btn{border:1px solid #ff7b7b;background:#ff7b7b1e;color:#ffb1b1;border-radius:5px;padding:3px 8px;font-size:.7rem;cursor:pointer}
+.card-discard-box{padding:10px;border:1px solid #ff7b7b;border-radius:8px;background:#2e151a;font-size:.76rem;color:#ffd4dc;display:grid;gap:6px}
+.card-discard-box p{margin:0;line-height:1.35}
+.discard-options{display:grid;gap:5px}
+.discard-btn{border:1px solid #ff7b7b88;background:#ff7b7b25;color:#fff;border-radius:6px;padding:5px 8px;font-size:.72rem;text-align:left;cursor:pointer}
+.discard-btn:hover{background:#ff7b7b55}
+.discard-btn.discard-new{border-color:#c9a552;background:#c9a55225;color:#ffe6aa}
+
+/* Map connection and territory states for tactical cards */
+.connection.blocked{stroke:#ff4757!important;stroke-dasharray:6 5!important;stroke-width:5px!important;opacity:.95!important;filter:drop-shadow(0 0 6px #ff4757)!important}
+.territory.sabotaged .territory-shape{stroke:#ff7849!important;filter:drop-shadow(0 0 10px #ff7849cc)!important}
+.territory.spied .territory-shape{stroke:#4ce7e1!important;filter:drop-shadow(0 0 10px #4ce7e1cc)!important}
+.territory.card-valid-target .territory-shape{stroke:#ffd45f!important;stroke-width:4.5px!important;stroke-dasharray:5 4!important;animation:pulse 1s infinite alternate}
+
+.primary-btn{border:1px solid #ffdd7a;border-radius:11px;background:linear-gradient(125deg,#ffe07c,#e9b83d);box-shadow:inset 0 1px #fff9bf88,0 9px 25px #d3942536;color:#171603;font-size:.88rem}.primary-btn:hover{filter:brightness(1.1)}.secondary-btn{border-color:#56819e;background:#173048}.selection-item,.dice-choice button{border-color:#365774;background:#173049;color:#e8f5fa}.chronicle{flex:1;min-height:140px}.chronicle .eyebrow:before{content:'▤';margin-right:9px;color:#a6d6f2}.log{gap:13px}.log-item{font-size:.8rem;color:#c5dce9}.log-dot{box-shadow:0 0 8px var(--lc)}
 
 /* Setup and result dialogs */
 .modal-backdrop{background:#020b16db}.modal{border-color:#547289;background:linear-gradient(145deg,#18344d,#0b1c2c);box-shadow:0 35px 90px #000d}.start-card h2,.ai-card h2{color:#fff}.option-card{border-color:#3b6077;background:#10283c}.option-card.active{border-color:#e8bd4b;background:#4e3b183a}.option-card:hover{border-color:#9dc8d6}.big-die{box-shadow:0 7px 18px #0009}
@@ -78,3 +110,28 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 
 /* Treasury and territorial production */
 .player-money{margin-top:10px;padding-top:8px;border-top:1px solid #31516a;color:#a7c7d9;font-size:.72rem}.player-money strong{color:#f4d076}.economy-box{display:grid;gap:6px;padding:12px;border:1px solid #9d7c37;border-radius:10px;background:linear-gradient(140deg,#30291b,#17293a);color:#e9d9b2}.economy-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.economy-head span{font-size:.68rem;font-weight:800;letter-spacing:.12em;color:#f6cc68}.economy-head strong{font:700 1.4rem 'Marcellus',serif;color:#ffe188}.economy-box small{font-size:.75rem;color:#c7d6dd}.economy-box button{margin-top:4px;padding:8px 11px;border-radius:8px;font-size:.77rem;font-weight:800;color:#ffe4a2;border-color:#b38d42;background:#473718}.economy-box button:disabled{cursor:not-allowed;opacity:.48}
+
+/* Tactical Market styling */
+.market-box{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #3c6182;border-radius:12px;background:linear-gradient(145deg,#0d2338,#091a2a);color:#edf5f9;font-size:.87rem;margin:10px 0}
+.market-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+.market-head-title{display:flex;align-items:center;gap:8px;font-size:.76rem;letter-spacing:.08em;color:#91bfdf;font-weight:800}
+.market-cycle-pill{font-size:.68rem;padding:2px 7px;border-radius:10px;background:#1b3954;color:#a5d2f5;border:1px solid #366085;font-weight:700}
+.temp-def-active-pill{font-size:.68rem;padding:2px 7px;border-radius:10px;background:#4ce7e11c;color:#4ce7e1;border:1px solid #4ce7e155;font-weight:700}
+.temp-def-badge{padding:2px 6px;border-radius:8px;background:#4ce7e122;color:#4ce7e1;border:1px solid #4ce7e155;font-size:.65rem;font-weight:800;margin-left:6px}
+.market-offers-list{display:grid;gap:7px}
+.market-offer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #274866;border-radius:8px;background:#10283e;transition:border-color .18s,background .18s}
+.market-offer.offer-bought{opacity:.55;background:#0c1d2e;border-color:#1c3750}
+.market-offer-info{display:flex;align-items:center;gap:9px}
+.market-offer-icon{font-size:1.3rem;line-height:1}
+.market-offer-title{font-size:.8rem;color:#e8f4fa}
+.market-offer-desc{font-size:.7rem;color:#93b3cc;line-height:1.3;margin:0;display:block}
+.market-offer-action{flex-shrink:0}
+.market-buy-btn{border:1px solid #e9b94988;background:#e9b94918;color:#f7d579;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s}
+.market-buy-btn:hover:not(:disabled){background:#e9b94935;color:#fff;border-color:#ffd45f}
+.market-buy-btn:disabled{opacity:.4;cursor:not-allowed}
+.market-badge.bought{font-size:.68rem;padding:3px 8px;border-radius:6px;background:#1b364e;color:#85a8c2;border:1px solid #274866;font-weight:700}
+.market-price-tag{font-size:.75rem;padding:3px 8px;border-radius:6px;background:#ffd45f18;color:#ffd45f;border:1px solid #ffd45f33;font-weight:700}
+
+/* Influence and Objectives styling */
+.inf-score{color:#ffd45f!important;font-weight:800}
+.obj-badge{display:inline-block;padding:1px 6px;border-radius:8px;background:#6fe4dc22;color:#6fe4dc;border:1px solid #6fe4dc55;font-size:.67rem;font-weight:700;vertical-align:middle}

@@ -6,9 +6,9 @@ Basado en el documento de diseño «Fronteras de Acero», versión 0.2 (22 de se
 | --- | --- | --- |
 | 0. Núcleo | 24 territorios, 3 mapas, combate, maniobra y guardado | Completada en el prototipo actual. |
 | 1. Base económica | Producción por territorio y mayoría regional, dinero persistente y compra de 3 refuerzos por $10 | El cobro ocurre una vez al iniciar el turno; jugador e IA pueden gastar; una partida guardada se conserva. |
-| 2. Cartas tácticas | Retirar canje clásico. Mano de 3, descarte al robar la cuarta; Espía, Sabotaje, Bloqueo, Movilización y Contrainteligencia | Cada carta tiene coste, objetivo, duración, respuesta de la IA y presentación clara. Los bloqueos afectan combate y movimiento. |
-| 3. Mercado | 3 o 4 ofertas, rotación cada 3 rondas y compras solo en Reclutamiento | Ofertas y compras se guardan; la IA puede comprar. |
-| 4. Influencia y victoria | Fórmula del §8, objetivos como fuente de puntos y victoria por 150 puntos o al finalizar la ronda 40 | Dominio inmediato sigue funcionando; los otros finales muestran su causa en el resumen. |
+| 2. Cartas tácticas | Retirar canje clásico. Mano de 3, descarte al robar la cuarta; Espía, Sabotaje, Bloqueo, Movilización y Contrainteligencia | Completada: cada carta tiene coste, objetivo, duración, respuesta de la IA, interfaz y los bloqueos afectan combate y maniobra. |
+| 3. Mercado | 3 o 4 ofertas, rotación cada 3 rondas y compras solo en Reclutamiento | Completada: 3-4 ofertas dinámicas por ciclo de 3 rondas, compras persistentes en Reclutamiento, IA compradora y soporte en v6. |
+| 4. Influencia y victoria | Fórmula del §8, objetivos como fuente de puntos y victoria por 150 puntos o al finalizar la ronda 40 | Completada: fórmula de Influencia con tope de tropas, catálogo de 6 objetivos, victorias A, B y C verificadas con causas en interfaz y resumen final. |
 | 5. Comandantes y frentes | Seis doctrinas y estados Estable, Tenso, Conflicto y Guerra | Cada doctrina cambia decisiones reales; frentes se actualizan según acciones y afectan al Guardián. |
 | 6. Información imperfecta | Datos completos, parciales y ocultos; Espía revela información temporalmente | El jugador y la IA actúan con la información que les corresponde según dificultad. |
 | 7. Eventos | Avisos con una ronda de anticipación, terremoto, tsunami y cambios temporales de conexiones | El mapa y sus rutas reflejan efectos activos y caducidad. |

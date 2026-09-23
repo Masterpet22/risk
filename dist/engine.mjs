@@ -33,21 +33,27 @@ export function makeRng(seed=Date.now()){let a=seed>>>0;return()=>{a+=0x6D2B79F5
 function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier',rulesMode='classic'}={}){
   const rng=makeRng(seed),map=getMap(mapId),order=shuffle(map.territories.map(t=>t.id),rng);
-  const state={version:4,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,cardTradeLevel:0,
-    players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:PLAYER_COLORS[i],human:human&&i===0,alive:true,cards:0,money:0,lastIncomeRound:0})),territories:{},rngState:Math.floor(rng()*0xffffffff)};
+  const state={version:7,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,victoryType:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,turnConquests:{},blockedConnections:[],sabotagedTerritories:{},spiedTerritories:{},extraFortifies:0,pendingCardDraw:null,tempDefense:{},
+    players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:PLAYER_COLORS[i],human:human&&i===0,alive:true,cards:[],money:0,lastIncomeRound:0,completedObjectives:[],eliminatedRivals:0,influence:0})),territories:{},rngState:Math.floor(rng()*0xffffffff)};
+  state.market=generateMarket(state,0);
   order.forEach((id,i)=>state.territories[id]={owner:i%players,troops:1,unitType:['infantry','artillery','cavalry'][i%3]});
   const reserves=Math.max(8,14-Math.floor(map.territories.length/players));state.players.forEach(p=>{const owned=order.filter(id=>state.territories[id].owner===p.id);for(let k=0;k<reserves;k++)state.territories[owned[k%owned.length]].troops++});
+  state.players.forEach(p=>{p.influence=calculateInfluence(state,p.id)});
   state.pendingReinforcements=reinforcementCount(state,0);addLog(state,`Campaña iniciada en ${map.name}.`,0);collectIncome(state,0);return state;
 }
 export const ownedIds=(s,p)=>getTerritories(s).filter(t=>s.territories[t.id].owner===p).map(t=>t.id);
-export const enemiesOf=(s,id)=>terr(s,id).n.filter(n=>s.territories[n].owner!==s.territories[id].owner);
-export const alliesOf=(s,id)=>terr(s,id).n.filter(n=>s.territories[n].owner===s.territories[id].owner);
+export const enemiesOf=(s,id)=>terr(s,id).n.filter(n=>s.territories[n].owner!==s.territories[id].owner&&!isConnectionBlocked(s,id,n));
+export const alliesOf=(s,id)=>terr(s,id).n.filter(n=>s.territories[n].owner===s.territories[id].owner&&!isConnectionBlocked(s,id,n));
 export function territoryProduction(state,id,pid=state.territories[id]?.owner){
   const t=terr(state,id);
   if(!t||state.territories[id]?.owner!==pid)return 0;
   const region=getTerritories(state).filter(x=>x.region===t.region);
   const owned=region.filter(x=>state.territories[x.id].owner===pid).length;
-  return 1+(owned*2>=region.length?1:0)+(owned===region.length?2:0);
+  let prod=1+(owned*2>=region.length?1:0)+(owned===region.length?2:0);
+  if(state.sabotagedTerritories?.[id]&&state.sabotagedTerritories[id]>=state.turn){
+    prod=Math.floor(prod/2);
+  }
+  return prod;
 }
 export function productionTotal(state,pid){return ownedIds(state,pid).reduce((total,id)=>total+territoryProduction(state,id,pid),0)}
 export function collectIncome(state,pid=state.current){
@@ -58,6 +64,92 @@ export function collectIncome(state,pid=state.current){
   addLog(state,`${player.name} recibió $${amount} de producción.`,pid);
   return amount;
 }
+export const TACTICAL_CARDS={
+  spy:{id:'spy',name:'Espía',cost:0,duration:1,type:'territory',icon:'👁',desc:'Revela información completa de un territorio durante 1 ronda.'},
+  sabotage:{id:'sabotage',name:'Sabotaje',cost:15,duration:2,type:'territory',icon:'⚡',desc:'Reduce a la mitad la producción de un territorio enemigo durante 2 rondas.'},
+  blockade:{id:'blockade',name:'Bloqueo',cost:25,duration:2,type:'connection',icon:'⛔',desc:'Cierra una conexión durante 2 rondas.'},
+  mobilize:{id:'mobilize',name:'Movilización',cost:10,duration:0,type:'self',icon:'🚀',desc:'Permite una segunda operación de movimiento este turno.'},
+  counter:{id:'counter',name:'Contrainteligencia',cost:0,duration:0,type:'reaction',icon:'🛡',desc:'Anula el efecto de una carta Espía o Sabotaje jugada contra ti (reactiva).'}
+};
+
+export const connectionKey=(a,b)=>a<b?`${a}-${b}`:`${b}-${a}`;
+export function isConnectionBlocked(state,a,b){
+  if(!state?.blockedConnections?.length)return false;
+  const key=connectionKey(a,b);
+  return state.blockedConnections.some(b=>connectionKey(b.a,b.b)===key&&b.expiresTurn>=state.turn);
+}
+export function cleanExpiredEffects(state){
+  if(state.blockedConnections){
+    state.blockedConnections=state.blockedConnections.filter(b=>b.expiresTurn>=state.turn);
+  }
+  if(state.sabotagedTerritories){
+    for(const[tid,exp]of Object.entries(state.sabotagedTerritories)){
+      if(exp<state.turn)delete state.sabotagedTerritories[tid];
+    }
+  }
+  if(state.spiedTerritories){
+    for(const[tid,data]of Object.entries(state.spiedTerritories)){
+      const exp=typeof data==='object'?data.expiresTurn:data;
+      if(exp<state.turn)delete state.spiedTerritories[tid];
+    }
+  }
+  if(state.tempDefense){
+    for(const[pid,exp]of Object.entries(state.tempDefense)){
+      if(exp<state.turn)delete state.tempDefense[pid];
+    }
+  }
+}
+
+export const MARKET_CATALOG=[
+  {id:'troops_3',name:'+3 Tropas',cost:30,type:'troops',value:3,icon:'🎖',desc:'Añade 3 refuerzos inmediatos a tu reserva.'},
+  {id:'troops_5',name:'+5 Batallón',cost:45,type:'troops',value:5,icon:'⚔️',desc:'Añade 5 refuerzos inmediatos a tu reserva.'},
+  {id:'card_spy',name:'Carta de Espía',cost:35,type:'card',cardId:'spy',icon:'👁',desc:'Añade una carta de Espía a tu mano.'},
+  {id:'card_sabotage',name:'Carta de Sabotaje',cost:35,type:'card',cardId:'sabotage',icon:'⚡',desc:'Añade una carta de Sabotaje a tu mano.'},
+  {id:'card_blockade',name:'Carta de Bloqueo',cost:35,type:'card',cardId:'blockade',icon:'⛔',desc:'Añade una carta de Bloqueo a tu mano.'},
+  {id:'card_mobilize',name:'Carta de Movilización',cost:45,type:'card',cardId:'mobilize',icon:'🚀',desc:'Añade una carta de Movilización a tu mano.'},
+  {id:'card_counter',name:'Contrainteligencia',cost:30,type:'card',cardId:'counter',icon:'🛡',desc:'Añade una carta de Contrainteligencia a tu mano.'},
+  {id:'temp_defense',name:'Defensa Temporal',cost:40,type:'defense',icon:'🏰',desc:'+1 al dado defensivo mayor durante esta ronda.'}
+];
+
+export function generateMarket(state,cycle=Math.floor((state.turn-1)/3)){
+  const pool=[...MARKET_CATALOG];
+  for(let i=pool.length-1;i>0;i--){
+    const j=Math.floor(nextRand(state)*(i+1));
+    [pool[i],pool[j]]=[pool[j],pool[i]];
+  }
+  const count=3+Math.floor(nextRand(state)*2);
+  const offers=pool.slice(0,count).map(item=>({...item,boughtBy:[]}));
+  return{cycle,offers};
+}
+
+export function buyMarketItem(state,offerId,pid=state.current){
+  const p=state.players[pid];
+  if(state.phase!=='reinforce'||state.current!==pid||!p?.alive)return{ok:false,reason:'Solo se puede comprar en Reclutamiento durante tu turno'};
+  if(!state.market?.offers)return{ok:false,reason:'No hay ofertas disponibles'};
+  const offer=state.market.offers.find(o=>o.id===offerId);
+  if(!offer)return{ok:false,reason:'Oferta no encontrada'};
+  offer.boughtBy=offer.boughtBy||[];
+  if(offer.boughtBy.includes(pid))return{ok:false,reason:'Ya has adquirido esta oferta en este ciclo'};
+  if(p.money<offer.cost)return{ok:false,reason:`Fondos insuficientes (cuesta $${offer.cost})`};
+  if(offer.type==='card'&&p.cards.length>=3)return{ok:false,reason:'Mano llena: máximo 3 cartas'};
+
+  p.money-=offer.cost;
+  offer.boughtBy.push(pid);
+  if(offer.type==='troops'){
+    state.pendingReinforcements+=offer.value;
+    addLog(state,`${p.name} compró ${offer.name} en el Mercado (+$${offer.cost}).`,pid);
+  }else if(offer.type==='card'){
+    p.cards.push(offer.cardId);
+    if(state.campaign)state.campaign.players[pid].cards++;
+    addLog(state,`${p.name} compró ${offer.name} en el Mercado.`,pid);
+  }else if(offer.type==='defense'){
+    state.tempDefense=state.tempDefense||{};
+    state.tempDefense[pid]=state.turn;
+    addLog(state,`${p.name} activó Defensa Temporal del Mercado.`,pid);
+  }
+  return{ok:true,offer};
+}
+
 export function buyReinforcements(state,pid=state.current){
   const player=state.players[pid];
   if(state.phase!=='reinforce'||state.current!==pid||!player?.alive||player.money<10)return false;
@@ -65,36 +157,389 @@ export function buyReinforcements(state,pid=state.current){
   addLog(state,`${player.name} compró 3 refuerzos por $10.`,pid);
   return true;
 }
+export const OBJECTIVES_CATALOG=[
+  {id:'regions_2',name:'Expansión Regional',value:15,icon:'👑',desc:'Controla 2 o más regiones completas al 100%.'},
+  {id:'territories_8',name:'Supremacía Territorial',value:10,icon:'🚩',desc:'Controla 8 o más territorios.'},
+  {id:'territories_12',name:'Dominio Mayoritario',value:15,icon:'🗺️',desc:'Controla 12 o más territorios.'},
+  {id:'treasury_50',name:'Poderío Económico',value:10,icon:'💰',desc:'Acumula $50 o más en tu tesoro.'},
+  {id:'conquer_2',name:'Ofensiva Relámpago',value:10,icon:'⚡',desc:'Conquista 2 o más territorios en una misma ronda.'},
+  {id:'eliminate_rival',name:'Cacería de Comandante',value:15,icon:'☠️',desc:'Elimina a un comandante rival de la partida.'}
+];
+
+export function calculateInfluence(state,pid){
+  const p=state?.players?.[pid];
+  if(!p||!p.alive)return 0;
+  const terrs=ownedIds(state,pid).length;
+  let fullRegions=0;
+  for(const[key]of Object.entries(REGIONS)){
+    const regTerrs=getTerritories(state).filter(t=>t.region===key);
+    if(regTerrs.length&&regTerrs.every(t=>state.territories[t.id].owner===pid))fullRegions++;
+  }
+  const prod=productionTotal(state,pid);
+  const totalTroops=ownedIds(state,pid).reduce((s,id)=>s+state.territories[id].troops,0);
+  const troopsValue=Math.min(totalTroops,30)*0.3;
+  const objectivesValue=(p.completedObjectives||[]).reduce((sum,objId)=>{
+    const obj=OBJECTIVES_CATALOG.find(o=>o.id===objId);
+    return sum+(obj?obj.value:0);
+  },0);
+
+  const raw=(terrs*2)+(fullRegions*8)+(prod*1)+troopsValue+objectivesValue;
+  return Math.round(raw*10)/10;
+}
+
+export function checkObjectives(state,pid){
+  const p=state?.players?.[pid];
+  if(!p||!p.alive)return[];
+  p.completedObjectives=p.completedObjectives||[];
+  const newlyCompleted=[];
+  const terrs=ownedIds(state,pid).length;
+
+  let fullRegions=0;
+  for(const[key]of Object.entries(REGIONS)){
+    const regTerrs=getTerritories(state).filter(t=>t.region===key);
+    if(regTerrs.length&&regTerrs.every(t=>state.territories[t.id].owner===pid))fullRegions++;
+  }
+
+  if(!p.completedObjectives.includes('regions_2')&&fullRegions>=2){
+    p.completedObjectives.push('regions_2');
+    newlyCompleted.push('regions_2');
+  }
+  if(!p.completedObjectives.includes('territories_8')&&terrs>=8){
+    p.completedObjectives.push('territories_8');
+    newlyCompleted.push('territories_8');
+  }
+  if(!p.completedObjectives.includes('territories_12')&&terrs>=12){
+    p.completedObjectives.push('territories_12');
+    newlyCompleted.push('territories_12');
+  }
+  if(!p.completedObjectives.includes('treasury_50')&&p.money>=50){
+    p.completedObjectives.push('treasury_50');
+    newlyCompleted.push('treasury_50');
+  }
+  if(!p.completedObjectives.includes('conquer_2')&&(state.turnConquests?.[pid]||0)>=2){
+    p.completedObjectives.push('conquer_2');
+    newlyCompleted.push('conquer_2');
+  }
+  if(!p.completedObjectives.includes('eliminate_rival')&&(p.eliminatedRivals||0)>=1){
+    p.completedObjectives.push('eliminate_rival');
+    newlyCompleted.push('eliminate_rival');
+  }
+
+  newlyCompleted.forEach(objId=>{
+    const obj=OBJECTIVES_CATALOG.find(o=>o.id===objId);
+    if(obj)addLog(state,`¡${p.name} cumplió el objetivo ${obj.name} (+${obj.value} Influencia)!`,pid);
+  });
+
+  p.influence=calculateInfluence(state,pid);
+  return newlyCompleted;
+}
+
 export function upgradeGame(state){
-  if(state?.version===4)return state;
-  if(state?.version!==3)return null;
-  state.players.forEach(p=>{p.money=0;p.lastIncomeRound=0});
-  state.version=4;
-  if(state.winner===null)collectIncome(state,state.current);
+  if(!state)return null;
+  if(state.version===7)return state;
+  if(state.version!==3&&state.version!==4&&state.version!==5&&state.version!==6)return null;
+  if(state.version===3){
+    state.players.forEach(p=>{p.money=0;p.lastIncomeRound=0});
+  }
+  const pool=Object.keys(TACTICAL_CARDS);
+  state.players.forEach(p=>{
+    if(typeof p.cards==='number'){
+      const count=Math.min(3,p.cards);
+      p.cards=pool.slice(0,count);
+    }else if(!Array.isArray(p.cards)){
+      p.cards=[];
+    }
+  });
+  state.blockedConnections=state.blockedConnections||[];
+  state.sabotagedTerritories=state.sabotagedTerritories||{};
+  state.spiedTerritories=state.spiedTerritories||{};
+  state.extraFortifies=state.extraFortifies||0;
+  state.pendingCardDraw=null;
+  delete state.cardTradeLevel;
+  state.tempDefense=state.tempDefense||{};
+  if(!state.market||!state.market.offers){
+    state.market=generateMarket(state,Math.floor((state.turn-1)/3));
+  }
+  state.victoryType=state.victoryType||(state.winner!==null?'dominance':null);
+  state.turnConquests=state.turnConquests||{};
+  state.players.forEach(p=>{
+    p.completedObjectives=p.completedObjectives||[];
+    p.eliminatedRivals=p.eliminatedRivals||0;
+    p.influence=calculateInfluence(state,p.id);
+  });
+  state.version=7;
+  if(state.winner===null&&state.players[state.current]?.lastIncomeRound===0)collectIncome(state,state.current);
   return state;
 }
 export function reinforcementCount(state,pid){const count=ownedIds(state,pid).length;if(!count)return 0;let total=Math.max(3,Math.floor(count/3));for(const[key,r]of Object.entries(REGIONS)){const ids=getTerritories(state).filter(t=>t.region===key).map(t=>t.id);if(ids.length&&ids.every(id=>state.territories[id].owner===pid))total+=r.bonus}return total}
 export function canPlayerAttack(state,pid=state.current){return ownedIds(state,pid).some(id=>state.territories[id].troops>=2&&enemiesOf(state,id).length>0)}
-export function tradeCards(state,pid=state.current){const p=state.players[pid];if(state.phase!=='reinforce'||pid!==state.current||p.cards<3)return{ok:false,bonus:0};p.cards-=3;if(state.campaign)state.campaign.players[pid].trades++;state.cardTradeLevel++;const seq=[4,6,8,10,12,15],bonus=state.cardTradeLevel<=seq.length?seq[state.cardTradeLevel-1]:15+(state.cardTradeLevel-seq.length)*5;state.pendingReinforcements+=bonus;addLog(state,`${p.name} canjeó 3 cartas por ${bonus} tropas.`,pid);return{ok:true,bonus}}
-export function placeTroops(state,id,amount=1,unitType=null){if(state.phase!=='reinforce'||state.players[state.current].cards>=5||state.pendingReinforcements<amount||state.territories[id]?.owner!==state.current||amount<1)return false;state.territories[id].troops+=amount;if(state.rulesMode==='terrain'&&UNIT_TYPES[unitType])state.territories[id].unitType=unitType;state.pendingReinforcements-=amount;if(!state.pendingReinforcements){state.phase='attack';addLog(state,'Refuerzos desplegados. Comienza el combate.',state.current)}return true}
+export function tradeCards(state,pid=state.current){return{ok:false,bonus:0}}
+export function placeTroops(state,id,amount=1,unitType=null){if(state.phase!=='reinforce'||state.pendingReinforcements<amount||state.territories[id]?.owner!==state.current||amount<1)return false;state.territories[id].troops+=amount;if(state.rulesMode==='terrain'&&UNIT_TYPES[unitType])state.territories[id].unitType=unitType;state.pendingReinforcements-=amount;if(!state.pendingReinforcements){state.phase='attack';addLog(state,'Refuerzos desplegados. Comienza el combate.',state.current)}return true}
 function nextRand(s){s.rngState=(Math.imul(1664525,s.rngState)+1013904223)>>>0;return s.rngState/4294967296}
 function roll(s,n){return Array.from({length:n},()=>1+Math.floor(nextRand(s)*6)).sort((a,b)=>b-a)}
 function addLog(s,text,p=null){s.log.unshift({text,p,turn:s.turn});if(s.log.length>60)s.log.length=60}
-function battleBonuses(state,from,to){if(state.rulesMode!=='terrain')return{attacker:0,defender:0,attackerReasons:[],defenderReasons:[]};const a=state.territories[from],d=state.territories[to],terrain=terr(state,to).terrain,ar=[],dr=[];if(UNIT_TYPES[a.unitType].beats===d.unitType)ar.push(`${UNIT_TYPES[a.unitType].name} vence a ${UNIT_TYPES[d.unitType].name}`);if(UNIT_TYPES[d.unitType].beats===a.unitType)dr.push(`${UNIT_TYPES[d.unitType].name} vence a ${UNIT_TYPES[a.unitType].name}`);if(TERRAINS[terrain].unit===d.unitType)dr.push(`afinidad con ${TERRAINS[terrain].name.toLowerCase()}`);return{attacker:ar.length?1:0,defender:dr.length?1:0,attackerReasons:ar,defenderReasons:dr}}
+function battleBonuses(state,from,to){
+  const a=state.territories[from],d=state.territories[to],terrain=terr(state,to).terrain,ar=[],dr=[];
+  let attackerBonus=0,defenderBonus=0;
+  if(state.rulesMode==='terrain'){
+    if(UNIT_TYPES[a.unitType].beats===d.unitType)ar.push(`${UNIT_TYPES[a.unitType].name} vence a ${UNIT_TYPES[d.unitType].name}`);
+    if(UNIT_TYPES[d.unitType].beats===a.unitType)dr.push(`${UNIT_TYPES[d.unitType].name} vence a ${UNIT_TYPES[a.unitType].name}`);
+    if(TERRAINS[terrain].unit===d.unitType)dr.push(`afinidad con ${TERRAINS[terrain].name.toLowerCase()}`);
+    attackerBonus=ar.length?1:0;
+    defenderBonus=dr.length?1:0;
+  }
+  if(state.tempDefense?.[d.owner]>=state.turn){
+    defenderBonus=1;
+    dr.push('defensa temporal del mercado');
+  }
+  return{attacker:attackerBonus,defender:defenderBonus,attackerReasons:ar,defenderReasons:dr};
+}
 function applyBonus(dice,bonus){const out=[...dice];if(out.length)out[0]+=bonus;return out}
-export function attackRound(state,from,to,attackerDiceCount=null){const a=state.territories[from],d=state.territories[to];if(state.phase!=='attack'||!a||!d||a.owner!==state.current||d.owner===a.owner||a.troops<2||!terr(state,from).n.includes(to))return{ok:false};const max=Math.min(3,a.troops-1),chosen=attackerDiceCount===null?max:Number(attackerDiceCount);if(!Number.isInteger(chosen)||chosen<1||chosen>max)return{ok:false};const attacker=a.owner,defender=d.owner,rawA=roll(state,chosen),rawD=roll(state,Math.min(2,d.troops)),bonus=battleBonuses(state,from,to),ad=applyBonus(rawA,bonus.attacker),dd=applyBonus(rawD,bonus.defender);state.attackMadeThisTurn=true;let al=0,dl=0;for(let i=0;i<Math.min(ad.length,dd.length);i++){if(ad[i]>dd[i]){d.troops--;dl++}else{a.troops--;al++}}if(state.campaign){state.campaign.players[attacker].rolls++;state.campaign.players[attacker].lost+=al;state.campaign.players[defender].lost+=dl}let conquered=false,eliminated=null;if(d.troops<=0){const moved=Math.max(1,Math.min(chosen,a.troops-1));d.owner=attacker;d.troops=moved;d.unitType=a.unitType;a.troops-=moved;conquered=true;state.conqueredThisTurn=true;if(state.campaign){state.campaign.players[attacker].conquests++;state.campaign.conquests.push({turn:state.turn,attacker,defender,from,to})}addLog(state,`${terr(state,from).name} conquistó ${terr(state,to).name}.`,attacker);if(!ownedIds(state,defender).length){state.players[defender].alive=false;eliminated=defender;if(state.campaign)state.campaign.players[attacker].defeated++;state.players[attacker].cards+=state.players[defender].cards;state.players[defender].cards=0;addLog(state,`${state.players[defender].name} fue eliminado.`,attacker)}checkWinner(state)}return{ok:true,from,to,attackerDice:ad,defenderDice:dd,rawAttackerDice:rawA,rawDefenderDice:rawD,bonus,attackerLosses:al,defenderLosses:dl,conquered,eliminated}}
+export function attackRound(state,from,to,attackerDiceCount=null){const a=state.territories[from],d=state.territories[to];if(state.phase!=='attack'||!a||!d||a.owner!==state.current||d.owner===a.owner||a.troops<2||!terr(state,from).n.includes(to)||isConnectionBlocked(state,from,to))return{ok:false};const max=Math.min(3,a.troops-1),chosen=attackerDiceCount===null?max:Number(attackerDiceCount);if(!Number.isInteger(chosen)||chosen<1||chosen>max)return{ok:false};const attacker=a.owner,defender=d.owner,rawA=roll(state,chosen),rawD=roll(state,Math.min(2,d.troops)),bonus=battleBonuses(state,from,to),ad=applyBonus(rawA,bonus.attacker),dd=applyBonus(rawD,bonus.defender);state.attackMadeThisTurn=true;let al=0,dl=0;for(let i=0;i<Math.min(ad.length,dd.length);i++){if(ad[i]>dd[i]){d.troops--;dl++}else{a.troops--;al++}}if(state.campaign){state.campaign.players[attacker].rolls++;state.campaign.players[attacker].lost+=al;state.campaign.players[defender].lost+=dl}let conquered=false,eliminated=null;if(d.troops<=0){const moved=Math.max(1,Math.min(chosen,a.troops-1));d.owner=attacker;d.troops=moved;d.unitType=a.unitType;a.troops-=moved;conquered=true;state.conqueredThisTurn=true;state.turnConquests=state.turnConquests||{};state.turnConquests[attacker]=(state.turnConquests[attacker]||0)+1;if(state.campaign){state.campaign.players[attacker].conquests++;state.campaign.conquests.push({turn:state.turn,attacker,defender,from,to})}addLog(state,`${terr(state,from).name} conquistó ${terr(state,to).name}.`,attacker);if(!ownedIds(state,defender).length){state.players[defender].alive=false;eliminated=defender;state.players[attacker].eliminatedRivals=(state.players[attacker].eliminatedRivals||0)+1;if(state.campaign)state.campaign.players[attacker].defeated++;if(Array.isArray(state.players[defender].cards)){for(const c of state.players[defender].cards){if(state.players[attacker].cards.length<3)state.players[attacker].cards.push(c)}state.players[defender].cards=[]}addLog(state,`${state.players[defender].name} fue eliminado.`,attacker)}checkObjectives(state,attacker);state.players[attacker].influence=calculateInfluence(state,attacker);checkWinner(state)}return{ok:true,from,to,attackerDice:ad,defenderDice:dd,rawAttackerDice:rawA,rawDefenderDice:rawD,bonus,attackerLosses:al,defenderLosses:dl,conquered,eliminated}}
 export function blitz(state,from,to,maxRounds=50){const rounds=[];while(rounds.length<maxRounds&&state.winner===null&&state.territories[from]?.troops>1&&state.territories[to]?.owner!==state.current){const r=attackRound(state,from,to);if(!r.ok)break;rounds.push(r);if(r.conquered)break}return{ok:rounds.length>0,rounds,conquered:rounds.at(-1)?.conquered||false}}
-function connectedOwned(state,start,target,pid){const q=[start],seen=new Set(q);while(q.length){const id=q.shift();if(id===target)return true;for(const n of terr(state,id).n)if(!seen.has(n)&&state.territories[n].owner===pid){seen.add(n);q.push(n)}}return false}
-export function fortify(state,from,to,amount){const a=state.territories[from],b=state.territories[to];if(state.phase!=='fortify'||!a||!b||a.owner!==state.current||b.owner!==state.current||amount<1||a.troops<=amount||!connectedOwned(state,from,to,state.current))return false;const before=b.troops;a.troops-=amount;b.troops+=amount;if(state.rulesMode==='terrain'&&amount>=before)b.unitType=a.unitType;state.phase='close';addLog(state,`${amount} unidades se movieron a ${terr(state,to).name}.`,state.current);return true}
-export function setPhase(state,phase){if(phase==='fortify'&&state.phase==='attack'&&(state.attackMadeThisTurn||!canPlayerAttack(state))){state.phase='fortify';return true}if(phase==='close'&&state.phase==='fortify'){state.phase='close';return true}return false}
-export function endTurn(state){if(state.winner!==null)return;if(state.conqueredThisTurn){state.players[state.current].cards++;if(state.campaign)state.campaign.players[state.current].cards++;addLog(state,`${state.players[state.current].name} robó 1 carta.`,state.current)}let next=state.current;do{next=(next+1)%state.players.length;if(next===0)state.turn++}while(!state.players[next].alive);state.current=next;state.phase='reinforce';state.attackMadeThisTurn=false;state.conqueredThisTurn=false;state.pendingReinforcements=reinforcementCount(state,next);collectIncome(state,next);addLog(state,`Turno de ${state.players[next].name}: ${state.pendingReinforcements} refuerzos.`,next)}
-function checkWinner(state){const alive=state.players.filter(p=>p.alive);if(alive.length===1){state.winner=alive[0].id;state.phase='gameover';addLog(state,`${alive[0].name} domina todo el mapa.`,alive[0].id)}}
-function borderScore(state,id,pid){const t=state.territories[id],enemy=terr(state,id).n.filter(n=>state.territories[n].owner!==pid).reduce((s,n)=>s+state.territories[n].troops,0);return enemy+t.troops*.15}
+function connectedOwned(state,start,target,pid){const q=[start],seen=new Set(q);while(q.length){const id=q.shift();if(id===target)return true;for(const n of terr(state,id).n)if(!seen.has(n)&&state.territories[n].owner===pid&&!isConnectionBlocked(state,id,n)){seen.add(n);q.push(n)}}return false}
+export function fortify(state,from,to,amount){const a=state.territories[from],b=state.territories[to];if(state.phase!=='fortify'||!a||!b||a.owner!==state.current||b.owner!==state.current||amount<1||a.troops<=amount||!connectedOwned(state,from,to,state.current))return false;const before=b.troops;a.troops-=amount;b.troops+=amount;if(state.rulesMode==='terrain'&&amount>=before)b.unitType=a.unitType;if(state.extraFortifies>0){state.extraFortifies--;addLog(state,`${amount} unidades se movieron a ${terr(state,to).name}. Movilización activa: puedes realizar otra maniobra.`,state.current)}else{state.phase='close';addLog(state,`${amount} unidades se movieron a ${terr(state,to).name}.`,state.current)}return true}
+export function setPhase(state,phase){if(phase==='fortify'&&state.phase==='attack'&&(state.attackMadeThisTurn||!canPlayerAttack(state))){state.phase='fortify';return true}if(phase==='close'&&state.phase==='fortify'){state.phase='close';state.extraFortifies=0;if(state.conqueredThisTurn&&!state.cardDrawnThisTurn){drawTacticalCard(state,state.current);state.cardDrawnThisTurn=true}return true}return false}
+
+function aiChooseDiscard(state,pid,newCard){
+  const p=state.players[pid];
+  for(let i=0;i<p.cards.length;i++){
+    if(p.cards.filter(c=>c===p.cards[i]).length>1)return i;
+    if(p.cards[i]===newCard)return i;
+  }
+  if(p.money<15){
+    const bIdx=p.cards.indexOf('blockade');if(bIdx!==-1)return bIdx;
+    const sIdx=p.cards.indexOf('sabotage');if(sIdx!==-1)return sIdx;
+  }
+  return 0;
+}
+
+export function drawTacticalCard(state,pid=state.current,chosenDiscard=null){
+  const p=state.players[pid];
+  if(!p?.alive)return null;
+  const pool=Object.keys(TACTICAL_CARDS);
+  const cardId=pool[Math.floor(nextRand(state)*pool.length)];
+  if(state.campaign)state.campaign.players[pid].cards++;
+  if(p.cards.length<3){
+    p.cards.push(cardId);
+    addLog(state,`${p.name} robó la carta táctica: ${TACTICAL_CARDS[cardId].name}.`,pid);
+    return{card:cardId,discarded:null,pending:false};
+  }
+  if(!p.human){
+    const discardIndex=aiChooseDiscard(state,pid,cardId);
+    let discarded=cardId;
+    if(discardIndex>=0&&discardIndex<p.cards.length){
+      discarded=p.cards[discardIndex];
+      p.cards.splice(discardIndex,1);
+      p.cards.push(cardId);
+    }
+    addLog(state,`${p.name} robó ${TACTICAL_CARDS[cardId].name} y descartó ${TACTICAL_CARDS[discarded].name}.`,pid);
+    return{card:cardId,discarded,pending:false};
+  }else{
+    if(chosenDiscard!==null){
+      return resolvePendingCardDraw(state,chosenDiscard,cardId,pid);
+    }
+    state.pendingCardDraw={pid,card:cardId};
+    return{card:cardId,discarded:null,pending:true};
+  }
+}
+
+export function resolvePendingCardDraw(state,discardChoice,drawnCard=state.pendingCardDraw?.card,pid=state.pendingCardDraw?.pid??state.current){
+  const p=state.players[pid];
+  if(!p||!drawnCard)return{ok:false};
+  let discarded=drawnCard;
+  if(discardChoice!==drawnCard&&p.cards.includes(discardChoice)){
+    const idx=p.cards.indexOf(discardChoice);
+    discarded=p.cards[idx];
+    p.cards.splice(idx,1);
+    p.cards.push(drawnCard);
+  }
+  state.pendingCardDraw=null;
+  addLog(state,`${p.name} robó ${TACTICAL_CARDS[drawnCard].name} y descartó ${TACTICAL_CARDS[discarded].name}.`,pid);
+  return{ok:true,kept:drawnCard,discarded};
+}
+
+export function playTacticalCard(state,cardId,target=null,pid=state.current){
+  const p=state.players[pid];
+  if(!p?.alive||state.current!==pid||state.winner!==null)return{ok:false,reason:'Turno o jugador inválido'};
+  const cardIndex=p.cards.indexOf(cardId);
+  if(cardIndex===-1)return{ok:false,reason:'No tienes esa carta'};
+  const cardDef=TACTICAL_CARDS[cardId];
+  if(!cardDef)return{ok:false,reason:'Carta desconocida'};
+  if(cardDef.type==='reaction')return{ok:false,reason:'La Contrainteligencia es reactiva y se activa automáticamente'};
+  if(p.money<cardDef.cost)return{ok:false,reason:`Dinero insuficiente (necesitas $${cardDef.cost})`};
+
+  if(cardId==='spy'){
+    if(!target||!state.territories[target]||state.territories[target].owner===pid)return{ok:false,reason:'Objetivo enemigo inválido'};
+    const defenderId=state.territories[target].owner,defender=state.players[defenderId];
+    p.money-=cardDef.cost;
+    p.cards.splice(cardIndex,1);
+    const cIdx=defender.cards.indexOf('counter');
+    if(cIdx!==-1){
+      defender.cards.splice(cIdx,1);
+      addLog(state,`¡Contrainteligencia de ${defender.name} neutralizó el Espía de ${p.name}!`,defenderId);
+      return{ok:true,countered:true,message:`Contrainteligencia de ${defender.name} neutralizó tu Espía.`};
+    }
+    state.spiedTerritories[target]={spiedBy:pid,expiresTurn:state.turn+cardDef.duration};
+    addLog(state,`${p.name} envió un Espía a ${terr(state,target).name}.`,pid);
+    return{ok:true,countered:false};
+  }
+
+  if(cardId==='sabotage'){
+    if(!target||!state.territories[target]||state.territories[target].owner===pid)return{ok:false,reason:'Objetivo enemigo inválido'};
+    const defenderId=state.territories[target].owner,defender=state.players[defenderId];
+    p.money-=cardDef.cost;
+    p.cards.splice(cardIndex,1);
+    const cIdx=defender.cards.indexOf('counter');
+    if(cIdx!==-1){
+      defender.cards.splice(cIdx,1);
+      addLog(state,`¡Contrainteligencia de ${defender.name} neutralizó el Sabotaje de ${p.name}!`,defenderId);
+      return{ok:true,countered:true,message:`Contrainteligencia de ${defender.name} neutralizó tu Sabotaje.`};
+    }
+    state.sabotagedTerritories[target]=state.turn+cardDef.duration;
+    addLog(state,`${p.name} saboteó ${terr(state,target).name} por $${cardDef.cost}.`,pid);
+    return{ok:true,countered:false};
+  }
+
+  if(cardId==='blockade'){
+    if(!target||!Array.isArray(target)||target.length!==2)return{ok:false,reason:'Debes elegir dos territorios conectados'};
+    const[t1,t2]=target;
+    if(!terr(state,t1)?.n.includes(t2))return{ok:false,reason:'Los territorios no están conectados'};
+    if(isConnectionBlocked(state,t1,t2))return{ok:false,reason:'Esa conexión ya está bloqueada'};
+    p.money-=cardDef.cost;
+    p.cards.splice(cardIndex,1);
+    state.blockedConnections.push({a:t1,b:t2,expiresTurn:state.turn+cardDef.duration});
+    addLog(state,`${p.name} bloqueó el paso entre ${terr(state,t1).name} y ${terr(state,t2).name}.`,pid);
+    return{ok:true,countered:false};
+  }
+
+  if(cardId==='mobilize'){
+    p.money-=cardDef.cost;
+    p.cards.splice(cardIndex,1);
+    state.extraFortifies=(state.extraFortifies||0)+1;
+    addLog(state,`${p.name} activó Movilización por $${cardDef.cost}.`,pid);
+    return{ok:true,countered:false};
+  }
+
+  return{ok:false,reason:'Acción no implementada'};
+}
+
+export function endTurn(state){
+  if(state.winner!==null)return;
+  if(state.conqueredThisTurn&&!state.cardDrawnThisTurn){
+    drawTacticalCard(state,state.current);
+  }
+  state.cardDrawnThisTurn=false;
+  state.extraFortifies=0;
+  state.pendingCardDraw=null;
+
+  checkObjectives(state,state.current);
+  state.players[state.current].influence=calculateInfluence(state,state.current);
+
+  let next=state.current;
+  do{
+    next=(next+1)%state.players.length;
+    if(next===0){
+      state.turnConquests={};
+      state.players.forEach(p=>{
+        if(p.alive){
+          checkObjectives(state,p.id);
+          p.influence=calculateInfluence(state,p.id);
+        }
+      });
+
+      const highInfluence=state.players
+        .filter(p=>p.alive&&p.influence>=150)
+        .sort((a,b)=>b.influence-a.influence);
+      if(highInfluence.length>0&&state.winner===null){
+        state.winner=highInfluence[0].id;
+        state.victoryType='influence';
+        state.phase='gameover';
+        addLog(state,`¡${highInfluence[0].name} alcanzó la Hegemonía continental con ${highInfluence[0].influence} puntos de Influencia!`,highInfluence[0].id);
+        return;
+      }
+
+      if(state.turn>=40&&state.winner===null){
+        const ranked=state.players
+          .filter(p=>p.alive)
+          .sort((a,b)=>b.influence-a.influence||ownedIds(state,b.id).length-ownedIds(state,a.id).length||b.money-a.money);
+        state.winner=ranked[0].id;
+        state.victoryType='round_limit';
+        state.phase='gameover';
+        addLog(state,`Fin de campaña: ronda 40 alcanzada. ${ranked[0].name} gana por mayor Influencia (${ranked[0].influence} pts).`,ranked[0].id);
+        return;
+      }
+
+      state.turn++;
+      cleanExpiredEffects(state);
+      const newCycle=Math.floor((state.turn-1)/3);
+      if(state.market?.cycle!==newCycle){
+        state.market=generateMarket(state,newCycle);
+        addLog(state,'Nuevas ofertas disponibles en el Mercado Táctico.');
+      }
+    }
+  }while(!state.players[next].alive);
+  state.current=next;
+  state.phase='reinforce';
+  state.attackMadeThisTurn=false;
+  state.conqueredThisTurn=false;
+  state.pendingReinforcements=reinforcementCount(state,next);
+  collectIncome(state,next);
+  addLog(state,`Turno de ${state.players[next].name}: ${state.pendingReinforcements} refuerzos.`,next);
+}
+function checkWinner(state){const alive=state.players.filter(p=>p.alive);if(alive.length===1){state.winner=alive[0].id;state.victoryType='dominance';state.phase='gameover';addLog(state,`${alive[0].name} domina todo el mapa.`,alive[0].id)}}
+function borderScore(state,id,pid){const t=state.territories[id],enemy=terr(state,id).n.filter(n=>state.territories[n].owner!==pid&&!isConnectionBlocked(state,id,n)).reduce((s,n)=>s+state.territories[n].troops,0);return enemy+t.troops*.15}
 export function aiTurn(state,pid=state.current,difficulty='normal'){
   if(state.winner!==null||state.current!==pid)return{ok:false};
   const report={ok:true,playerId:pid,playerName:state.players[pid].name,reinforcements:state.pendingReinforcements,battles:[],conquests:0,attackerLosses:0,defenderLosses:0,eliminated:[]};
-  while(state.players[pid].cards>=5||(state.players[pid].cards>=3&&difficulty==='difícil'))tradeCards(state,pid);
+  const p=state.players[pid];
+  if(p.cards.includes('sabotage')&&p.money>=15){
+    const enemyTerrs=getTerritories(state).filter(t=>state.territories[t.id].owner!==pid&&(!state.sabotagedTerritories||!state.sabotagedTerritories[t.id]));
+    if(enemyTerrs.length){
+      enemyTerrs.sort((a,b)=>territoryProduction(state,b.id)-territoryProduction(state,a.id));
+      playTacticalCard(state,'sabotage',enemyTerrs[0].id,pid);
+    }
+  }
+  if(p.cards.includes('blockade')&&p.money>=25){
+    let worstConn=null,maxThreat=0;
+    for(const myId of ownedIds(state,pid)){
+      for(const enemyId of enemiesOf(state,myId)){
+        const threat=state.territories[enemyId].troops-state.territories[myId].troops;
+        if(threat>maxThreat&&!isConnectionBlocked(state,myId,enemyId)){
+          maxThreat=threat;
+          worstConn=[myId,enemyId];
+        }
+      }
+    }
+    if(worstConn&&maxThreat>=2)playTacticalCard(state,'blockade',worstConn,pid);
+  }
+  if(p.cards.includes('spy')){
+    const enemyBorders=[];
+    for(const myId of ownedIds(state,pid)){
+      for(const n of enemiesOf(state,myId)){
+        if(!enemyBorders.includes(n)&&(!state.spiedTerritories||!state.spiedTerritories[n]))enemyBorders.push(n);
+      }
+    }
+    if(enemyBorders.length){
+      enemyBorders.sort((a,b)=>state.territories[b].troops-state.territories[a].troops);
+      playTacticalCard(state,'spy',enemyBorders[0],pid);
+    }
+  }
+
   const borderNeed=ownedIds(state,pid).some(id=>state.territories[id].troops<3&&enemiesOf(state,id).length);
+  if(state.market?.offers){
+    const available=state.market.offers.filter(o=>!o.boughtBy?.includes(pid)&&p.money>=o.cost);
+    if(borderNeed){
+      const defOffer=available.find(o=>o.type==='defense');
+      if(defOffer&&!state.tempDefense?.[pid])buyMarketItem(state,defOffer.id,pid);
+      const troopOffer=available.find(o=>o.type==='troops');
+      if(troopOffer)buyMarketItem(state,troopOffer.id,pid);
+    }
+    if(p.cards.length<3&&p.money>=40){
+      const cardOffer=available.find(o=>o.type==='card');
+      if(cardOffer)buyMarketItem(state,cardOffer.id,pid);
+    }
+  }
   if(borderNeed&&state.players[pid].money>=10)buyReinforcements(state,pid);
   report.reinforcements=state.pendingReinforcements;
   while(state.pendingReinforcements>0){
@@ -126,7 +571,14 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   setPhase(state,'fortify');
   const sources=ownedIds(state,pid).filter(id=>state.territories[id].troops>2&&!enemiesOf(state,id).length).sort((a,b)=>state.territories[b].troops-state.territories[a].troops);
   const borders=ownedIds(state,pid).filter(id=>enemiesOf(state,id).length).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
-  if(sources.length&&borders.length&&connectedOwned(state,sources[0],borders[0],pid))fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));else setPhase(state,'close');
+  if(sources.length&&borders.length&&connectedOwned(state,sources[0],borders[0],pid)){
+    fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));
+    if(p.cards.includes('mobilize')&&p.money>=10&&sources.length>1&&borders.length>1){
+      if(playTacticalCard(state,'mobilize',null,pid).ok&&connectedOwned(state,sources[1],borders[1],pid)){
+        fortify(state,sources[1],borders[1],Math.max(1,state.territories[sources[1]].troops-1));
+      }
+    }
+  }else setPhase(state,'close');
   endTurn(state);return report;
 }
-export function validateState(state){const errors=[],ts=getTerritories(state);for(const t of ts){const s=state.territories[t.id];if(!s)errors.push(`Falta ${t.id}`);else if(s.troops<1)errors.push(`${t.id} sin tropas`);else if(!state.players[s.owner])errors.push(`${t.id} dueño inválido`);else if(!UNIT_TYPES[s.unitType])errors.push(`${t.id} unidad inválida`)}const owners=new Set(ts.map(t=>state.territories[t.id]?.owner));state.players.forEach(p=>{if(p.alive!==owners.has(p.id)&&state.winner===null)errors.push(`Estado vital incorrecto: ${p.name}`)});return errors}
+export function validateState(state){const errors=[],ts=getTerritories(state);for(const t of ts){const s=state.territories[t.id];if(!s)errors.push(`Falta ${t.id}`);else if(s.troops<1)errors.push(`${t.id} sin tropas`);else if(!state.players[s.owner])errors.push(`${t.id} dueño inválido`);else if(!UNIT_TYPES[s.unitType])errors.push(`${t.id} unidad inválida`)}const owners=new Set(ts.map(t=>state.territories[t.id]?.owner));state.players.forEach(p=>{if(p.alive!==owners.has(p.id)&&state.winner===null)errors.push(`Estado vital incorrecto: ${p.name}`);if(!Array.isArray(p.cards)||p.cards.length>3)errors.push(`Mano de cartas inválida en ${p.name}`);if(typeof p.influence!=='number'||isNaN(p.influence))errors.push(`Influencia inválida en ${p.name}`);if(!Array.isArray(p.completedObjectives))errors.push(`Objetivos inválidos en ${p.name}`)});if(!state.market||!Array.isArray(state.market.offers)||state.market.offers.length<3||state.market.offers.length>4){errors.push('Mercado inválido')}return errors}
