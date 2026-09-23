@@ -2,6 +2,8 @@
 
 Juego de estrategia territorial por turnos, creado originalmente en Sites y publicado en GitHub Pages.
 
+El trabajo para aplicar el documento de diseño v0.2 está dividido en partes en [PLAN_DE_DESARROLLO.md](PLAN_DE_DESARROLLO.md). La primera parte añade producción territorial y dinero; la siguiente sustituye el canje clásico por cartas tácticas.
+
 ## Editar en local
 
 El juego está en `dist/`: `index.html`, `styles.css`, `theme.css`, `app.mjs`, `engine.mjs` y las ilustraciones `map-*.webp`. No requiere instalar dependencias ni compilar.

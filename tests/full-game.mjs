@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -67,3 +67,20 @@ for(const map of Object.values(MAPS)){
   if(seen.size!==map.territories.length)throw new Error(`${map.name}: mapa desconectado`);
 }
 console.log('OK: conectividad y rutas simétricas verificadas en los 3 mapas.');
+
+// Economía: mayoría regional, control total, cobro único, gasto y continuidad del guardado anterior.
+const economy=createGame({players:2,seed:314,human:true});
+for(const t of TERRITORIES)economy.territories[t.id].owner=1;
+economy.territories.n1.owner=economy.territories.n2.owner=0;
+if(territoryProduction(economy,'n1')!==2)throw new Error('La mayoría regional no aportó +1');
+economy.territories.n3.owner=0;
+if(territoryProduction(economy,'n1')!==2)throw new Error('Se otorgó el bono total antes de controlar toda la región');
+economy.territories.n4.owner=0;
+if(territoryProduction(economy,'n1')!==4||productionTotal(economy,0)!==16)throw new Error('El control total no aportó +2 adicionales');
+economy.players[0].money=0;economy.players[0].lastIncomeRound=0;
+if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[0].money!==16)throw new Error('El cobro económico se duplicó o calculó mal');
+const before=economy.pendingReinforcements;
+if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
+const previous=createGame({players:2,seed:315});previous.version=3;for(const p of previous.players){delete p.money;delete p.lastIncomeRound}
+if(upgradeGame(previous)?.version!==4||previous.players[0].money!==productionTotal(previous,0)||upgradeGame(previous).players[0].money!==previous.players[0].money)throw new Error('La partida anterior no migró de forma estable');
+console.log('OK: producción, tesoro, compras y migración de partidas guardadas verificados.');
