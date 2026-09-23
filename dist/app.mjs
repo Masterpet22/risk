@@ -69,7 +69,31 @@ function updateConnections(){
 
 function render(persist=true){if(!state)return;const p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'flex':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;els.mapName.textContent=getMap(state).name;els.modeBadge.textContent=state.rulesMode==='terrain'?'TERRENO':'CLÁSICO';renderFlow();renderPlayers();renderRegions();renderEventBanner();renderMap();renderGuide();renderPanel();renderLog();updateMobileOrders();if(persist)save()}
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
-function renderEventBanner(){if(!els.eventBanner)return;if(state.activeEvent){const ev=EVENT_CATALOG[state.activeEvent.type]||{name:'Desastre',icon:'⚡',desc:'Fuerza natural devastadora'};const regName=REGIONS[state.activeEvent.region]?.name||state.activeEvent.region;els.eventBanner.className='event-banner event-banner-active';els.eventBanner.innerHTML=`<span class="event-tag">¡DESASTRE ACTIVO!</span><span class="event-banner-content"><strong>${ev.icon} ${ev.name}</strong> en la región <b>${regName}</b>. Causó bajas inmediatas y bloqueó rutas de tránsito hasta la Ronda ${state.activeEvent.expiresRound}.</span>`}else if(state.announcedEvent){const ev=EVENT_CATALOG[state.announcedEvent.type]||{name:'Amenaza',icon:'⚠️',desc:'Fuerza natural en desarrollo'};const regName=REGIONS[state.announcedEvent.region]?.name||state.announcedEvent.region;els.eventBanner.className='event-banner event-banner-announced';els.eventBanner.innerHTML=`<span class="event-tag">⚠️ ALERTA TEMPRANA</span><span class="event-banner-content"><strong>${ev.icon} ${ev.name} inminente</strong> en la región <b>${regName}</b>. Impacto previsto para la <b>Ronda ${state.announcedEvent.triggerRound}</b> (${ev.desc}). ¡Prepárate o repliega tus tropas!</span>`}else{els.eventBanner.className='event-banner hidden';els.eventBanner.innerHTML=''}}
+function renderEventBanner(){
+  if(!els.eventBanner)return;
+  const eventKey = state.activeEvent ? ('active-' + state.turn + '-' + state.activeEvent.type) : state.announcedEvent ? ('ann-' + state.turn + '-' + state.announcedEvent.type) : null;
+  if(!eventKey || (state._dismissedEvent && state._dismissedEvent === eventKey)){
+    els.eventBanner.className='event-banner hidden';
+    els.eventBanner.innerHTML='';
+    return;
+  }
+  if(state.activeEvent){
+    const ev=EVENT_CATALOG[state.activeEvent.type]||{name:'Desastre',icon:'⚡',desc:'Fuerza natural devastadora'};
+    const regName=REGIONS[state.activeEvent.region]?.name||state.activeEvent.region;
+    els.eventBanner.className='event-banner event-banner-active';
+    els.eventBanner.innerHTML='<span class="event-tag">¡DESASTRE ACTIVO!</span><span class="event-banner-content"><strong>' + ev.icon + ' ' + ev.name + '</strong> en la región <b>' + regName + '</b>. Bajas y rutas cortadas hasta Ronda ' + state.activeEvent.expiresRound + '.</span><button class="event-banner-close" id="closeEventBanner" title="Ocultar aviso" aria-label="Cerrar aviso">×</button>';
+  }else if(state.announcedEvent){
+    const ev=EVENT_CATALOG[state.announcedEvent.type]||{name:'Amenaza',icon:'⚠️',desc:'Fuerza natural en desarrollo'};
+    const regName=REGIONS[state.announcedEvent.region]?.name||state.announcedEvent.region;
+    els.eventBanner.className='event-banner event-banner-announced';
+    els.eventBanner.innerHTML='<span class="event-tag">⚠️ ALERTA R' + state.announcedEvent.triggerRound + '</span><span class="event-banner-content"><strong>' + ev.icon + ' ' + ev.name + ' inminente</strong> en región <b>' + regName + '</b>. Impacto previsto para Ronda ' + state.announcedEvent.triggerRound + ' (' + ev.desc + ').</span><button class="event-banner-close" id="closeEventBanner" title="Ocultar aviso" aria-label="Cerrar aviso">×</button>';
+  }
+  const closeBtn = els.eventBanner.querySelector('#closeEventBanner');
+  if(closeBtn) closeBtn.onclick = () => {
+    state._dismissedEvent = eventKey;
+    els.eventBanner.className = 'event-banner hidden';
+  };
+}
 function renderPlayers(){
   const aliveCount = state.players.filter(p => p.alive).length;
   const aliveBadge = $('#alivePlayersCount');
@@ -615,8 +639,49 @@ function territoryClick(id,shift=false){
     if(selectedTo)openMobileOrders();
   }
 }
-function diceMarkup(values,raw=[]){return values.map((v,i)=>`<i class="big-die">${v}${raw[i]!==undefined&&v>raw[i]?'<small>+1</small>':''}</i>`).join('')}
-function comparisonMarkup(r){return Array.from({length:Math.min(r.attackerDice.length,r.defenderDice.length)},(_,i)=>{const a=r.attackerDice[i],d=r.defenderDice[i],win=a>d;return`<div class="compare-row"><span>🎲 ${a}</span><b>${win?'vence a':'pierde ante'}</b><span>${d} 🎲</span><em>−1 ${win?'defensor':'atacante'}${a===d?' (empate)':''}</em></div>`}).join('')}
+function diceMarkup(values,raw=[]){
+  return values.map((v,i)=>{
+    const r=raw[i];
+    const hasBonus=r!==undefined&&v!==r;
+    const diff=v-(r??v);
+    if(hasBonus){
+      return '<i class="big-die die-with-bonus" title="Tirada base: ' + r + ' + bonificación: ' + diff + ' = ' + v + '"><span class="die-num">' + v + '</span><small class="die-calc-tag">' + r + ' +' + diff + '</small></i>';
+    }
+    return '<i class="big-die"><span class="die-num">' + v + '</span></i>';
+  }).join('');
+}
+function comparisonMarkup(r){
+  const attackerBonuses = r.bonus?.attackerReasons || [];
+  const defenderBonuses = r.bonus?.defenderReasons || [];
+
+  const rows = Array.from({length:Math.min(r.attackerDice.length,r.defenderDice.length)},(_,i)=>{
+    const a=r.attackerDice[i], d=r.defenderDice[i];
+    const rawA=r.rawAttackerDice?.[i] ?? a;
+    const rawD=r.rawDefenderDice?.[i] ?? d;
+    const win=a>d;
+    const tie=a===d;
+
+    const aNote = a !== rawA ? (' <small class="cmp-breakdown">(base ' + rawA + ' +' + (a - rawA) + ')</small>') : '';
+    const dNote = d !== rawD ? (' <small class="cmp-breakdown">(base ' + rawD + ' +' + (d - rawD) + ')</small>') : '';
+
+    return '<div class="compare-row">' +
+      '<span>🎲 ' + a + aNote + '</span>' +
+      '<b>' + (win ? 'vence a' : tie ? 'empata con' : 'pierde ante') + '</b>' +
+      '<span>' + (dNote ? d + dNote : d) + ' 🎲</span>' +
+      '<em>' + (win ? '−1 defensor' : tie ? '−1 atacante (el defensor gana empates)' : '−1 atacante') + '</em>' +
+    '</div>';
+  }).join('');
+
+  let bonusExplain = '';
+  if (attackerBonuses.length || defenderBonuses.length) {
+    bonusExplain = '<div class="combat-bonuses-detail">' +
+      (attackerBonuses.length ? ('<div class="bonus-detail-item attacker">⚔ <strong>Atacante:</strong> dado base ' + r.rawAttackerDice[0] + ' + ' + r.bonus.attacker + ' (' + attackerBonuses.join(', ') + ') = <strong>' + r.attackerDice[0] + '</strong>.</div>') : '') +
+      (defenderBonuses.length ? ('<div class="bonus-detail-item defender">🛡 <strong>Defensor:</strong> dado base ' + r.rawDefenderDice[0] + ' + ' + r.bonus.defender + ' (' + defenderBonuses.join(', ') + ') = <strong>' + r.defenderDice[0] + '</strong>.</div>') : '') +
+    '</div>';
+  }
+
+  return rows + bonusExplain;
+}
 async function playAttackApproach(from,to){
   const origin=tById(from),target=tById(to);
   if(!origin||!target)return;
