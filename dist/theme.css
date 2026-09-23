@@ -2125,3 +2125,365 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
   opacity: 0.82 !important;
   font-weight: normal !important;
 }
+
+
+/* ==========================================================================
+   Refinamiento Completo: Responsive de Paneles, Ficha de Territorio,
+   Eliminación de Elementos Flotantes en Mercado y Popover de Comandantes
+   ========================================================================== */
+
+/* 1. Responsive Shell en 1920, 1440, 1280, 1024 y Móvil */
+@media (min-width: 1441px) {
+  .game-shell {
+    grid-template-columns: 290px minmax(500px, 1fr) 340px !important;
+    gap: 14px !important;
+    padding: 12px 18px 16px !important;
+  }
+}
+
+@media (max-width: 1440px) and (min-width: 1281px) {
+  .game-shell {
+    grid-template-columns: 265px minmax(460px, 1fr) 315px !important;
+    gap: 12px !important;
+    padding: 10px 14px 14px !important;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 1051px) {
+  .game-shell {
+    grid-template-columns: 245px minmax(420px, 1fr) 290px !important;
+    gap: 10px !important;
+    padding: 8px 12px 12px !important;
+  }
+}
+
+@media (max-width: 1050px) and (min-width: 981px) {
+  .game-shell {
+    grid-template-columns: 225px minmax(380px, 1fr) 275px !important;
+    gap: 8px !important;
+    padding: 6px 10px 10px !important;
+  }
+}
+
+/* 2. Paneles Laterales y Flujo Vertical */
+.left-panel,
+.right-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #2b4f6b rgba(7, 17, 28, 0.4) !important;
+}
+
+.panel-section {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+/* 3. Reorganización de 'Territorio seleccionado' sin solapamientos */
+.territory-card-section {
+  min-height: auto !important;
+}
+
+.territory-active-preview {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.territory-header-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  min-width: 0 !important;
+}
+
+.territory-thumb-art {
+  width: 50px !important;
+  height: 50px !important;
+  flex-shrink: 0 !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(76, 231, 225, 0.4) !important;
+  display: grid !important;
+  place-items: center !important;
+  background-size: cover !important;
+  background-position: center !important;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.7) !important;
+}
+
+.territory-thumb-art .terrain-huge-icon {
+  font-size: 1.45rem !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8)) !important;
+}
+
+.territory-identity {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+
+.territory-specs-title {
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.territory-sub-badge {
+  font-size: 0.67rem !important;
+  color: #8dafc5 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.territory-data-table {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  width: 100% !important;
+}
+
+.territory-spec-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  gap: 8px !important;
+  padding: 3px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 0.72rem !important;
+  min-width: 0 !important;
+}
+
+.territory-spec-row:last-child {
+  border-bottom: none !important;
+}
+
+.territory-spec-row .spec-lbl {
+  color: #8dafc5 !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+.territory-spec-row .spec-val {
+  color: #e5f2fa !important;
+  font-weight: 700 !important;
+  text-align: right !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 65% !important;
+}
+
+.territory-spec-row.bonus-row .spec-val {
+  color: #4ce7e1 !important;
+}
+
+.empty-market-row {
+  margin-top: 6px !important;
+  padding-top: 6px !important;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12) !important;
+  border-bottom: none !important;
+  width: 100% !important;
+}
+
+/* 4. Supresión total del cuadro flotante de rotación de mercado */
+.market-cycle-pill {
+  display: none !important;
+}
+
+/* 5. Estilos interactivos para tarjetas de Comandantes */
+.player {
+  cursor: pointer !important;
+  transition: transform 0.15s ease, border-color 0.15s ease !important;
+}
+
+.player:hover,
+.player:focus-visible {
+  border-color: rgba(76, 231, 225, 0.55) !important;
+  transform: translateX(2px) !important;
+  outline: none !important;
+}
+
+/* 6. Popover Flotante de Comandantes */
+.commander-popover {
+  position: fixed !important;
+  z-index: 9999 !important;
+  width: 295px !important;
+  max-width: calc(100vw - 20px) !important;
+  pointer-events: auto !important;
+  background: rgba(8, 22, 36, 0.96) !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
+  border: 1px solid rgba(76, 231, 225, 0.45) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  color: #e5f2fa !important;
+  font-size: 0.76rem !important;
+  padding: 13px !important;
+  animation: popoverFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.commander-popover.hidden {
+  display: none !important;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.popover-card {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.popover-hero {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.popover-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 2px solid var(--cmd-color, #4ce7e1) !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 1.25rem !important;
+  box-shadow: 0 0 12px var(--cmd-color, rgba(76, 231, 225, 0.4)) !important;
+}
+
+.popover-hero-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.popover-title-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.popover-name {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+}
+
+.popover-status-badge {
+  font-size: 0.62rem !important;
+  font-weight: 800 !important;
+  padding: 1px 6px !important;
+  border-radius: 99px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #9ab4c7 !important;
+}
+
+.popover-status-badge.active {
+  background: rgba(76, 231, 225, 0.2) !important;
+  color: #4ce7e1 !important;
+  border: 1px solid rgba(76, 231, 225, 0.4) !important;
+}
+
+.popover-cmd-name {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  color: #ffd45f !important;
+}
+
+.popover-doctrine {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 7px !important;
+  padding: 6px 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+
+.popover-section-label {
+  display: block !important;
+  font-size: 0.63rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #79a4c0 !important;
+}
+
+.popover-doctrine-desc {
+  font-size: 0.71rem !important;
+  color: #c4dcee !important;
+  margin: 2px 0 0 !important;
+  line-height: 1.35 !important;
+}
+
+.popover-stats-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 5px !important;
+}
+
+.popover-stat-cell {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  padding: 4px 7px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.popover-stat-cell span {
+  font-size: 0.67rem !important;
+  color: #8dafc5 !important;
+}
+
+.popover-stat-cell strong {
+  font-size: 0.73rem !important;
+  color: #ffffff !important;
+}
+
+.popover-stat-cell strong.gold-val {
+  color: #ffd45f !important;
+}
+
+.popover-front-row {
+  font-size: 0.7rem !important;
+  padding: 5px 8px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 107, 107, 0.08) !important;
+  border: 1px solid rgba(255, 107, 107, 0.25) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.front-tag-war { color: #ff6b6b !important; }
+.front-tag-conflict { color: #f7b731 !important; }
+.front-tag-tense { color: #ffd45f !important; }
+.front-tag-stable { color: #4ce7e1 !important; }

@@ -99,15 +99,13 @@ function renderPlayers(){
   const aliveBadge = $('#alivePlayersCount');
   if (aliveBadge) aliveBadge.textContent = aliveCount + ' activos';
 
-  els.players.innerHTML = state.players.map(p => {
-    const ids = ownedIds(state, p.id), troops = ids.reduce((s, id) => s + state.territories[id].troops, 0);
-    const cardCount = Array.isArray(p.cards) ? p.cards.length : p.cards;
-    const hasTempDef = state.tempDefense?.[p.id] >= state.turn;
-    const objCount = (p.completedObjectives || []).length;
+  els.players.innerHTML = state.players.map((p, idx) => {
+    const ids = ownedIds(state, p.id);
+    const isHuman = p.human;
+    const troops = ids.reduce((sum, tid) => sum + state.territories[tid].troops, 0);
+    const cardCount = Array.isArray(p.cards) ? p.cards.length : 0;
     const cmd = COMMANDERS[p.commander] || COMMANDERS.conqueror;
-    const isHuman = p.id === 0;
-    const frontToHuman = !isHuman && p.alive ? getFrontState(state, 0, p.id) : null;
-    const frontLabel = frontToHuman ? FRONT_STATE_LABELS[frontToHuman] : null;
+    const frontToHuman = (!isHuman && state.players[0]) ? getFrontState(state, 0, p.id) : null;
     const visibility = !isHuman ? ids.map(tid => getTerritoryVisibility(state, tid, 0, difficulty)) : [];
     const hasHidden = visibility.includes('hidden'), hasPartial = visibility.includes('partial');
     const troopsStr = hasHidden ? '?' : hasPartial ? ('≈' + ids.reduce((sum, tid) => {
@@ -120,7 +118,7 @@ function renderPlayers(){
     const isActive = state.current === p.id && p.alive;
     const statusText = !p.alive ? 'Derrotado' : isActive ? 'EN TURNO' : 'Esperando';
 
-    return '<div class="player ' + (isActive ? 'active' : '') + ' ' + (!p.alive ? 'eliminated' : '') + '" style="--pc:' + p.color + '">' +
+    return '<div class="player ' + (isActive ? 'active' : '') + ' ' + (!p.alive ? 'eliminated' : '') + '" data-player-id="' + p.id + '" style="--pc:' + p.color + '" tabindex="0" role="button" aria-haspopup="dialog" aria-label="Ver detalles de ' + p.name + '">' +
       '<div class="player-top">' +
         '<div class="player-brand-wrap">' +
           '<span class="player-avatar" title="' + cmd.name + ': ' + cmd.desc + '">' + cmd.icon + '</span>' +
@@ -136,7 +134,128 @@ function renderPlayers(){
       '</div>' +
     '</div>';
   }).join('');
+
+  els.players.querySelectorAll('.player').forEach(card => {
+    const pid = +card.dataset.playerId;
+    card.onpointerenter = (e) => {
+      if (e.pointerType === 'touch') return;
+      showCommanderPopover(pid, card);
+    };
+    card.onpointerleave = (e) => {
+      if (e.pointerType === 'touch') return;
+      hideCommanderPopover();
+    };
+    card.onclick = (e) => {
+      e.stopPropagation();
+      toggleCommanderPopover(pid, card);
+    };
+    card.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleCommanderPopover(pid, card);
+      }
+    };
+  });
 }
+
+function showCommanderPopover(pid, anchorEl) {
+  const popover = $('#commanderPopover');
+  if (!popover || !state || !state.players[pid]) return;
+
+  const p = state.players[pid];
+  const cmd = COMMANDERS[p.commander] || COMMANDERS.conqueror;
+  const ids = ownedIds(state, p.id);
+  const isHuman = p.human;
+  const troops = ids.reduce((sum, tid) => sum + state.territories[tid].troops, 0);
+  const visibility = !isHuman ? ids.map(tid => getTerritoryVisibility(state, tid, 0, difficulty)) : [];
+  const hasHidden = visibility.includes('hidden'), hasPartial = visibility.includes('partial');
+  const troopsStr = hasHidden ? '?' : hasPartial ? ('≈' + ids.reduce((sum, tid) => {
+    const v = getTerritoryVisibility(state, tid, 0, difficulty);
+    if (v === 'full') return sum + state.territories[tid].troops;
+    const r = approximateTroops(state.territories[tid].troops);
+    return sum + (r === '1-2' ? 2 : r === '3-5' ? 4 : r === '6-9' ? 8 : 10);
+  }, 0)) : ('' + troops);
+  const terrStr = hasHidden ? '?' : ('' + ids.length);
+  const isActive = state.current === p.id && p.alive;
+  const statusText = !p.alive ? 'Derrotado' : isActive ? 'EN TURNO' : 'Esperando';
+
+  let frontDetail = '';
+  if (!isHuman && state.players[0]) {
+    const frontState = getFrontState(state, 0, p.id);
+    const label = FRONT_STATE_LABELS[frontState] || frontState;
+    frontDetail = '<div class="popover-front-row"><span>Frente con ' + state.players[0].name + ':</span><strong class="front-tag-' + frontState + '">' + label + '</strong></div>';
+  }
+
+  popover.innerHTML = '<div class="popover-card" style="--cmd-color:' + p.color + ';">' +
+    '<div class="popover-hero">' +
+      '<div class="popover-avatar">' + cmd.icon + '</div>' +
+      '<div class="popover-hero-text">' +
+        '<div class="popover-title-row">' +
+          '<strong class="popover-name">' + p.name + '</strong>' +
+          '<span class="popover-status-badge ' + (isActive ? 'active' : '') + '">' + statusText + '</span>' +
+        '</div>' +
+        '<span class="popover-cmd-name">' + cmd.name + '</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="popover-doctrine">' +
+      '<span class="popover-section-label">Doctrina Asimétrica</span>' +
+      '<p class="popover-doctrine-desc">' + cmd.desc + '</p>' +
+    '</div>' +
+    '<div class="popover-stats-grid">' +
+      '<div class="popover-stat-cell"><span>Territorios</span><strong>' + terrStr + '</strong></div>' +
+      '<div class="popover-stat-cell"><span>Tropas</span><strong>' + troopsStr + '</strong></div>' +
+      '<div class="popover-stat-cell"><span>Tesoro</span><strong class="gold-val">$' + (p.money || 0) + '</strong></div>' +
+      '<div class="popover-stat-cell"><span>Cartas</span><strong>' + (p.cards?.length || 0) + ' / 3</strong></div>' +
+      '<div class="popover-stat-cell"><span>Influencia</span><strong class="gold-val">' + (p.influence || 0) + ' pts</strong></div>' +
+      '<div class="popover-stat-cell"><span>Objetivos</span><strong>' + (p.completedObjectives || []).length + ' hechos</strong></div>' +
+    '</div>' +
+    frontDetail +
+  '</div>';
+
+  popover.classList.remove('hidden');
+
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const popRect = popover.getBoundingClientRect();
+
+  // Position flip/shift logic
+  let left = anchorRect.right + 12;
+  let top = anchorRect.top;
+
+  // Flip horizontally if out of viewport
+  if (left + popRect.width > window.innerWidth - 12) {
+    left = anchorRect.left - popRect.width - 12;
+  }
+  // Center if still out of bounds (e.g. mobile)
+  if (left < 10) {
+    left = Math.max(10, (window.innerWidth - popRect.width) / 2);
+  }
+
+  // Shift vertically if out of viewport
+  if (top + popRect.height > window.innerHeight - 12) {
+    top = Math.max(12, window.innerHeight - popRect.height - 12);
+  }
+
+  popover.style.left = left + 'px';
+  popover.style.top = top + 'px';
+}
+
+function hideCommanderPopover() {
+  const popover = $('#commanderPopover');
+  if (popover) popover.classList.add('hidden');
+}
+
+function toggleCommanderPopover(pid, anchorEl) {
+  const popover = $('#commanderPopover');
+  if (!popover) return;
+  if (!popover.classList.contains('hidden') && popover.dataset.activePid === String(pid)) {
+    hideCommanderPopover();
+    delete popover.dataset.activePid;
+  } else {
+    popover.dataset.activePid = String(pid);
+    showCommanderPopover(pid, anchorEl);
+  }
+}
+
 function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,r])=>{const regionTerrs=ts().filter(t=>t.region===k),fullyVisible=regionTerrs.every(t=>getTerritoryVisibility(state,t.id,0,difficulty)==='full'),owner=fullyVisible?state.players.find(p=>regionTerrs.every(t=>state.territories[t.id].owner===p.id)):null;return`<div class="region-row" style="--rc:${r.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${r.bonus}</strong></div>`}).join('')}
 function renderMap(){
   for(const t of ts()){
@@ -267,8 +386,20 @@ function setMapZoom(level) {
 function renderTerritoryInspect(id) {
   const container = $('#territoryInspectContent');
   if (!container) return;
+  const currentCycle = state ? Math.floor((state.turn - 1) / 3) : 0;
+  const nextRotationRound = (currentCycle + 1) * 3 + 1;
+  const roundsLeft = state ? (nextRotationRound - state.turn) : 3;
+  const marketCycleText = 'Rota en R' + nextRotationRound + ' (' + roundsLeft + ' ronda' + (roundsLeft > 1 ? 's' : '') + ')';
+
   if (!state || !id || !state.territories[id]) {
-    container.innerHTML = '<div class="territory-empty-state"><span class="empty-icon">🗺️</span><p>Selecciona un territorio en el mapa para inspeccionarlo</p></div>';
+    container.innerHTML = '<div class="territory-empty-state">' +
+      '<span class="empty-icon">🗺️</span>' +
+      '<p>Selecciona un territorio en el mapa para inspeccionarlo</p>' +
+      '<div class="territory-spec-row empty-market-row">' +
+        '<span class="spec-lbl">Mercado táctico</span>' +
+        '<span class="spec-val">' + marketCycleText + '</span>' +
+      '</div>' +
+    '</div>';
     return;
   }
   const t = tById(id);
@@ -279,22 +410,28 @@ function renderTerritoryInspect(id) {
   const vis = getTerritoryVisibility(state, id, 0, difficulty);
   const troopsDisplay = vis === 'hidden' ? '?' : vis === 'partial' ? ('≈' + approximateTroops(d.troops)) : d.troops;
   const bonusDesc = state.rulesMode === 'terrain'
-    ? (unit.icon + ' ' + unit.name + ' (+1 ventaja en ' + terrain.name + ')')
+    ? (unit.icon + ' ' + unit.name + ' (+1 en ' + terrain.name + ')')
     : 'Tropas estándar (+0 bonos)';
 
   const mapImg = state.mapId === 'archipelago' ? './map-archipelago.webp' : state.mapId === 'rift' ? './map-rift.webp' : './map-frontier.webp';
+  const regionName = t.region ? (REGIONS[t.region]?.name || t.region) : 'Continental';
 
   container.innerHTML = '<div class="territory-active-preview">' +
-    '<div class="territory-thumb-art" style="background-image: url(\'' + mapImg + '\');">' +
-      '<span class="terrain-huge-icon">' + terrain.icon + '</span>' +
+    '<div class="territory-header-row">' +
+      '<div class="territory-thumb-art" style="background-image: url(' + mapImg + ');">' +
+        '<span class="terrain-huge-icon">' + terrain.icon + '</span>' +
+      '</div>' +
+      '<div class="territory-identity">' +
+        '<h4 class="territory-specs-title">⚔️ ' + t.name + '</h4>' +
+        '<span class="territory-sub-badge">' + terrain.name + ' · ' + regionName + '</span>' +
+      '</div>' +
     '</div>' +
-    '<div class="territory-specs">' +
-      '<span class="territory-specs-title">⚔️ ' + t.name + '</span>' +
-      '<div class="territory-spec-item"><span>Tipo:</span><strong>' + terrain.name + ' (' + (t.region ? (REGIONS[t.region]?.name || t.region) : 'Continental') + ')</strong></div>' +
-      '<div class="territory-spec-item"><span>Propietario:</span><strong style="color: ' + owner.color + ';">● ' + owner.name + '</strong></div>' +
-      '<div class="territory-spec-item"><span>Tropas:</span><strong>' + troopsDisplay + (state.rulesMode === 'terrain' ? ' (' + unit.name + ')' : '') + '</strong></div>' +
-      '<div class="territory-spec-item"><span>Rutas adyacentes:</span><strong>' + (t.n?.length || 0) + ' conexiones</strong></div>' +
-      '<div class="territory-bonus-line"><span>Bonus: ' + bonusDesc + '</span></div>' +
+    '<div class="territory-data-table">' +
+      '<div class="territory-spec-row"><span class="spec-lbl">Propietario</span><span class="spec-val" style="color:' + owner.color + ';">● ' + owner.name + '</span></div>' +
+      '<div class="territory-spec-row"><span class="spec-lbl">Guarnición</span><span class="spec-val">' + troopsDisplay + ' tropas' + (state.rulesMode === 'terrain' ? ' (' + unit.name + ')' : '') + '</span></div>' +
+      '<div class="territory-spec-row"><span class="spec-lbl">Conexiones</span><span class="spec-val">' + (t.n?.length || 0) + ' rutas directas</span></div>' +
+      '<div class="territory-spec-row"><span class="spec-lbl">Mercado táctico</span><span class="spec-val">' + marketCycleText + '</span></div>' +
+      '<div class="territory-spec-row bonus-row"><span class="spec-lbl">Bonus terreno</span><span class="spec-val">' + bonusDesc + '</span></div>' +
     '</div>' +
   '</div>';
 }
@@ -406,8 +543,7 @@ function renderMarket(){
     <div class="market-head">
       <div class="market-head-title">
         <span>MERCADO TÁCTICO</span>
-        <small class="market-cycle-pill">Rota en R${nextRotationRound} (${roundsLeft} ronda${roundsLeft>1?'s':''})</small>
-      </div>
+        </div>
       ${hasTempDef?`<span class="temp-def-active-pill">🛡 Defensa +1 activa</span>`:''}
     </div>
     <div class="market-offers-list">${offersHtml}</div>
@@ -935,5 +1071,13 @@ function registerWebMCP(){const c=document.modelContext;if(!c?.registerTool)retu
 initMap('frontier');applyRandomStartBg();if(localStorage.getItem(SAVE))$('#continueBtn').hidden=false;registerWebMCP();
 document.querySelectorAll('.zoom-btn').forEach(btn => btn.onclick = () => setMapZoom(+btn.dataset.zoom));
 if($('#saveQuickBtn')) $('#saveQuickBtn').onclick = () => { save(); showToast('💾 Partida guardada con éxito'); };
-if($('#settingsBtn')) $('#settingsBtn').onclick = () => { els.helpModal.classList.remove('hidden'); };
 
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.player') && !e.target.closest('#commanderPopover')) {
+    hideCommanderPopover();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideCommanderPopover();
+});
