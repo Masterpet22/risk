@@ -11,7 +11,7 @@ Basado en el documento de diseño «Fronteras de Acero», versión 0.2 (22 de se
 | 4. Influencia y victoria | Fórmula del §8, objetivos como fuente de puntos y victoria por 150 puntos o al finalizar la ronda 40 | Completada: fórmula de Influencia con tope de tropas, catálogo de 6 objetivos, victorias A, B y C verificadas con causas en interfaz y resumen final. |
 | 5. Comandantes y frentes | Seis doctrinas y estados Estable, Tenso, Conflicto y Guerra | Completada: 6 doctrinas asimétricas activas, frentes dinámicos entre jugadores fronterizos, IA con arquetipos, selector e indicadores visuales y soporte en v8. |
 | 6. Información imperfecta | Datos completos, parciales y ocultos; Espía revela información temporalmente | Completada y auditada: 3 niveles de visibilidad sin filtrar propietario ni totales lejanos, Espía con revelado temporal, dificultad basada en decisiones y soporte de guardado v10. |
-| 7. Eventos | Avisos con una ronda de anticipación, terremoto, tsunami y cambios temporales de conexiones | El mapa y sus rutas reflejan efectos activos y caducidad. |
+| 7. Eventos | Avisos con una ronda de anticipación, terremoto, tsunami y cambios temporales de conexiones | Completada: catálogo de eventos dinámicos (terremoto, tsunami, temporal), aviso con 1 ronda de anticipación, bajas con mínimo 1 tropa, rutas bloqueadas temporales, reacción IA según dificultad y reflejo visual en banner, mapa y conexiones. |
 | 8. Balance | Simulación de duración, remontadas, precios, umbral de Influencia, doctrinas y Modo Terreno | Ajustes respaldados por partidas simuladas y pruebas de interfaz. |
 | 9. Multijugador | Autoridad de servidor sobre turnos y estado | Se abordará después de estabilizar el juego individual. |
 

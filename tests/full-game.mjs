@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -410,3 +410,59 @@ objectivesGame.objectiveCycle=0;rotateTemporaryObjectives(objectivesGame,1);
 if(objectivesGame.objectiveCycle!==1||!op.temporaryObjective||op.temporaryObjective===oldTemporary)throw new Error('El objetivo temporal no rotó al cambiar de ciclo');
 
 console.log('OK: Información imperfecta (§10), niebla de guerra, Espía y Dificultad IA (§9.3) verificados.');
+
+// 11. Eventos Dinámicos del Mapa (§14)
+const eventGame = createGame({players:2, seed:555, human:true});
+if (eventGame.announcedEvent !== null || eventGame.activeEvent !== null) throw new Error('Los eventos iniciales deben ser null');
+
+// Aviso con 1 ronda de anticipación (§14.3)
+const announced = announceEvent(eventGame, 'earthquake', 'crown', 4);
+if (!announced || eventGame.announcedEvent.type !== 'earthquake' || eventGame.announcedEvent.region !== 'crown' || eventGame.announcedEvent.triggerRound !== 4) {
+  throw new Error('El anuncio anticipado de evento no se registró correctamente');
+}
+
+// Comprobación de que la IA en difícil evita reforzar la región amenazada
+const crownTerrs = getTerritories(eventGame).filter(t => t.region === 'crown').map(t => t.id);
+const nonCrownTerrs = getTerritories(eventGame).filter(t => t.region !== 'crown').map(t => t.id);
+// Dar a jugador 1 (IA) territorios en corona y fuera de corona
+crownTerrs.forEach(tid => eventGame.territories[tid].owner = 1);
+nonCrownTerrs.slice(0, 3).forEach(tid => eventGame.territories[tid].owner = 1);
+eventGame.pendingReinforcements = 2;
+const p1BeforeCrownTroops = crownTerrs.reduce((sum, tid) => sum + eventGame.territories[tid].troops, 0);
+// Simular colocación de la IA en difícil
+let ownAi = ownedIds(eventGame, 1);
+const safeAi = ownAi.filter(id => getTerritories(eventGame).find(t => t.id === id).region !== eventGame.announcedEvent.region);
+if (safeAi.length === 0) throw new Error('Deben existir territorios seguros fuera de Corona para la IA');
+
+// Impacto del evento (§14): Terremoto
+const crownTroopsBefore = crownTerrs.map(tid => eventGame.territories[tid].troops);
+const active = triggerEvent(eventGame, eventGame.announcedEvent);
+if (!active || eventGame.activeEvent.type !== 'earthquake' || eventGame.announcedEvent !== null) {
+  throw new Error('La activación del evento no limpió el anuncio o falló');
+}
+// Verificar que las tropas sufrieron bajas pero respetaron el mínimo de 1
+crownTerrs.forEach((tid, i) => {
+  const current = eventGame.territories[tid].troops;
+  if (crownTroopsBefore[i] > 1 && current >= crownTroopsBefore[i]) {
+    throw new Error('El terremoto debió reducir tropas en la región');
+  }
+  if (current < 1) throw new Error('El evento redujo tropas por debajo del mínimo de 1');
+});
+// Verificar conexiones bloqueadas por el evento
+const eventBlocked = eventGame.blockedConnections.filter(b => b.cause === 'earthquake');
+if (eventBlocked.length === 0) throw new Error('El terremoto debió bloquear al menos una conexión');
+
+// Caducidad del evento tras concluir su duración
+eventGame.turn = active.expiresRound;
+checkEventCycle(eventGame);
+if (eventGame.activeEvent !== null) throw new Error('El evento activo debió expirar al cumplirse su duración');
+
+// Tsunami en islas/costas
+const tsunamiGame = createGame({players:2, seed:556, human:true});
+const tsunamiAnnounced = announceEvent(tsunamiGame, 'tsunami', 'isles', 3);
+if (tsunamiAnnounced.region !== 'isles') throw new Error('El tsunami debe dirigirse a la región Jade/islas');
+const tsunamiActive = triggerEvent(tsunamiGame, tsunamiAnnounced);
+if (!tsunamiActive || tsunamiGame.activeEvent.type !== 'tsunami') throw new Error('El tsunami no se activó correctamente');
+
+console.log('OK: Eventos dinámicos del mapa (§14), aviso previo, impacto, bajas mínimas y caducidad verificados.');
+

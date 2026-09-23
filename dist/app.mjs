@@ -1,6 +1,6 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops} from './engine.mjs';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs';
 
-const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),marketBox:$('#marketBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),mapName:$('#mapName'),modeBadge:$('#modeBadge'),routesBtn:$('#routesBtn'),toast:$('#toast')};
+const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),marketBox:$('#marketBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),mapName:$('#mapName'),modeBadge:$('#modeBadge'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,selectedDice=3,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null;
 const SAVE='fronteras-acero-save-v3';
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
@@ -37,6 +37,7 @@ function updateHover(id,e){
   }else{
     intelRow=`<div class="tip-row tip-hidden"><span>Niebla profunda</span><strong style="color:#95a5a6">🌫️ Tierras lejanas (infiltra Espía)</strong></div>`;
   }
+  let eventRow='';if(state.activeEvent&&state.activeEvent.region===t.region){const ev=EVENT_CATALOG[state.activeEvent.type];eventRow=`<div class="tip-row tip-event-active"><span>Zona de desastre</span><strong style="color:#ff5e57">${ev?.icon||'⚡'} ${ev?.name||'Desastre'} activo</strong></div>`}else if(state.announcedEvent&&state.announcedEvent.region===t.region){const ev=EVENT_CATALOG[state.announcedEvent.type];eventRow=`<div class="tip-row tip-event-warn"><span>Alerta temprana</span><strong style="color:#f7b731">⚠️ ${ev?.icon||'⚠️'} ${ev?.name||'Amenaza'} (Ronda ${state.announcedEvent.triggerRound})</strong></div>`}
 
   const troopsText=intel.visibility==='full'?d.troops:intel.visibility==='partial'?`~${intel.troopsDisplay} (estimadas)`:'? Desconocida';
   const prodText=intel.visibility==='full'?`+$${territoryProduction(state,id)}${isSabotaged?' (⚡ Saboteado)':''}`:intel.visibility==='partial'?'Aprox. región':'? Oculta';
@@ -48,6 +49,7 @@ function updateHover(id,e){
     <div class="tip-row"><span>Tropas</span><strong>${troopsText}</strong></div>
     <div class="tip-row"><span>Producción</span><strong>${prodText}</strong></div>
     ${state.rulesMode==='terrain'?`<div class="tip-row"><span>Terreno</span><strong>${terrain.icon} ${terrain.name}</strong></div><div class="tip-row"><span>Unidad</span><strong>${unitText}</strong></div>`:''}
+    ${eventRow}
     ${intelRow}
     <div class="tip-adj">Conecta con ${t.n.length} territorios</div>`;
   els.mapTooltip.classList.remove('hidden');positionTooltip(e);renderMap();
@@ -56,7 +58,7 @@ function updateConnections(){
   document.querySelectorAll('.connection').forEach(l=>{
     const a=l.dataset.a,b=l.dataset.b;
     const isBlocked=isConnectionBlocked(state,a,b);
-    l.classList.toggle('blocked',isBlocked);
+    l.classList.toggle('blocked',isBlocked);const isEventBlocked=isBlocked&&state?.blockedConnections?.some(bc=>((bc.a===a&&bc.b===b)||(bc.a===b&&bc.b===a))&&bc.expiresTurn>=state.turn&&['earthquake','tsunami','tempest'].includes(bc.cause));l.classList.toggle('blocked-event',!!isEventBlocked);
     const related=selectedFrom&&(a===selectedFrom||b===selectedFrom),hovered=hoverId&&(a===hoverId||b===hoverId);
     l.classList.toggle('visible',!!(related||hovered||isBlocked));
     l.classList.toggle('show-all',routesAll);
@@ -65,8 +67,9 @@ function updateConnections(){
   els.routesBtn.setAttribute('aria-pressed',String(routesAll));
 }
 
-function render(persist=true){if(!state)return;const p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'block':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;els.mapName.textContent=getMap(state).name;els.modeBadge.textContent=state.rulesMode==='terrain'?'TERRENO':'CLÁSICO';renderFlow();renderPlayers();renderRegions();renderMap();renderGuide();renderPanel();renderLog();updateMobileOrders();if(persist)save()}
+function render(persist=true){if(!state)return;const p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'block':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;els.mapName.textContent=getMap(state).name;els.modeBadge.textContent=state.rulesMode==='terrain'?'TERRENO':'CLÁSICO';renderFlow();renderPlayers();renderRegions();renderEventBanner();renderMap();renderGuide();renderPanel();renderLog();updateMobileOrders();if(persist)save()}
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
+function renderEventBanner(){if(!els.eventBanner)return;if(state.activeEvent){const ev=EVENT_CATALOG[state.activeEvent.type]||{name:'Desastre',icon:'⚡',desc:'Fuerza natural devastadora'};const regName=REGIONS[state.activeEvent.region]?.name||state.activeEvent.region;els.eventBanner.className='event-banner event-banner-active';els.eventBanner.innerHTML=`<span class="event-tag">¡DESASTRE ACTIVO!</span><span class="event-banner-content"><strong>${ev.icon} ${ev.name}</strong> en la región <b>${regName}</b>. Causó bajas inmediatas y bloqueó rutas de tránsito hasta la Ronda ${state.activeEvent.expiresRound}.</span>`}else if(state.announcedEvent){const ev=EVENT_CATALOG[state.announcedEvent.type]||{name:'Amenaza',icon:'⚠️',desc:'Fuerza natural en desarrollo'};const regName=REGIONS[state.announcedEvent.region]?.name||state.announcedEvent.region;els.eventBanner.className='event-banner event-banner-announced';els.eventBanner.innerHTML=`<span class="event-tag">⚠️ ALERTA TEMPRANA</span><span class="event-banner-content"><strong>${ev.icon} ${ev.name} inminente</strong> en la región <b>${regName}</b>. Impacto previsto para la <b>Ronda ${state.announcedEvent.triggerRound}</b> (${ev.desc}). ¡Prepárate o repliega tus tropas!</span>`}else{els.eventBanner.className='event-banner hidden';els.eventBanner.innerHTML=''}}
 function renderPlayers(){
   els.players.innerHTML=state.players.map(p=>{
     const ids=ownedIds(state,p.id),troops=ids.reduce((s,id)=>s+state.territories[id].troops,0);
@@ -122,7 +125,7 @@ function renderMap(){
     g.classList.toggle('spied',!!intel.isSpied);
 
     const isSabotaged=state.sabotagedTerritories?.[t.id]>=state.turn;
-    g.classList.toggle('sabotaged',!!isSabotaged);
+    g.classList.toggle('sabotaged',!!isSabotaged);g.classList.toggle('event-threatened',state.announcedEvent?.region===t.region);g.classList.toggle('event-active',state.activeEvent?.region===t.region);
 
     if(cardTargeting){
       if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage')g.classList.toggle('card-valid-target',d.owner!==state.current);

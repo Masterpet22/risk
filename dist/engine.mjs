@@ -19,6 +19,31 @@ export const FRONT_STATE_LABELS={
   war:{name:'Guerra',icon:'⚔️',color:'#e74c3c'}
 };
 
+export const EVENT_CATALOG={
+  earthquake:{
+    id:'earthquake',
+    name:'Terremoto',
+    icon:'🌋',
+    duration:2,
+    desc:'Seísmo geológico. Causa 1 baja en las guarniciones (mínimo 1 tropa) y corta conexiones terrestres por desprendimiento durante 2 rondas.'
+  },
+  tsunami:{
+    id:'tsunami',
+    name:'Tsunami',
+    icon:'🌊',
+    duration:2,
+    desc:'Maremoto en costas e islas. Causa 1 baja en tropas costeras (mínimo 1 tropa) e inunda pasos marítimos durante 2 rondas.'
+  },
+  tempest:{
+    id:'tempest',
+    name:'Temporal',
+    icon:'⛈️',
+    duration:2,
+    desc:'Tormenta huracanada. Reduce la producción regional a la mitad y corta un paso clave durante 2 rondas.'
+  }
+};
+export const EVENT_IDS=Object.keys(EVENT_CATALOG);
+
 export const frontKey=(p1,p2)=>p1<p2?`${p1}-${p2}`:`${p2}-${p1}`;
 export function getFrontState(state,p1,p2){
   if(p1===p2||!state?.fronts)return 'stable';
@@ -110,7 +135,7 @@ export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier
     if(human&&i===0)return chosenCmd;
     return availCmds[(i-1)%availCmds.length]||COMMANDER_IDS[i%COMMANDER_IDS.length];
   });
-  const state={version:10,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,victoryType:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,turnConquests:{},blockedConnections:[],sabotagedTerritories:{},spiedTerritories:{},extraFortifies:0,pendingCardDraw:null,tempDefense:{},fronts:{},objectiveCycle:0,
+  const state={version:10,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,victoryType:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,turnConquests:{},blockedConnections:[],sabotagedTerritories:{},spiedTerritories:{},extraFortifies:0,pendingCardDraw:null,tempDefense:{},fronts:{},objectiveCycle:0,announcedEvent:null,activeEvent:null,
     players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:PLAYER_COLORS[i],human:human&&i===0,commander:pCommanders[i],alive:true,cards:[],money:0,lastIncomeRound:0,completedObjectives:[],mainObjectiveResolved:false,eliminatedRivals:0,influence:0})),territories:{},rngState:Math.floor(rng()*0xffffffff)};
   state.market=generateMarket(state,0);
   order.forEach((id,i)=>state.territories[id]={owner:i%players,troops:1,unitType:['infantry','artillery','cavalry'][i%3]});
@@ -442,6 +467,8 @@ export function upgradeGame(state){
     assignPlayerObjectives(state,p);
     p.influence=calculateInfluence(state,p.id);
   });
+  state.announcedEvent=state.announcedEvent||null;
+  state.activeEvent=state.activeEvent||null;
   state.version=10;
   if(state.winner===null&&state.players[state.current]?.lastIncomeRound===0)collectIncome(state,state.current);
   return state;
@@ -453,6 +480,113 @@ export function placeTroops(state,id,amount=1,unitType=null){if(state.phase!=='r
 function nextRand(s){s.rngState=(Math.imul(1664525,s.rngState)+1013904223)>>>0;return s.rngState/4294967296}
 function roll(s,n){return Array.from({length:n},()=>1+Math.floor(nextRand(s)*6)).sort((a,b)=>b-a)}
 function addLog(s,text,p=null){s.log.unshift({text,p,turn:s.turn});if(s.log.length>60)s.log.length=60}
+
+export function announceEvent(state,type=null,region=null,triggerRound=state.turn+1){
+  if(state.activeEvent||state.announcedEvent)return null;
+  const types=EVENT_IDS;
+  const chosenType=type&&EVENT_CATALOG[type]?type:types[Math.floor(nextRand(state)*types.length)];
+  let chosenRegion=region;
+  if(!chosenRegion||!REGIONS[chosenRegion]){
+    if(chosenType==='tsunami'){
+      chosenRegion='isles';
+    }else if(chosenType==='earthquake'){
+      const eqRegions=['north','west','crown','ember','sun'];
+      chosenRegion=eqRegions[Math.floor(nextRand(state)*eqRegions.length)];
+    }else{
+      const allRegs=Object.keys(REGIONS);
+      chosenRegion=allRegs[Math.floor(nextRand(state)*allRegs.length)];
+    }
+  }
+  const def=EVENT_CATALOG[chosenType];
+  state.announcedEvent={
+    type:chosenType,
+    region:chosenRegion,
+    announceRound:state.turn,
+    triggerRound,
+    duration:def.duration
+  };
+  addLog(state,`⚠️ ¡Alerta geológica! Se predice un ${def.name} en ${REGIONS[chosenRegion].name} para la ronda ${triggerRound}.`);
+  return state.announcedEvent;
+}
+
+export function triggerEvent(state,event=state.announcedEvent){
+  if(!event||!EVENT_CATALOG[event.type])return null;
+  const def=EVENT_CATALOG[event.type];
+  const affectedTerrs=getTerritories(state).filter(t=>t.region===event.region);
+  
+  let casualties=0;
+  for(const t of affectedTerrs){
+    if(state.territories[t.id].troops>1){
+      state.territories[t.id].troops--;
+      casualties++;
+    }
+  }
+
+  state.blockedConnections=state.blockedConnections||[];
+  const candidateEdges=[];
+  for(const t of affectedTerrs){
+    for(const n of t.n){
+      if(!isConnectionBlocked(state,t.id,n)){
+        candidateEdges.push([t.id,n]);
+      }
+    }
+  }
+  const blockedList=[];
+  if(candidateEdges.length>0){
+    const numEdges=Math.min(candidateEdges.length,1+(candidateEdges.length>3?1:0));
+    for(let i=0;i<numEdges;i++){
+      const[a,b]=candidateEdges[i];
+      if(!isConnectionBlocked(state,a,b)){
+        state.blockedConnections.push({
+          a,
+          b,
+          expiresTurn:state.turn+def.duration,
+          cause:event.type
+        });
+        blockedList.push(`${terr(state,a).name} ↔ ${terr(state,b).name}`);
+      }
+    }
+  }
+
+  if(event.type==='tempest'){
+    state.sabotagedTerritories=state.sabotagedTerritories||{};
+    for(const t of affectedTerrs){
+      state.sabotagedTerritories[t.id]=state.turn+def.duration;
+    }
+  }
+
+  state.activeEvent={
+    ...event,
+    expiresRound:state.turn+def.duration,
+    casualties,
+    blockedRoutes:blockedList
+  };
+  state.announcedEvent=null;
+
+  addLog(state,`¡${def.icon} ${def.name} golpea ${REGIONS[event.region].name}! ${casualties} bajas y rutas cortadas.`);
+  return state.activeEvent;
+}
+
+export function checkEventCycle(state){
+  if(state.activeEvent){
+    if(state.turn>=state.activeEvent.expiresRound){
+      const def=EVENT_CATALOG[state.activeEvent.type];
+      addLog(state,`El ${def?def.name:'evento'} en ${REGIONS[state.activeEvent.region]?.name||state.activeEvent.region} ha concluido. Conexiones restauradas.`);
+      state.activeEvent=null;
+    }
+  }
+
+  if(state.announcedEvent){
+    if(state.turn>=state.announcedEvent.triggerRound){
+      triggerEvent(state,state.announcedEvent);
+      return;
+    }
+  }
+
+  if(!state.activeEvent&&!state.announcedEvent&&state.turn>=3&&(state.turn-3)%4===0){
+    announceEvent(state);
+  }
+}
 function battleBonuses(state,from,to){
   const a=state.territories[from],d=state.territories[to],terrain=terr(state,to).terrain,ar=[],dr=[];
   let attackerBonus=0,defenderBonus=0;
@@ -671,6 +805,7 @@ export function endTurn(state){
         return;
       }
 
+      checkEventCycle(state);
       state.turn++;
       cleanExpiredEffects(state);
       const newCycle=Math.floor((state.turn-1)/3);
@@ -751,7 +886,11 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   if((borderNeed||p.commander==='industrial')&&state.players[pid].money>=10)buyReinforcements(state,pid);
   report.reinforcements=state.pendingReinforcements;
   while(state.pendingReinforcements>0){
-    const own=ownedIds(state,pid).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
+    let own=ownedIds(state,pid).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
+    if(difficulty==='difícil'&&state.announcedEvent){
+      const safe=own.filter(id=>terr(state,id).region!==state.announcedEvent.region);
+      if(safe.length)own=safe;
+    }
     const id=own[0],terrain=terr(state,id).terrain;
     placeTroops(state,id,1,state.rulesMode==='terrain'?TERRAINS[terrain].unit:null);
   }
@@ -798,4 +937,4 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   }else setPhase(state,'close');
   endTurn(state);return report;
 }
-export function validateState(state){const errors=[],ts=getTerritories(state);for(const t of ts){const s=state.territories[t.id];if(!s)errors.push(`Falta ${t.id}`);else if(s.troops<1)errors.push(`${t.id} sin tropas`);else if(!state.players[s.owner])errors.push(`${t.id} dueño inválido`);else if(!UNIT_TYPES[s.unitType])errors.push(`${t.id} unidad inválida`)}const owners=new Set(ts.map(t=>state.territories[t.id]?.owner));state.players.forEach(p=>{if(p.alive!==owners.has(p.id)&&state.winner===null)errors.push(`Estado vital incorrecto: ${p.name}`);if(!Array.isArray(p.cards)||p.cards.length>3)errors.push(`Mano de cartas inválida en ${p.name}`);if(typeof p.influence!=='number'||isNaN(p.influence))errors.push(`Influencia inválida en ${p.name}`);if(!Array.isArray(p.completedObjectives))errors.push(`Objetivos inválidos en ${p.name}`);if(!p.commander||!COMMANDERS[p.commander])errors.push(`Doctrina inválida en ${p.name}`)});if(!state.market||!Array.isArray(state.market.offers)||state.market.offers.length<3||state.market.offers.length>4){errors.push('Mercado inválido')}if(!state.fronts||typeof state.fronts!=='object'){errors.push('Frentes inválidos')}return errors}
+export function validateState(state){const errors=[],ts=getTerritories(state);for(const t of ts){const s=state.territories[t.id];if(!s)errors.push(`Falta ${t.id}`);else if(s.troops<1)errors.push(`${t.id} sin tropas`);else if(!state.players[s.owner])errors.push(`${t.id} dueño inválido`);else if(!UNIT_TYPES[s.unitType])errors.push(`${t.id} unidad inválida`)}const owners=new Set(ts.map(t=>state.territories[t.id]?.owner));state.players.forEach(p=>{if(p.alive!==owners.has(p.id)&&state.winner===null)errors.push(`Estado vital incorrecto: ${p.name}`);if(!Array.isArray(p.cards)||p.cards.length>3)errors.push(`Mano de cartas inválida en ${p.name}`);if(typeof p.influence!=='number'||isNaN(p.influence))errors.push(`Influencia inválida en ${p.name}`);if(!Array.isArray(p.completedObjectives))errors.push(`Objetivos inválidos en ${p.name}`);if(!p.commander||!COMMANDERS[p.commander])errors.push(`Doctrina inválida en ${p.name}`)});if(!state.market||!Array.isArray(state.market.offers)||state.market.offers.length<3||state.market.offers.length>4){errors.push('Mercado inválido')}if(!state.fronts||typeof state.fronts!=='object'){errors.push('Frentes inválidos')}if(state.announcedEvent&&(typeof state.announcedEvent!=='object'||!EVENT_CATALOG[state.announcedEvent.type]||!REGIONS[state.announcedEvent.region])){errors.push('Evento anunciado inválido')}if(state.activeEvent&&(typeof state.activeEvent!=='object'||!EVENT_CATALOG[state.activeEvent.type]||!REGIONS[state.activeEvent.region])){errors.push('Evento activo inválido')}return errors}

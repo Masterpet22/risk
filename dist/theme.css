@@ -252,3 +252,24 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 }
 
 .active-objectives{display:grid;gap:7px;margin-top:10px}.active-objectives>div{display:grid;gap:3px;padding:8px 9px;border:1px solid rgba(81,173,220,.22);border-radius:9px;background:rgba(5,20,35,.58)}.active-objectives span{font-size:9px;letter-spacing:.12em;color:#79b9dc}.active-objectives b{font-size:11px;color:#edf8ff}.active-objectives small{font-size:10px;line-height:1.35;color:#9fb9ca}
+
+/* Eventos dinámicos y desastres del mapa */
+.event-banner{position:relative;z-index:8;display:flex;align-items:center;gap:12px;padding:10px 16px;margin:8px 12px 6px;border-radius:10px;font-size:.88rem;line-height:1.4;backdrop-filter:blur(8px);transition:all .3s ease}
+.event-banner.hidden{display:none!important}
+.event-banner-announced{background:linear-gradient(90deg,rgba(247,183,49,.25),rgba(16,27,39,.9));border:1px solid #f7b731;color:#ffeaa7;box-shadow:0 4px 18px rgba(247,183,49,.22)}
+.event-banner-announced .event-tag{background:#f7b731;color:#101722;font-weight:700;font-size:.75rem;padding:3px 7px;border-radius:6px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.event-banner-active{background:linear-gradient(90deg,rgba(235,77,75,.28),rgba(28,16,24,.92));border:1px solid #eb4d4b;color:#ff9f89;box-shadow:0 4px 22px rgba(235,77,75,.35);animation:disasterPulse 2.5s ease-in-out infinite}
+.event-banner-active .event-tag{background:#eb4d4b;color:#fff;font-weight:700;font-size:.75rem;padding:3px 7px;border-radius:6px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.event-banner-content{flex:1}
+.event-banner-content strong{color:#fff;margin-right:4px}
+@keyframes disasterPulse{0%,100%{border-color:#eb4d4b;box-shadow:0 4px 20px rgba(235,77,75,.3)}50%{border-color:#ff7979;box-shadow:0 4px 26px rgba(235,77,75,.6)}}
+
+.territory.event-threatened .territory-shape{stroke:#f7b731!important;stroke-width:4.5!important;stroke-dasharray:8 4;animation:threatDash 3s linear infinite}
+@keyframes threatDash{to{stroke-dashoffset:-36}}
+.territory.event-active .territory-shape{stroke:#eb4d4b!important;stroke-width:5!important;filter:drop-shadow(0 0 10px rgba(235,77,75,.7))}
+
+.connection.blocked{stroke:#e74c3c!important;stroke-width:5!important;stroke-dasharray:4 4!important;opacity:.85!important}
+.connection.blocked-event{stroke:#ff5e57!important;stroke-width:6!important;stroke-dasharray:7 4!important;opacity:1!important;filter:drop-shadow(0 0 4px rgba(235,77,75,.8))}
+.tip-event-active{background:rgba(235,77,75,.15);border-radius:4px;padding:2px 4px}
+.tip-event-warn{background:rgba(247,183,49,.15);border-radius:4px;padding:2px 4px}
+
