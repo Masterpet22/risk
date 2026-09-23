@@ -25,66 +25,164 @@
       <div class="brand"><span class="brand-mark"><span>⚑</span></span><div><h1>Fronteras de Acero</h1><p>Dominio continental</p></div></div>
       <div class="round-pill"><span>RONDA</span><strong id="round">1</strong></div>
       <div class="header-actions">
-        <button class="text-btn summary-trigger hidden" id="summaryBtn">Resumen final</button>
         <button class="icon-btn" id="helpBtn" aria-label="Ver reglas" title="Reglas">?</button>
-        <button class="text-btn" id="newBtn">Nueva partida</button>
+        <button class="icon-btn" id="settingsBtn" aria-label="Ajustes" title="Ajustes">⚙</button>
+        <button class="text-btn save-btn" id="saveQuickBtn" title="Guardar partida">💾 <span>Guardar</span></button>
+        <button class="text-btn summary-trigger hidden" id="summaryBtn">Resumen final</button>
+        <button class="primary-btn new-game-top-btn" id="newBtn">⟳ Nueva partida</button>
       </div>
     </header>
 
     <nav class="turn-flow" aria-label="Flujo del turno">
-      <div class="flow-step" data-step="reinforce"><span>1</span><div><b>Reclutamiento</b><small>Coloca refuerzos</small></div></div>
-      <i>›</i>
-      <div class="flow-step" data-step="attack"><span>2</span><div><b>Combate</b><small>1 ataque obligatorio</small></div></div>
-      <i>›</i>
-      <div class="flow-step" data-step="fortify"><span>3</span><div><b>Maniobra</b><small>Mueve una vez o pasa</small></div></div>
-      <i>›</i>
-      <div class="flow-step" data-step="close"><span>4</span><div><b>Cierre</b><small>Carta táctica y pase</small></div></div>
+      <div class="flow-step active" data-step="reinforce"><span class="flow-num">1</span><div class="flow-text"><b>Reclutamiento</b><small>Coloca refuerzos</small></div></div>
+      <i class="flow-arrow">›</i>
+      <div class="flow-step" data-step="attack"><span class="flow-num">2</span><div class="flow-text"><b>Combate</b><small>1 ataque obligatorio</small></div></div>
+      <i class="flow-arrow">›</i>
+      <div class="flow-step" data-step="fortify"><span class="flow-num">3</span><div class="flow-text"><b>Maniobra</b><small>Mueve una vez o pasa</small></div></div>
+      <i class="flow-arrow">›</i>
+      <div class="flow-step" data-step="close"><span class="flow-num">4</span><div class="flow-text"><b>Cierre</b><small>Carta táctica y pase</small></div></div>
     </nav>
 
     <main class="game-shell">
+      <!-- Columna Izquierda: Comandantes + Territorio Seleccionado + Registro -->
       <aside class="left-panel panel">
-        <div class="eyebrow">COMANDANTES</div>
-        <div id="players" class="players"></div>
-        <div class="regions-card">
-          <div class="eyebrow">BONOS REGIONALES</div>
-          <div id="regions"></div>
-        </div>
-      </aside>
-
-      <section class="map-wrap" aria-label="Mapa del juego">
-        <div class="map-head">
-          <div><span class="eyebrow" id="turnLabel">TU TURNO</span><h2 id="phaseTitle">Despliega refuerzos</h2></div>
-          <div class="reinforcements" id="reinforceBox"><span>REFUERZOS</span><strong id="reinforcements">0</strong></div>
-        </div>
-        <div class="map-toolbar"><span id="mapName">Fronteras de Acero</span><button id="routesBtn" aria-pressed="false">Rutas: al seleccionar</button><span class="mode-badge" id="modeBadge">CLÁSICO</span><div class="map-pan-controls"><button id="panLeft" aria-label="Mover mapa a la izquierda">←</button><button id="mapOverviewBtn" aria-label="Alternar vista completa del mapa" aria-pressed="false">⌕</button><button id="panRight" aria-label="Mover mapa a la derecha">→</button></div></div>
-        <div class="map-guide" id="mapGuide"><span>1</span><strong>Selecciona un territorio propio</strong><small>Los territorios válidos brillan en tu color.</small></div>
-        <div id="eventBanner" class="event-banner hidden" role="alert"></div>
-        <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
-        <span class="map-swipe-hint">Desliza para explorar el mapa →</span>
-        <div class="map-tooltip hidden" id="mapTooltip"></div>
-        <div class="map-legend"><span><i class="dot selectable"></i>Seleccionable</span><span><i class="dot target"></i>Objetivo</span><span><i class="line"></i>Frontera conectada</span></div>
-      </section>
-
-      <aside class="right-panel panel">
-        <section class="order-card" id="orderCard">
-          <button class="order-sheet-close" id="closeOrderSheet" aria-label="Cerrar panel de acciones">×</button>
-          <div class="eyebrow">ORDEN ACTUAL</div>
-          <h2 id="orderTitle">Despliega refuerzos</h2>
-          <p id="orderText">Selecciona uno de tus territorios para fortalecerlo.</p>
-          <div class="turn-status" id="turnStatus"></div>
-          <div class="economy-box" id="economyBox"></div>
-          <div class="market-box" id="marketBox"></div>
-          <div class="cards-box" id="cardsBox"></div>
-          <div class="terrain-panel hidden" id="terrainPanel"></div>
-          <div id="selectionInfo" class="selection-info"></div>
-          <div id="battleResult" class="battle-result" aria-live="polite"></div>
-          <div id="actionControls" class="action-controls"></div>
-          <button id="phaseBtn" class="primary-btn">Terminar despliegue</button>
+        <section class="panel-section commanders-section" id="commandersSection">
+          <div class="section-head">
+            <span class="section-title"><span class="sec-icon">👥</span> COMANDANTES</span>
+            <span class="sec-badge" id="alivePlayersCount"></span>
+          </div>
+          <div id="players" class="players"></div>
         </section>
-        <section class="chronicle">
-          <div class="eyebrow">CRÓNICA DE GUERRA</div>
+
+        <section class="panel-section territory-card-section" id="selectedTerritoryCard">
+          <div class="section-head">
+            <span class="section-title"><span class="sec-icon">📍</span> TERRITORIO SELECCIONADO</span>
+          </div>
+          <div id="territoryInspectContent" class="territory-inspect-content">
+            <div class="territory-empty-state">
+              <span class="empty-icon">🗺️</span>
+              <p>Selecciona un territorio en el mapa para inspeccionarlo</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section chronicle-section" id="chronicleSection">
+          <div class="section-head">
+            <span class="section-title"><span class="sec-icon">📋</span> REGISTRO DE LA RONDA</span>
+          </div>
           <div id="log" class="log"></div>
         </section>
+
+        <!-- Elemento de compatibilidad de regiones -->
+        <div id="regions" class="hidden" style="display:none;"></div>
+      </aside>
+
+      <!-- Columna Central: Tablero de Mapa Cinemático -->
+      <section class="map-wrap" aria-label="Mapa del juego">
+        <header class="map-floating-header">
+          <div class="map-title-block">
+            <span class="map-crest-icon">✦</span>
+            <div>
+              <div class="map-title-row">
+                <h2 id="mapName">Fronteras de Acero</h2>
+                <span class="mode-badge" id="modeBadge">CLÁSICO</span>
+              </div>
+              <p class="map-subtitle" id="mapSubtitle">24 territorios continentales · Rutas estratégicas</p>
+            </div>
+          </div>
+          <div class="reinforcements-pill" id="reinforceBox">
+            <span class="reinf-icon">🏰</span>
+            <div class="reinf-meta">
+              <span class="reinf-label">REFUERZOS DISPONIBLES</span>
+              <strong id="reinforcements">0</strong>
+            </div>
+          </div>
+        </header>
+
+        <div id="eventBanner" class="event-banner hidden" role="alert"></div>
+
+        <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
+
+        <footer class="map-floating-footer">
+          <div class="map-compass" title="Rosa de los vientos">✦</div>
+          <div class="map-legend">
+            <span><i class="dot friendly"></i>Tu territorio</span>
+            <span><i class="dot hostile"></i>Territorio enemigo</span>
+            <span><i class="dot neutral"></i>Territorio neutral</span>
+            <span class="legend-line-item"><i class="line solid"></i>Ruta de conexión</span>
+            <span class="legend-line-item"><i class="line dashed"></i>Ruta marítima</span>
+          </div>
+          <div class="map-zoom-bar" role="group" aria-label="Nivel de zoom del mapa">
+            <button class="zoom-btn" data-zoom="50">50%</button>
+            <button class="zoom-btn" data-zoom="75">75%</button>
+            <button class="zoom-btn active" data-zoom="100">100%</button>
+            <button class="zoom-btn" data-zoom="125">125%</button>
+          </div>
+        </footer>
+
+        <!-- Elementos ocultos para plena compatibilidad de scripts -->
+        <div class="hidden" style="display:none;">
+          <span id="turnLabel"></span>
+          <h2 id="phaseTitle"></h2>
+          <span id="orderTitle"></span>
+          <span id="orderText"></span>
+          <div id="mapGuide"></div>
+          <button id="routesBtn"></button>
+          <button id="panLeft"></button>
+          <button id="panRight"></button>
+          <button id="mapOverviewBtn"></button>
+        </div>
+        <div class="map-tooltip hidden" id="mapTooltip"></div>
+        <span class="map-swipe-hint">Desliza para explorar el mapa →</span>
+      </section>
+
+      <!-- Columna Derecha: Panel de Acción Contextual + Tesoro + Objetivos + Mercado -->
+      <aside class="right-panel panel">
+        <!-- 1. Panel de Acción 100% Contextual -->
+        <section class="panel-section context-action-panel" id="orderCard">
+          <button class="order-sheet-close" id="closeOrderSheet" aria-label="Cerrar panel de acciones">×</button>
+          <div class="context-panel-header">
+            <span class="section-title"><span class="sec-icon">🎯</span> ORDEN ACTUAL</span>
+            <span class="phase-indicator-pill" id="contextPhaseBadge">Despliegue</span>
+          </div>
+          <div class="context-action-body">
+            <div class="action-banner">
+              <h3 id="contextActionHeading">Coloca tus refuerzos</h3>
+              <p id="contextActionSubtitle">Pulsa un territorio propio en el mapa para añadir tropas.</p>
+            </div>
+            <div class="turn-status" id="turnStatus"></div>
+            <div id="selectionInfo" class="selection-info"></div>
+            <div id="battleResult" class="battle-result" aria-live="polite"></div>
+            <div id="actionControls" class="action-controls"></div>
+            <button id="phaseBtn" class="primary-btn context-phase-btn">Terminar despliegue</button>
+          </div>
+        </section>
+
+        <!-- 2. Tesoro y Producción -->
+        <section class="panel-section economy-section" id="economySection">
+          <div id="economyBox" class="economy-box"></div>
+        </section>
+
+        <!-- 3. Objetivos Activos -->
+        <section class="panel-section objectives-section" id="objectivesSection">
+          <div class="section-head">
+            <span class="section-title"><span class="sec-icon">🚩</span> OBJETIVOS</span>
+          </div>
+          <div id="objectivesBox" class="objectives-box"></div>
+        </section>
+
+        <!-- 4. Mercado Táctico -->
+        <section class="panel-section market-section" id="marketSection">
+          <div id="marketBox" class="market-box"></div>
+        </section>
+
+        <!-- 5. Cartas Tácticas -->
+        <section class="panel-section cards-section" id="cardsSection">
+          <div id="cardsBox" class="cards-box"></div>
+        </section>
+
+        <!-- Panel de terreno (condicional) -->
+        <div class="terrain-panel hidden" id="terrainPanel"></div>
       </aside>
     </main>
     <button class="mobile-orders-button" id="mobileOrdersBtn" aria-controls="orderCard" aria-expanded="false"><span>Órdenes</span><strong id="mobileOrdersLabel">Abrir acciones</strong></button>

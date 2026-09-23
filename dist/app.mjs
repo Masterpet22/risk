@@ -71,38 +71,46 @@ function render(persist=true){if(!state)return;const p=state.players[state.curre
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
 function renderEventBanner(){if(!els.eventBanner)return;if(state.activeEvent){const ev=EVENT_CATALOG[state.activeEvent.type]||{name:'Desastre',icon:'⚡',desc:'Fuerza natural devastadora'};const regName=REGIONS[state.activeEvent.region]?.name||state.activeEvent.region;els.eventBanner.className='event-banner event-banner-active';els.eventBanner.innerHTML=`<span class="event-tag">¡DESASTRE ACTIVO!</span><span class="event-banner-content"><strong>${ev.icon} ${ev.name}</strong> en la región <b>${regName}</b>. Causó bajas inmediatas y bloqueó rutas de tránsito hasta la Ronda ${state.activeEvent.expiresRound}.</span>`}else if(state.announcedEvent){const ev=EVENT_CATALOG[state.announcedEvent.type]||{name:'Amenaza',icon:'⚠️',desc:'Fuerza natural en desarrollo'};const regName=REGIONS[state.announcedEvent.region]?.name||state.announcedEvent.region;els.eventBanner.className='event-banner event-banner-announced';els.eventBanner.innerHTML=`<span class="event-tag">⚠️ ALERTA TEMPRANA</span><span class="event-banner-content"><strong>${ev.icon} ${ev.name} inminente</strong> en la región <b>${regName}</b>. Impacto previsto para la <b>Ronda ${state.announcedEvent.triggerRound}</b> (${ev.desc}). ¡Prepárate o repliega tus tropas!</span>`}else{els.eventBanner.className='event-banner hidden';els.eventBanner.innerHTML=''}}
 function renderPlayers(){
-  els.players.innerHTML=state.players.map(p=>{
-    const ids=ownedIds(state,p.id),troops=ids.reduce((s,id)=>s+state.territories[id].troops,0);
-    const cardCount=Array.isArray(p.cards)?p.cards.length:p.cards;
-    const hasTempDef=state.tempDefense?.[p.id]>=state.turn;
-    const objCount=(p.completedObjectives||[]).length;
-    const cmd=COMMANDERS[p.commander]||COMMANDERS.conqueror;
-    const isHuman=p.id===0;
-    const frontToHuman=!isHuman&&p.alive?getFrontState(state,0,p.id):null;
-    const frontLabel=frontToHuman?FRONT_STATE_LABELS[frontToHuman]:null;
-    const visibility=!isHuman?ids.map(tid=>getTerritoryVisibility(state,tid,0,difficulty)):[];
-    const hasHidden=visibility.includes('hidden'),hasPartial=visibility.includes('partial');
-    const troopsStr=hasHidden?'?':hasPartial?`≈${ids.reduce((sum,tid)=>{const v=getTerritoryVisibility(state,tid,0,difficulty);if(v==='full')return sum+state.territories[tid].troops;const r=approximateTroops(state.territories[tid].troops);return sum+(r==='1-2'?2:r==='3-5'?4:r==='6-9'?8:10)},0)}`:`${troops}`;
-    const terrStr=hasHidden?'?':`${ids.length}`,moneyStr=hasHidden?'?':`$${p.money}`,prodStr=hasHidden?'?':`+$${productionTotal(state,p.id)}`;
-    return`<div class="player ${state.current===p.id?'active':''} ${!p.alive?'eliminated':''}" style="--pc:${p.color}">
-      <div class="player-top">
-        <i class="player-color"></i>
-        <span class="player-name">${p.name}</span>
-        <span class="commander-badge" title="${cmd.name}: ${cmd.desc}">${cmd.icon} ${cmd.name.replace('El ','')}</span>
-        ${hasTempDef?'<span class="temp-def-badge" title="Defensa temporal activa (+1 dado defensivo)">🛡 +1 Def</span>':''}
-        ${state.current===p.id&&p.alive?'<span class="turn-badge">EN TURNO</span>':''}
-      </div>
-      <div class="player-stats">
-        <span><strong>${terrStr}</strong> terr.</span>
-        <span title="${hasHidden?'Datos ocultos por la niebla continental':hasPartial?'Estimación basada en inteligencia parcial':''}"><strong class="${hasHidden||hasPartial?'approx-stat':''}">${troopsStr}</strong> tropas</span>
-        <span><strong>${cardCount}</strong> cartas</span>
-        <span><strong class="inf-score">${p.influence||0}</strong> inf.</span>
-      </div>
-      <div class="player-money">
-        Tesoro <strong>${moneyStr}</strong> · Prod. <strong>${prodStr}</strong>${objCount>0?` · <b class="obj-badge" title="${(p.completedObjectives||[]).map(id=>OBJECTIVES_CATALOG.find(o=>o.id===id)?.name||id).join(', ')}">${objCount} obj.</b>`:''}
-        ${frontLabel?`<div class="front-status-row"><span class="front-badge front-${frontToHuman}" title="Frente con ${p.name}: ${frontLabel.name}">${frontLabel.icon} Frente: ${frontLabel.name}</span></div>`:''}
-      </div>
-    </div>`;
+  const aliveCount = state.players.filter(p => p.alive).length;
+  const aliveBadge = $('#alivePlayersCount');
+  if (aliveBadge) aliveBadge.textContent = aliveCount + ' activos';
+
+  els.players.innerHTML = state.players.map(p => {
+    const ids = ownedIds(state, p.id), troops = ids.reduce((s, id) => s + state.territories[id].troops, 0);
+    const cardCount = Array.isArray(p.cards) ? p.cards.length : p.cards;
+    const hasTempDef = state.tempDefense?.[p.id] >= state.turn;
+    const objCount = (p.completedObjectives || []).length;
+    const cmd = COMMANDERS[p.commander] || COMMANDERS.conqueror;
+    const isHuman = p.id === 0;
+    const frontToHuman = !isHuman && p.alive ? getFrontState(state, 0, p.id) : null;
+    const frontLabel = frontToHuman ? FRONT_STATE_LABELS[frontToHuman] : null;
+    const visibility = !isHuman ? ids.map(tid => getTerritoryVisibility(state, tid, 0, difficulty)) : [];
+    const hasHidden = visibility.includes('hidden'), hasPartial = visibility.includes('partial');
+    const troopsStr = hasHidden ? '?' : hasPartial ? ('≈' + ids.reduce((sum, tid) => {
+      const v = getTerritoryVisibility(state, tid, 0, difficulty);
+      if (v === 'full') return sum + state.territories[tid].troops;
+      const r = approximateTroops(state.territories[tid].troops);
+      return sum + (r === '1-2' ? 2 : r === '3-5' ? 4 : r === '6-9' ? 8 : 10);
+    }, 0)) : ('' + troops);
+    const terrStr = hasHidden ? '?' : ('' + ids.length);
+    const isActive = state.current === p.id && p.alive;
+    const statusText = !p.alive ? 'Derrotado' : isActive ? 'EN TURNO' : 'Esperando';
+
+    return '<div class="player ' + (isActive ? 'active' : '') + ' ' + (!p.alive ? 'eliminated' : '') + '" style="--pc:' + p.color + '">' +
+      '<div class="player-top">' +
+        '<div class="player-brand-wrap">' +
+          '<span class="player-avatar" title="' + cmd.name + ': ' + cmd.desc + '">' + cmd.icon + '</span>' +
+          '<span class="player-name">' + p.name + '</span>' +
+        '</div>' +
+        '<span class="player-status-tag">' + statusText + '</span>' +
+      '</div>' +
+      '<div class="player-metrics-grid">' +
+        '<div class="metric-col"><strong>' + terrStr + '</strong><small>territorios</small></div>' +
+        '<div class="metric-col"><strong class="' + (hasHidden || hasPartial ? 'approx-stat' : '') + '">' + troopsStr + '</strong><small>tropas</small></div>' +
+        '<div class="metric-col"><strong>' + cardCount + '</strong><small>cartas</small></div>' +
+        '<div class="metric-col"><strong class="inf-val">' + (p.influence || 0) + '</strong><small>influencia</small></div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,r])=>{const regionTerrs=ts().filter(t=>t.region===k),fullyVisible=regionTerrs.every(t=>getTerritoryVisibility(state,t.id,0,difficulty)==='full'),owner=fullyVisible?state.players.find(p=>regionTerrs.every(t=>state.territories[t.id].owner===p.id)):null;return`<div class="region-row" style="--rc:${r.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${r.bonus}</strong></div>`}).join('')}
@@ -217,12 +225,117 @@ function renderCards(){
     };
   });
 }
+
+let currentMapZoom = 100;
+function setMapZoom(level) {
+  currentMapZoom = level;
+  const z = level / 100;
+  const w = 1000 / z, h = 760 / z;
+  const x = (1000 - w) / 2, y = (760 - h) / 2;
+  if (els.map) {
+    els.map.setAttribute('viewBox', x + ' ' + y + ' ' + w + ' ' + h);
+  }
+  document.querySelectorAll('.zoom-btn').forEach(btn => {
+    btn.classList.toggle('active', +btn.dataset.zoom === level);
+  });
+}
+
+function renderTerritoryInspect(id) {
+  const container = $('#territoryInspectContent');
+  if (!container) return;
+  if (!state || !id || !state.territories[id]) {
+    container.innerHTML = '<div class="territory-empty-state"><span class="empty-icon">🗺️</span><p>Selecciona un territorio en el mapa para inspeccionarlo</p></div>';
+    return;
+  }
+  const t = tById(id);
+  const d = state.territories[id];
+  const owner = state.players[d.owner];
+  const terrain = TERRAINS[t.terrain] || { name: 'Normal', icon: '📍', color: '#ffd45f' };
+  const unit = UNIT_TYPES[d.unitType] || { name: 'Infantería', icon: '◆' };
+  const vis = getTerritoryVisibility(state, id, 0, difficulty);
+  const troopsDisplay = vis === 'hidden' ? '?' : vis === 'partial' ? ('≈' + approximateTroops(d.troops)) : d.troops;
+  const bonusDesc = state.rulesMode === 'terrain'
+    ? (unit.icon + ' ' + unit.name + ' (+1 ventaja en ' + terrain.name + ')')
+    : 'Tropas estándar (+0 bonos)';
+
+  const mapImg = state.mapId === 'archipelago' ? './map-archipelago.webp' : state.mapId === 'rift' ? './map-rift.webp' : './map-frontier.webp';
+
+  container.innerHTML = '<div class="territory-active-preview">' +
+    '<div class="territory-thumb-art" style="background-image: url(\'' + mapImg + '\');">' +
+      '<span class="terrain-huge-icon">' + terrain.icon + '</span>' +
+    '</div>' +
+    '<div class="territory-specs">' +
+      '<span class="territory-specs-title">⚔️ ' + t.name + '</span>' +
+      '<div class="territory-spec-item"><span>Tipo:</span><strong>' + terrain.name + ' (' + (t.region ? (REGIONS[t.region]?.name || t.region) : 'Continental') + ')</strong></div>' +
+      '<div class="territory-spec-item"><span>Propietario:</span><strong style="color: ' + owner.color + ';">● ' + owner.name + '</strong></div>' +
+      '<div class="territory-spec-item"><span>Tropas:</span><strong>' + troopsDisplay + (state.rulesMode === 'terrain' ? ' (' + unit.name + ')' : '') + '</strong></div>' +
+      '<div class="territory-spec-item"><span>Rutas adyacentes:</span><strong>' + (t.n?.length || 0) + ' conexiones</strong></div>' +
+      '<div class="territory-bonus-line"><span>Bonus: ' + bonusDesc + '</span></div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderObjectives() {
+  const box = $('#objectivesBox');
+  if (!box || !state) return;
+  const p = state.players[state.current] || state.players[0];
+  const main = OBJECTIVES_CATALOG.find(o => o.id === p.mainObjective);
+  const temp = OBJECTIVES_CATALOG.find(o => o.id === p.temporaryObjective);
+
+  const getProgress = (obj) => {
+    if (!obj) return '✓';
+    const myTerrs = ownedIds(state, p.id).length;
+    if (obj.id === 'territories_8') return Math.min(8, myTerrs) + '/8';
+    if (obj.id === 'territories_12') return Math.min(12, myTerrs) + '/12';
+    if (obj.id === 'treasury_50') return '$' + Math.min(50, p.money) + '/$50';
+    if (obj.id === 'regions_2') {
+      const regs = Object.keys(REGIONS).filter(k => ts().filter(t => t.region === k).every(t => state.territories[t.id].owner === p.id)).length;
+      return Math.min(2, regs) + '/2';
+    }
+    if (obj.id === 'conquer_2') return (state.conqueredThisTurn ? 1 : 0) + '/2';
+    return '0/1';
+  };
+
+  box.innerHTML = '<div class="objective-item">' +
+    '<div class="obj-top">' +
+      '<span class="obj-title">' + (main ? (main.icon + ' ' + main.name) : '👑 Hegemonía') + '</span>' +
+      '<span class="obj-progress-badge">' + getProgress(main) + '</span>' +
+    '</div>' +
+    '<small class="obj-desc">' + (main ? (main.desc + ' · +' + main.value + ' infl.') : 'Objetivos principales completados.') + '</small>' +
+  '</div>' +
+  '<div class="objective-item">' +
+    '<div class="obj-top">' +
+      '<span class="obj-title">' + (temp ? (temp.icon + ' ' + temp.name) : '🚩 Supremacía') + '</span>' +
+      '<span class="obj-progress-badge">' + getProgress(temp) + '</span>' +
+    '</div>' +
+    '<small class="obj-desc">' + (temp ? (temp.desc + ' · +' + temp.value + ' infl.') : 'Objetivos temporales completados.') + '</small>' +
+  '</div>';
+}
+
 function renderEconomy(){
-  const p=state.players[state.current],income=productionTotal(state,p.id),alreadyBought=p.reinforcementsBoughtRound===state.turn,canBuy=p.human&&state.phase==='reinforce'&&p.money>=10&&!alreadyBought;
-  const main=OBJECTIVES_CATALOG.find(o=>o.id===p.mainObjective),temporary=OBJECTIVES_CATALOG.find(o=>o.id===p.temporaryObjective);
-  const objectives=p.human?`<div class="active-objectives"><div><span>OBJETIVO PRINCIPAL</span><b>${main?`${main.icon} ${main.name}`:'✓ Completados'}</b>${main?`<small>${main.desc} · +${main.value} inf.</small>`:''}</div><div><span>OBJETIVO TEMPORAL</span><b>${temporary?`${temporary.icon} ${temporary.name}`:'✓ Completados'}</b>${temporary?`<small>${temporary.desc} · +${temporary.value} inf.</small>`:''}</div></div>`:'';
-  els.economyBox.innerHTML=`<div class="economy-head"><span>TESORO</span><strong>$${p.money}</strong></div><small>Producción actual: +$${income} al inicio del turno.</small>${objectives}${p.human&&state.phase==='reinforce'?`<button id="buyTroopsBtn" class="secondary-btn" ${canBuy?'':'disabled'}>${alreadyBought?'Compra de emergencia usada':'+3 refuerzos · $10'}</button>`:''}`;
-  const button=$('#buyTroopsBtn');if(button)button.onclick=()=>{if(buyReinforcements(state)){render();showToast('Compraste 3 refuerzos por $10')}}
+  const p = state.players[state.current], income = productionTotal(state, p.id);
+  const alreadyBought = p.reinforcementsBoughtRound === state.turn;
+  const canBuy = p.human && state.phase === 'reinforce' && p.money >= 10 && !alreadyBought;
+
+  els.economyBox.innerHTML = '<div class="economy-head">' +
+    '<span class="section-title"><span class="sec-icon">💰</span> TESORO</span>' +
+    '<strong style="color: #ffd45f; font-size: 1.35rem; font-family: \'Marcellus\', serif;">$' + p.money + '</strong>' +
+  '</div>' +
+  '<small style="color: #92b0c5; font-size: 0.72rem;">Producción actual: <strong>+$' + income + '</strong> al inicio del turno.</small>' +
+  (p.human && state.phase === 'reinforce' ? (
+    '<button id="buyTroopsBtn" class="secondary-btn" style="margin-top: 6px; padding: 6px 10px; font-size: 0.75rem;" ' + (canBuy ? '' : 'disabled') + '>' +
+      (alreadyBought ? 'Compra de emergencia usada' : '+3 refuerzos · $10') +
+    '</button>'
+  ) : '');
+
+  const button = $('#buyTroopsBtn');
+  if (button) button.onclick = () => {
+    if (buyReinforcements(state)) {
+      render();
+      showToast('Compraste 3 refuerzos por $10');
+    }
+  };
+  renderObjectives();
 }
 function renderMarket(){
   if(!els.marketBox)return;
@@ -312,11 +425,125 @@ function bonusPreview(from,to){
   return `<div class="bonus-note">${attText}<br>${defText}</div>`;
 }
 function renderTerrainPanel(){if(state.rulesMode!=='terrain'){els.terrainPanel.classList.add('hidden');return}els.terrainPanel.classList.remove('hidden');const canChoose=state.phase==='reinforce'&&state.players[state.current].human;els.terrainPanel.innerHTML=`<h3>Rueda de ventaja · +1 al dado mayor</h3><div class="unit-wheel"><b>◆ Infantería</b> vence a <b>✦ Artillería</b> vence a <b>♞ Caballería</b> vence a <b>◆ Infantería</b></div>${canChoose?`<div class="unit-selector">${Object.entries(UNIT_TYPES).map(([k,u])=>`<button data-unit="${k}" class="${selectedUnit===k?'active':''}" style="--unit-color:${u.color}">${u.icon} ${u.name}</button>`).join('')}</div><div class="bonus-note">La unidad elegida se asignará al territorio que refuerces. Bosque favorece Infantería; Montaña, Artillería; Llanura, Caballería.</div>`:bonusPreview(selectedFrom,selectedTo)}`;document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{selectedUnit=b.dataset.unit;renderTerrainPanel()})}
-function renderPanel(){const human=state.players[state.current].human;els.battle.innerHTML='';els.controls.innerHTML='';els.selection.innerHTML='';renderEconomy();renderMarket();renderCards();renderTerrainPanel();if(state.phase==='gameover'){const won=state.winner===0;const vType=state.victoryType;let title='Victoria total',orderTitle='El mapa es tuyo',orderText='Todos los estandartes enemigos han caído.';if(vType==='influence'){title=won?'Hegemonía alcanzada':'Hegemonía enemiga';orderTitle=won?'150+ puntos de Influencia':`${state.players[state.winner].name} dominó por Influencia`;orderText=won?'Mantuviste tu hegemonía continental al cierre de ronda.':`${state.players[state.winner].name} superó los 150 puntos de Influencia.`;}else if(vType==='round_limit'){title=won?'Victoria por Puntos':'Campaña concluida';orderTitle=won?'Mayor Influencia en Ronda 40':`${state.players[state.winner].name} venció en Ronda 40`;orderText=won?`Alcanzaste la ronda 40 con la mayor Influencia continental (${state.players[0].influence} pts).`:`${state.players[state.winner].name} obtuvo la mayor Influencia al concluir la ronda 40 (${state.players[state.winner].influence} pts).`;}else{title=won?'Victoria total':'Campaña terminada';orderTitle=won?'El mapa es tuyo':'Has sido derrotado';orderText=won?'Todos los estandartes enemigos han caído.':'Tus últimos territorios fueron conquistados.';}els.phaseTitle.textContent=title;els.orderTitle.textContent=orderTitle;els.orderText.textContent=orderText;els.turnStatus.innerHTML=won?`<strong>Objetivo cumplido.</strong> ¡Victoria por ${vType==='influence'?'Hegemonía de Influencia':vType==='round_limit'?'puntuación en Ronda 40':'Dominio territorial'}!`:'Puedes revisar el mapa o ver el resumen final.';els.phaseBtn.textContent='Nueva partida';els.phaseBtn.disabled=false;return}if(!human){els.phaseTitle.textContent='Turno enemigo';els.orderTitle.textContent=`${state.players[state.current].name} está actuando`;els.orderText.textContent='Al terminar se mostrará un resumen de refuerzos, combates y conquistas.';els.turnStatus.innerHTML='<strong>Espera:</strong> tu turno comenzará automáticamente.';els.phaseBtn.textContent='Procesando…';els.phaseBtn.disabled=true;return}els.phaseBtn.disabled=false;
-  if(state.phase==='reinforce'){els.phaseTitle.textContent='Paso 1 · Reclutamiento';els.orderTitle.textContent=`${state.pendingReinforcements} tropas por desplegar`;els.orderText.textContent=state.rulesMode==='terrain'?`Unidad elegida: ${UNIT_TYPES[selectedUnit].name}. Pulsa un territorio propio.`:'Pulsa un territorio propio para añadir tropas.';els.turnStatus.innerHTML='<strong>Objetivo:</strong> coloca todas las tropas; después comienza el combate.';els.phaseBtn.textContent='Coloca todos los refuerzos';els.phaseBtn.disabled=true}
-  else if(state.phase==='attack'){const possible=canPlayerAttack(state);els.phaseTitle.textContent='Paso 2 · Combate';els.orderTitle.textContent=selectedTo?'Ataque preparado':selectedFrom?'Elige el objetivo':'Declara un ataque';els.orderText.textContent='Origen propio → ruta iluminada → enemigo → dados → resultado.';els.turnStatus.innerHTML=state.attackMadeThisTurn?'<strong>Tirada obligatoria cumplida.</strong> Puedes seguir o pasar.':possible?'<strong>Ataque obligatorio pendiente.</strong> Resuelve una tirada.':'<strong>Sin ataques legales.</strong> Puedes continuar.';els.phaseBtn.textContent=state.attackMadeThisTurn||!possible?'Finalizar combate →':'Debes atacar';els.phaseBtn.disabled=possible&&!state.attackMadeThisTurn;if(selectedFrom){const a=state.territories[selectedFrom];els.selection.innerHTML=`<div class="selection-item"><span>Origen · ${tById(selectedFrom).name}</span><strong>${a.troops} tropas</strong></div>`}if(selectedTo)renderAttackControls()}
-  else if(state.phase==='fortify'){els.phaseTitle.textContent='Paso 3 · Maniobra';els.orderTitle.textContent=selectedTo?'Movimiento preparado':selectedFrom?'Elige el destino':'Fortifica o pasa';els.orderText.textContent='Mueve tropas por una ruta propia continua o pasa.';els.turnStatus.innerHTML=state.extraFortifies>0?'<strong>Movilización activa:</strong> puedes realizar una maniobra adicional.':'<strong>Opcional:</strong> un movimiento máximo.';els.phaseBtn.textContent='Pasar maniobra → cierre';if(selectedFrom){els.selection.innerHTML=`<div class="selection-item"><span>Origen · ${tById(selectedFrom).name}</span><strong>${state.territories[selectedFrom].troops} tropas</strong></div>`}if(selectedTo)renderFortifyControls()}
-  else{els.phaseTitle.textContent='Paso 4 · Cierre';if(state.pendingCardDraw){els.orderTitle.textContent='Mano llena (3 cartas)';els.orderText.textContent='Elige qué carta descartar en el panel de cartas tácticas.';els.turnStatus.innerHTML='<strong>Descarte obligatorio:</strong> debes descartar una carta para continuar.';els.phaseBtn.textContent='Descarta una carta';els.phaseBtn.disabled=true}else{const p=state.players[state.current];els.orderTitle.textContent=state.conqueredThisTurn?'Carta táctica robada':'Cierre de turno';els.orderText.textContent=state.conqueredThisTurn?'Conquistaste: recibiste 1 carta táctica.':'No conquistaste en este turno.';els.turnStatus.innerHTML=`<strong>Influencia:</strong> ${p.influence} pts · <strong>Objetivos:</strong> ${(p.completedObjectives||[]).length} cumplidos · ${p.cards.length} cartas en mano.`;els.phaseBtn.textContent='Pasar al siguiente jugador →';els.phaseBtn.disabled=false}}
+function renderPanel(){
+  const human = state.players[state.current].human;
+  els.battle.innerHTML = '';
+  els.controls.innerHTML = '';
+  els.selection.innerHTML = '';
+  renderEconomy();
+  renderMarket();
+  renderCards();
+  renderTerrainPanel();
+  renderTerritoryInspect(selectedTo || selectedFrom);
+
+  const headingEl = $('#contextActionHeading') || els.orderTitle;
+  const subEl = $('#contextActionSubtitle') || els.orderText;
+  const badgeEl = $('#contextPhaseBadge');
+
+  if (state.phase === 'gameover') {
+    const won = state.winner === 0;
+    const vType = state.victoryType;
+    let title = won ? '¡Victoria Hegemónica!' : 'Campaña Concluida';
+    let subtitle = won ? 'Todos los estandartes rivales han caído.' : 'Tus últimos territorios fueron conquistados.';
+    if (badgeEl) badgeEl.textContent = won ? 'Victoria' : 'Derrota';
+    headingEl.textContent = title;
+    subEl.textContent = subtitle;
+    els.turnStatus.innerHTML = won
+      ? '<strong>Objetivo cumplido.</strong> ¡Victoria por ' + (vType==='influence'?'Hegemonía de Influencia':vType==='round_limit'?'puntuación en Ronda 40':'Dominio territorial') + '!'
+      : 'Puedes revisar el mapa o ver el resumen final.';
+    els.phaseBtn.textContent = 'Nueva partida';
+    els.phaseBtn.disabled = false;
+    return;
+  }
+
+  if (!human) {
+    if (badgeEl) badgeEl.textContent = 'Turno IA';
+    headingEl.textContent = state.players[state.current].name + ' está actuando';
+    subEl.textContent = 'Procesando órdenes de combate y refuerzos.';
+    els.turnStatus.innerHTML = '<strong>Espera:</strong> tu turno comenzará automáticamente.';
+    els.phaseBtn.textContent = 'Procesando…';
+    els.phaseBtn.disabled = true;
+    return;
+  }
+
+  els.phaseBtn.disabled = false;
+
+  if (state.phase === 'reinforce') {
+    if (badgeEl) badgeEl.textContent = 'Reclutamiento';
+    headingEl.textContent = state.pendingReinforcements > 0 
+      ? (state.pendingReinforcements + ' tropas por desplegar')
+      : 'Despliegue completado';
+    subEl.textContent = state.rulesMode === 'terrain'
+      ? ('Unidad elegida: ' + UNIT_TYPES[selectedUnit].name + '. Pulsa un territorio propio.')
+      : 'Pulsa un territorio propio para añadir tropas.';
+    els.turnStatus.innerHTML = '<strong>Objetivo:</strong> coloca todas las tropas; después comienza el combate.';
+    els.phaseBtn.textContent = state.pendingReinforcements > 0 ? 'Coloca todos tus refuerzos' : 'Comenzar combate →';
+    els.phaseBtn.disabled = state.pendingReinforcements > 0;
+  }
+  else if (state.phase === 'attack') {
+    if (badgeEl) badgeEl.textContent = 'Combate';
+    const possible = canPlayerAttack(state);
+    if (selectedTo) {
+      headingEl.textContent = 'Asalto preparado';
+      subEl.textContent = 'Configura los dados y pulsa lanzar o ataque rápido.';
+    } else if (selectedFrom) {
+      headingEl.textContent = 'Atacando desde ' + tById(selectedFrom).name;
+      subEl.textContent = 'Selecciona un territorio enemigo adyacente con borde rojo.';
+    } else {
+      headingEl.textContent = 'Fase de Combate';
+      subEl.textContent = 'Elige un territorio propio con 2 o más tropas para atacar.';
+    }
+    els.turnStatus.innerHTML = state.attackMadeThisTurn
+      ? '<strong>Tirada cumplida.</strong> Puedes continuar combatiendo o pasar a maniobra.'
+      : possible
+      ? '<strong>Ataque obligatorio pendiente:</strong> realiza al menos 1 combate.'
+      : '<strong>Sin ataques posibles:</strong> puedes avanzar a maniobra.';
+    els.phaseBtn.textContent = state.attackMadeThisTurn || !possible ? 'Terminar combate →' : 'Debes atacar';
+    els.phaseBtn.disabled = possible && !state.attackMadeThisTurn;
+    if (selectedFrom) {
+      const a = state.territories[selectedFrom];
+      els.selection.innerHTML = '<div class="selection-item"><span>Origen · ' + tById(selectedFrom).name + '</span><strong>' + a.troops + ' tropas</strong></div>';
+    }
+    if (selectedTo) renderAttackControls();
+  }
+  else if (state.phase === 'fortify') {
+    if (badgeEl) badgeEl.textContent = 'Maniobra';
+    if (selectedTo) {
+      headingEl.textContent = 'Transferencia de tropas';
+      subEl.textContent = 'Elige la cantidad de tropas y confirma el movimiento.';
+    } else if (selectedFrom) {
+      headingEl.textContent = 'Moviendo desde ' + tById(selectedFrom).name;
+      subEl.textContent = 'Selecciona el territorio destino conectado.';
+    } else {
+      headingEl.textContent = 'Fase de Maniobra';
+      subEl.textContent = 'Mueve tropas por una ruta continua o pasa al cierre.';
+    }
+    els.turnStatus.innerHTML = state.extraFortifies > 0
+      ? '<strong>Movilización activa:</strong> puedes realizar una maniobra adicional.'
+      : '<strong>Opcional:</strong> un movimiento por ronda o pasar.';
+    els.phaseBtn.textContent = 'Pasar maniobra → cierre';
+    if (selectedFrom) {
+      els.selection.innerHTML = '<div class="selection-item"><span>Origen · ' + tById(selectedFrom).name + '</span><strong>' + state.territories[selectedFrom].troops + ' tropas</strong></div>';
+    }
+    if (selectedTo) renderFortifyControls();
+  }
+  else {
+    if (badgeEl) badgeEl.textContent = 'Cierre';
+    if (state.pendingCardDraw) {
+      headingEl.textContent = 'Mano llena (3 cartas)';
+      subEl.textContent = 'Elige qué carta descartar en tu mano táctica.';
+      els.turnStatus.innerHTML = '<strong>Descarte obligatorio:</strong> debes descartar una carta para continuar.';
+      els.phaseBtn.textContent = 'Descarta una carta';
+      els.phaseBtn.disabled = true;
+    } else {
+      const p = state.players[state.current];
+      headingEl.textContent = state.conqueredThisTurn ? '¡Carta táctica ganada!' : 'Fin de turno';
+      subEl.textContent = state.conqueredThisTurn ? 'Conquistaste territorios: carta táctica añadida a tu mano.' : 'No conquistaste territorios en esta ronda.';
+      els.turnStatus.innerHTML = '<strong>Influencia:</strong> ' + p.influence + ' pts · <strong>Objetivos:</strong> ' + (p.completedObjectives||[]).length + ' cumplidos.';
+      els.phaseBtn.textContent = 'Pasar al siguiente jugador →';
+      els.phaseBtn.disabled = false;
+    }
+  }
 }
 function renderAttackControls(){const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1);selectedDice=Math.min(selectedDice,max);els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} · ${state.rulesMode==='terrain'?UNIT_TYPES[a.unitType].name:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${d.troops} · ${state.rulesMode==='terrain'?UNIT_TYPES[d.unitType].name:''}</strong></div>`;els.controls.innerHTML=`<label>Dados del atacante (máximo ${max})</label><div class="dice-choice">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}">${n} dado${n>1?'s':''}</button>`).join('')}</div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn">🎲 Lanzar una ronda</button><button class="secondary-btn" id="blitzBtn">Ataque rápido</button>`;document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel()});$('#rollBtn').onclick=()=>doAttack(false);$('#blitzBtn').onclick=()=>doAttack(true)}
 function renderFortifyControls(){const max=state.territories[selectedFrom].troops-1;if(max<1)return;els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${state.territories[selectedTo].troops}</strong></div>`;els.controls.innerHTML=`<label>Tropas a mover: <strong id="moveVal">1</strong><input id="moveRange" type="range" min="1" max="${max}" value="1"></label><button class="primary-btn" id="moveBtn">Confirmar movimiento → cierre</button>`;$('#moveRange').oninput=e=>$('#moveVal').textContent=e.target.value;$('#moveBtn').onclick=()=>{if(fortify(state,selectedFrom,selectedTo,+$('#moveRange').value)){selectedFrom=selectedTo=null;render();closeMobileOrders()}else showToast('No existe una ruta propia continua')}}
@@ -324,6 +551,7 @@ function renderFortifyControls(){const max=state.territories[selectedFrom].troop
 function territoryClick(id,shift=false){
   if(!state||aiBusy||rolling||state.winner!==null||!state.players[state.current].human)return;
   const d=state.territories[id];
+  renderTerritoryInspect(id);
   if(cardTargeting){
     if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage'){
       if(d.owner===state.current)return showToast('Debes elegir un territorio enemigo');
@@ -640,3 +868,7 @@ document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()
 
 function registerWebMCP(){const c=document.modelContext;if(!c?.registerTool)return;try{c.registerTool({name:'get_campaign_state',title:'Consultar campaña',description:'Devuelve mapa, reglas, turno, fase y jugadores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>state?{map:getMap(state).name,mode:state.rulesMode,turn:state.turn,phase:state.phase,currentPlayer:state.players[state.current].name,winner:state.winner===null?null:state.players[state.winner].name}:{status:'no_game'}})}catch(e){console.warn('WebMCP no disponible',e)}}
 initMap('frontier');applyRandomStartBg();if(localStorage.getItem(SAVE))$('#continueBtn').hidden=false;registerWebMCP();
+document.querySelectorAll('.zoom-btn').forEach(btn => btn.onclick = () => setMapZoom(+btn.dataset.zoom));
+if($('#saveQuickBtn')) $('#saveQuickBtn').onclick = () => { save(); showToast('💾 Partida guardada con éxito'); };
+if($('#settingsBtn')) $('#settingsBtn').onclick = () => { els.helpModal.classList.remove('hidden'); };
+
