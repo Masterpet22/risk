@@ -1,4 +1,4 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront} from './engine.mjs';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops} from './engine.mjs';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),marketBox:$('#marketBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),mapName:$('#mapName'),modeBadge:$('#modeBadge'),routesBtn:$('#routesBtn'),toast:$('#toast')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,selectedDice=3,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null;
@@ -19,9 +19,30 @@ function positionTooltip(e){const box=document.querySelector('.map-wrap').getBou
 function updateHover(id,e){
   if(!state)return;
   const t=tById(id),d=state.territories[id],p=state.players[d.owner],terrain=TERRAINS[t.terrain],unit=UNIT_TYPES[d.unitType];
+  const intel=getTerritoryIntel(state,id,0,difficulty);
   const isSabotaged=state.sabotagedTerritories?.[id]>=state.turn;
-  const isSpied=state.spiedTerritories?.[id]&&(state.spiedTerritories[id].expiresTurn>=state.turn||state.spiedTerritories[id]>=state.turn);
-  els.mapTooltip.innerHTML=`<b>${t.name}</b><div class="tip-row"><span>Propietario</span><strong style="color:${p.color}">${p.name}</strong></div><div class="tip-row"><span>Tropas</span><strong>${d.troops}</strong></div><div class="tip-row"><span>Producción</span><strong>+$${territoryProduction(state,id)}${isSabotaged?' (⚡ Saboteado)':''}</strong></div>${isSpied?'<div class="tip-row"><span>Inteligencia</span><strong style="color:#6fe4dc">👁 Información completa</strong></div>':''}${state.rulesMode==='terrain'?`<div class="tip-row"><span>Terreno</span><strong>${terrain.icon} ${terrain.name}</strong></div><div class="tip-row"><span>Unidad</span><strong>${unit.icon} ${unit.name}</strong></div>`:''}<div class="tip-adj">Conecta con ${t.n.length} territorios</div>`;
+  const isSpied=intel.isSpied;
+
+  let intelRow='';
+  if(intel.visibility==='full'){
+    intelRow=isSpied?`<div class="tip-row tip-spied"><span>Inteligencia</span><strong style="color:#6fe4dc">👁 Revelado por Espía</strong></div>`:d.owner===0?`<div class="tip-row tip-owned"><span>Territorio propio</span><strong style="color:#4ecdc4">✓ Guarnición bajo tu mando</strong></div>`:`<div class="tip-row tip-full"><span>Frontera directa</span><strong style="color:#64ae8b">✓ Visión completa</strong></div>`;
+  }else if(intel.visibility==='partial'){
+    intelRow=`<div class="tip-row tip-partial"><span>Niebla continental</span><strong style="color:#f7b731">⚠️ Info parcial (Distancia 2)</strong></div>`;
+  }else{
+    intelRow=`<div class="tip-row tip-hidden"><span>Niebla profunda</span><strong style="color:#95a5a6">🌫️ Tierras lejanas (infiltra Espía)</strong></div>`;
+  }
+
+  const troopsText=intel.visibility==='full'?d.troops:intel.visibility==='partial'?`~${intel.troopsDisplay} (estimadas)`:'? Desconocida';
+  const prodText=intel.visibility==='full'?`+$${territoryProduction(state,id)}${isSabotaged?' (⚡ Saboteado)':''}`:intel.visibility==='partial'?'Aprox. región':'? Oculta';
+  const unitText=state.rulesMode==='terrain'?(intel.visibility==='full'?`${unit.icon} ${unit.name}`:'? Oculta por niebla'):'';
+
+  els.mapTooltip.innerHTML=`<b>${t.name}</b>
+    <div class="tip-row"><span>Propietario</span><strong style="color:${p.color}">${p.name}</strong></div>
+    <div class="tip-row"><span>Tropas</span><strong>${troopsText}</strong></div>
+    <div class="tip-row"><span>Producción</span><strong>${prodText}</strong></div>
+    ${state.rulesMode==='terrain'?`<div class="tip-row"><span>Terreno</span><strong>${terrain.icon} ${terrain.name}</strong></div><div class="tip-row"><span>Unidad</span><strong>${unitText}</strong></div>`:''}
+    ${intelRow}
+    <div class="tip-adj">Conecta con ${t.n.length} territorios</div>`;
   els.mapTooltip.classList.remove('hidden');positionTooltip(e);renderMap();
 }
 function updateConnections(){
@@ -49,6 +70,8 @@ function renderPlayers(){
     const isHuman=p.id===0;
     const frontToHuman=!isHuman&&p.alive?getFrontState(state,0,p.id):null;
     const frontLabel=frontToHuman?FRONT_STATE_LABELS[frontToHuman]:null;
+    const hasHidden=!isHuman&&ids.some(tid=>getTerritoryVisibility(state,tid,0,difficulty)!=='full');
+    const troopsStr=hasHidden?`~${troops}`:`${troops}`;
     return`<div class="player ${state.current===p.id?'active':''} ${!p.alive?'eliminated':''}" style="--pc:${p.color}">
       <div class="player-top">
         <i class="player-color"></i>
@@ -59,7 +82,7 @@ function renderPlayers(){
       </div>
       <div class="player-stats">
         <span><strong>${ids.length}</strong> terr.</span>
-        <span><strong>${troops}</strong> tropas</span>
+        <span title="${hasHidden?'Tropas aproximadas (posee territorios lejanos bajo niebla)':''}"><strong class="${hasHidden?'approx-stat':''}">${troopsStr}</strong> tropas</span>
         <span><strong>${cardCount}</strong> cartas</span>
         <span><strong class="inf-score">${p.influence||0}</strong> inf.</span>
       </div>
@@ -71,7 +94,60 @@ function renderPlayers(){
   }).join('');
 }
 function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,r])=>{const owner=state.players.find(p=>ts().filter(t=>t.region===k).every(t=>state.territories[t.id].owner===p.id));return`<div class="region-row" style="--rc:${r.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${r.bonus}</strong></div>`}).join('')}
-function renderMap(){for(const t of ts()){const d=state.territories[t.id],p=state.players[d.owner],g=$(`#terr-${t.id}`);if(!g)continue;g.style.setProperty('--owner',p.color);g.style.setProperty('--terrain',TERRAINS[t.terrain].color);g.style.setProperty('--unit',UNIT_TYPES[d.unitType].color);g.classList.toggle('owned',d.owner===state.current);g.classList.toggle('selected',t.id===selectedFrom||t.id===selectedTo);g.classList.toggle('target',selectedFrom&&state.phase==='attack'&&enemiesOf(state,selectedFrom).includes(t.id));g.classList.toggle('dimmed',!!hoverId&&hoverId!==t.id&&!t.n.includes(hoverId));const isSabotaged=state.sabotagedTerritories?.[t.id]>=state.turn;const isSpied=state.spiedTerritories?.[t.id]&&(state.spiedTerritories[t.id].expiresTurn>=state.turn||state.spiedTerritories[t.id]>=state.turn);g.classList.toggle('sabotaged',!!isSabotaged);g.classList.toggle('spied',!!isSpied);if(cardTargeting){if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage')g.classList.toggle('card-valid-target',d.owner!==state.current);else if(cardTargeting.cardId==='blockade'){if(!cardTargeting.from)g.classList.toggle('card-valid-target',true);else g.classList.toggle('card-valid-target',t.n.includes(cardTargeting.from))}}else{g.classList.remove('card-valid-target')}g.querySelector('.army-count').textContent=d.troops;g.querySelector('.unit-mark').textContent=state.rulesMode==='terrain'?UNIT_TYPES[d.unitType].icon:'♟';g.querySelector('.terrain-mark').style.display=state.rulesMode==='terrain'?'block':'none';g.setAttribute('aria-label',`${t.name}, ${d.troops} tropas, ${p.name}${state.rulesMode==='terrain'?`, ${TERRAINS[t.terrain].name}, ${UNIT_TYPES[d.unitType].name}`:''}`)}updateConnections()}
+function renderMap(){
+  for(const t of ts()){
+    const d=state.territories[t.id],p=state.players[d.owner],g=$(`#terr-${t.id}`);
+    if(!g)continue;
+    const intel=getTerritoryIntel(state,t.id,0,difficulty);
+    g.style.setProperty('--owner',p.color);
+    g.style.setProperty('--terrain',TERRAINS[t.terrain].color);
+    g.style.setProperty('--unit',UNIT_TYPES[d.unitType].color);
+    g.classList.toggle('owned',d.owner===state.current);
+    g.classList.toggle('selected',t.id===selectedFrom||t.id===selectedTo);
+    g.classList.toggle('target',selectedFrom&&state.phase==='attack'&&enemiesOf(state,selectedFrom).includes(t.id));
+    g.classList.toggle('dimmed',!!hoverId&&hoverId!==t.id&&!t.n.includes(hoverId));
+
+    g.classList.toggle('intel-full',intel.visibility==='full');
+    g.classList.toggle('intel-partial',intel.visibility==='partial');
+    g.classList.toggle('intel-hidden',intel.visibility==='hidden');
+    g.classList.toggle('spied',!!intel.isSpied);
+
+    const isSabotaged=state.sabotagedTerritories?.[t.id]>=state.turn;
+    g.classList.toggle('sabotaged',!!isSabotaged);
+
+    if(cardTargeting){
+      if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage')g.classList.toggle('card-valid-target',d.owner!==state.current);
+      else if(cardTargeting.cardId==='blockade'){
+        if(!cardTargeting.from)g.classList.toggle('card-valid-target',true);
+        else g.classList.toggle('card-valid-target',t.n.includes(cardTargeting.from));
+      }
+    }else{
+      g.classList.remove('card-valid-target');
+    }
+
+    const countEl=g.querySelector('.army-count');
+    countEl.textContent=intel.troopsDisplay;
+    countEl.classList.toggle('army-range',intel.visibility==='partial');
+    countEl.classList.toggle('army-hidden',intel.visibility==='hidden');
+
+    const unitEl=g.querySelector('.unit-mark');
+    if(intel.visibility==='full'){
+      unitEl.textContent=state.rulesMode==='terrain'?UNIT_TYPES[d.unitType].icon:'♟';
+    }else{
+      unitEl.textContent='?';
+    }
+
+    const terrMarkEl=g.querySelector('.terrain-mark');
+    terrMarkEl.style.display=(state.rulesMode==='terrain'&&intel.visibility!=='hidden')?'block':'none';
+
+    let descr=`${t.name}, `;
+    if(intel.visibility==='full')descr+=`${d.troops} tropas, ${p.name}`;
+    else if(intel.visibility==='partial')descr+=`aprox. ${intel.troopsDisplay} tropas, ${p.name}`;
+    else descr+=`fuerza desconocida, ${p.name}`;
+    g.setAttribute('aria-label',descr);
+  }
+  updateConnections();
+}
 function renderLog(){els.log.innerHTML=state.log.slice(0,8).map(l=>`<div class="log-item" style="--lc:${l.p===null?'#788896':state.players[l.p]?.color||'#788896'}"><i class="log-dot"></i><span>${l.text}</span></div>`).join('')}
 function setGuide(step,title,text){els.mapGuide.innerHTML=`<span>${step}</span><strong>${title}</strong><small>${text}</small>`}
 function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado',`Ganador: ${state.players[state.winner].name}. Abre el resumen final cuando quieras.`);return}if(!state.players[state.current].human){setGuide('…',`${state.players[state.current].name} está jugando`,'Al terminar verás un informe de sus combates.');return}if(state.phase==='reinforce')setGuide('1','Pulsa tus territorios luminosos',`Coloca las ${state.pendingReinforcements} tropas restantes.`);else if(state.phase==='attack'&&!selectedFrom)setGuide('1','Elige el territorio atacante','Al pasar el cursor solo se iluminan sus rutas reales.');else if(state.phase==='attack'&&!selectedTo)setGuide('2','Elige un vecino enemigo','Los objetivos válidos tienen borde rojo.');else if(state.phase==='attack')setGuide('3','Configura y lanza los dados',state.rulesMode==='terrain'?'La ventaja de unidad o terreno suma +1 al dado mayor.':'El modo clásico no aplica modificadores.');else if(state.phase==='fortify'&&!selectedFrom)setGuide('1','Elige el origen de la maniobra','Debe tener al menos 2 tropas. También puedes pasar.');else if(state.phase==='fortify'&&!selectedTo)setGuide('2','Elige el destino propio','Puede conectarse por una ruta continua propia.');else if(state.phase==='fortify')setGuide('3','Confirma cuántas tropas mover','Siempre quedará al menos una en el origen.');else setGuide('4','Revisa el cierre',state.conqueredThisTurn?'Recibes una carta táctica.':'No conquistaste: no recibes carta.')}

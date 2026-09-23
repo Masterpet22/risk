@@ -110,7 +110,7 @@ export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier
     if(human&&i===0)return chosenCmd;
     return availCmds[(i-1)%availCmds.length]||COMMANDER_IDS[i%COMMANDER_IDS.length];
   });
-  const state={version:8,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,victoryType:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,turnConquests:{},blockedConnections:[],sabotagedTerritories:{},spiedTerritories:{},extraFortifies:0,pendingCardDraw:null,tempDefense:{},fronts:{},
+  const state={version:9,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,victoryType:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,turnConquests:{},blockedConnections:[],sabotagedTerritories:{},spiedTerritories:{},extraFortifies:0,pendingCardDraw:null,tempDefense:{},fronts:{},
     players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:PLAYER_COLORS[i],human:human&&i===0,commander:pCommanders[i],alive:true,cards:[],money:0,lastIncomeRound:0,completedObjectives:[],eliminatedRivals:0,influence:0})),territories:{},rngState:Math.floor(rng()*0xffffffff)};
   state.market=generateMarket(state,0);
   order.forEach((id,i)=>state.territories[id]={owner:i%players,troops:1,unitType:['infantry','artillery','cavalry'][i%3]});
@@ -124,6 +124,79 @@ export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier
 export const ownedIds=(s,p)=>getTerritories(s).filter(t=>s.territories[t.id].owner===p).map(t=>t.id);
 export const enemiesOf=(s,id)=>terr(s,id).n.filter(n=>s.territories[n].owner!==s.territories[id].owner&&!isConnectionBlocked(s,id,n));
 export const alliesOf=(s,id)=>terr(s,id).n.filter(n=>s.territories[n].owner===s.territories[id].owner&&!isConnectionBlocked(s,id,n));
+
+export const VISIBILITY_LEVELS=['full','partial','hidden'];
+export function approximateTroops(troops){
+  if(troops<=2)return '1-2';
+  if(troops<=5)return '3-5';
+  if(troops<=9)return '6-9';
+  return '10+';
+}
+export function minDistanceToOwned(state,tid,pid){
+  if(state.territories[tid]?.owner===pid)return 0;
+  const myTerrs=ownedIds(state,pid);
+  if(!myTerrs.length)return Infinity;
+  const dist=new Map();
+  const q=[];
+  for(const id of myTerrs){dist.set(id,0);q.push(id)}
+  while(q.length){
+    const curr=q.shift();
+    const d=dist.get(curr);
+    if(curr===tid)return d;
+    for(const neighbor of terr(state,curr).n){
+      if(!dist.has(neighbor)){
+        dist.set(neighbor,d+1);
+        q.push(neighbor);
+      }
+    }
+  }
+  return dist.get(tid)??Infinity;
+}
+export function isTerritorySpied(state,tid,pid=0){
+  const s=state?.spiedTerritories?.[tid];
+  if(!s)return false;
+  const exp=typeof s==='object'?s.expiresTurn:s;
+  const spiedBy=typeof s==='object'?s.spiedBy:undefined;
+  if(exp<state.turn)return false;
+  if(spiedBy!==undefined&&spiedBy!==pid)return false;
+  return true;
+}
+export function getTerritoryVisibility(state,tid,observerId=0,difficulty='normal'){
+  if(!state?.territories?.[tid])return 'hidden';
+  if(state.territories[tid].owner===observerId)return 'full';
+  if(isTerritorySpied(state,tid,observerId))return 'full';
+  const d=minDistanceToOwned(state,tid,observerId);
+  const isObserverHuman=state.players[observerId]?.human;
+  if(isObserverHuman||difficulty==='normal'){
+    if(d<=1)return 'full';
+    if(d===2)return 'partial';
+    return 'hidden';
+  }
+  if(difficulty==='fácil'){
+    if(d<=1)return 'partial';
+    return 'hidden';
+  }
+  if(difficulty==='difícil'){
+    if(d<=2)return 'full';
+    return 'partial';
+  }
+  return d<=1?'full':d===2?'partial':'hidden';
+}
+export function getTerritoryIntel(state,tid,observerId=0,difficulty='normal'){
+  const vis=getTerritoryVisibility(state,tid,observerId,difficulty);
+  const t=terr(state,tid);
+  const d=state.territories[tid];
+  if(!t||!d)return null;
+  const owner=d.owner;
+  const isSpied=isTerritorySpied(state,tid,observerId);
+  if(vis==='full'){
+    return{visibility:'full',owner,troops:d.troops,troopsDisplay:String(d.troops),unitType:d.unitType,production:territoryProduction(state,tid),isSabotaged:state.sabotagedTerritories?.[tid]>=state.turn,isSpied};
+  }
+  if(vis==='partial'){
+    return{visibility:'partial',owner,troops:d.troops,troopsDisplay:approximateTroops(d.troops),unitType:null,production:null,isSabotaged:state.sabotagedTerritories?.[tid]>=state.turn,isSpied:false};
+  }
+  return{visibility:'hidden',owner,troops:null,troopsDisplay:'?',unitType:null,production:null,isSabotaged:null,isSpied:false};
+}
 export function territoryProduction(state,id,pid=state.territories[id]?.owner){
   const t=terr(state,id);
   if(!t||state.territories[id]?.owner!==pid)return 0;
@@ -320,8 +393,8 @@ export function checkObjectives(state,pid){
 
 export function upgradeGame(state){
   if(!state)return null;
-  if(state.version===8)return state;
-  if(state.version!==3&&state.version!==4&&state.version!==5&&state.version!==6&&state.version!==7)return null;
+  if(state.version===9)return state;
+  if(state.version!==3&&state.version!==4&&state.version!==5&&state.version!==6&&state.version!==7&&state.version!==8)return null;
   if(state.version===3){
     state.players.forEach(p=>{p.money=0;p.lastIncomeRound=0});
   }
@@ -360,7 +433,7 @@ export function upgradeGame(state){
     }
     p.influence=calculateInfluence(state,p.id);
   });
-  state.version=8;
+  state.version=9;
   if(state.winner===null&&state.players[state.current]?.lastIncomeRound===0)collectIncome(state,state.current);
   return state;
 }
@@ -610,8 +683,13 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   if(p.cards.includes('sabotage')&&p.money>=15){
     const enemyTerrs=getTerritories(state).filter(t=>state.territories[t.id].owner!==pid&&(!state.sabotagedTerritories||!state.sabotagedTerritories[t.id]));
     if(enemyTerrs.length){
-      enemyTerrs.sort((a,b)=>territoryProduction(state,b.id)-territoryProduction(state,a.id));
-      playTacticalCard(state,'sabotage',enemyTerrs[0].id,pid);
+      if(difficulty==='fácil'){
+        const randIdx=Math.floor(nextRand(state)*enemyTerrs.length);
+        playTacticalCard(state,'sabotage',enemyTerrs[randIdx].id,pid);
+      }else{
+        enemyTerrs.sort((a,b)=>territoryProduction(state,b.id)-territoryProduction(state,a.id));
+        playTacticalCard(state,'sabotage',enemyTerrs[0].id,pid);
+      }
     }
   }
   const blockCost=p.commander==='strategist'?15:25;
@@ -632,7 +710,7 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
     const enemyBorders=[];
     for(const myId of ownedIds(state,pid)){
       for(const n of enemiesOf(state,myId)){
-        if(!enemyBorders.includes(n)&&(!state.spiedTerritories||!state.spiedTerritories[n]))enemyBorders.push(n);
+        if(!enemyBorders.includes(n)&&!isTerritorySpied(state,n,pid))enemyBorders.push(n);
       }
     }
     if(enemyBorders.length){
@@ -666,8 +744,16 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   while(moves++<limit&&state.winner===null){
     const options=[];
     for(const from of ownedIds(state,pid))for(const to of enemiesOf(state,from)){
-      const advantage=state.territories[from].troops-state.territories[to].troops;
-      if(state.territories[from].troops>1)options.push({from,to,advantage,target:state.territories[to].troops});
+      const intel=getTerritoryIntel(state,to,pid,difficulty);
+      let perceivedTroops=state.territories[to].troops;
+      if(intel.visibility==='partial'){
+        const r=approximateTroops(state.territories[to].troops);
+        perceivedTroops=r==='1-2'?1.5:r==='3-5'?4:r==='6-9'?7.5:12;
+      }else if(intel.visibility==='hidden'){
+        perceivedTroops=4;
+      }
+      const advantage=state.territories[from].troops-perceivedTroops;
+      if(state.territories[from].troops>1)options.push({from,to,advantage,target:perceivedTroops});
     }
     if(!options.length)break;
     options.sort((a,b)=>b.advantage-a.advantage||a.target-b.target);

@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -125,14 +125,14 @@ if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[
 const before=economy.pendingReinforcements;
 if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
 const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV3)?.version!==8||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v8 de forma estable');
+if(upgradeGame(previousV3)?.version!==9||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v9 de forma estable');
 const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV4)?.version!==8||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v8 de forma estable');
+if(upgradeGame(previousV4)?.version!==9||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v9 de forma estable');
 const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV5)?.version!==8||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v8 de forma estable');
+if(upgradeGame(previousV5)?.version!==9||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v9 de forma estable');
 const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV6)?.version!==8||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v8 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v8 verificados.');
+if(upgradeGame(previousV6)?.version!==9||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v9 de forma estable');
+console.log('OK: producción, tesoro, compras y migración v9 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
@@ -303,15 +303,94 @@ const spyTarget = ownedIds(testSpy, 1)[0];
 const spyRes = playTacticalCard(testSpy, 'spy', spyTarget, 0);
 if (!spyRes.ok) throw new Error('El Espía debe poder usar Espía gratis sin dinero');
 
-// 7. Migración de partida guardada a v8:
+// 7. Migración de partida guardada a v9:
 const oldV7 = createGame({players:2, seed:907, human:true});
 oldV7.version = 7;
 delete oldV7.fronts;
 oldV7.players.forEach(p => delete p.commander);
 const upgraded = upgradeGame(oldV7);
-if (!upgraded || upgraded.version !== 8 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 8 falló');
+if (!upgraded || upgraded.version !== 9 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 9 falló');
 
-console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8 verificadas.');
+const oldV8 = createGame({players:2, seed:908, human:true});
+oldV8.version = 8;
+const upgradedV8 = upgradeGame(oldV8);
+if (!upgradedV8 || upgradedV8.version !== 9) throw new Error('La migración desde versión 8 a versión 9 falló');
+
+console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8/v9 verificadas.');
+
+// 8. Información Imperfecta (§10) y Rangos de Tropas
+if (approximateTroops(1) !== '1-2' || approximateTroops(2) !== '1-2') throw new Error('Rango 1-2 incorrecto');
+if (approximateTroops(3) !== '3-5' || approximateTroops(5) !== '3-5') throw new Error('Rango 3-5 incorrecto');
+if (approximateTroops(6) !== '6-9' || approximateTroops(9) !== '6-9') throw new Error('Rango 6-9 incorrecto');
+if (approximateTroops(10) !== '10+' || approximateTroops(42) !== '10+') throw new Error('Rango 10+ incorrecto');
+
+// 9. Niveles de Visibilidad y Niebla de Guerra
+const fogGame = createGame({players:3, seed:999, human:true});
+const p0Terrs = ownedIds(fogGame, 0);
+const myT = p0Terrs[0];
+if (getTerritoryVisibility(fogGame, myT, 0) !== 'full') throw new Error('Un territorio propio debe tener visibilidad full');
+
+// Encontrar vecinos directos (distancia 1)
+const directEnemies = enemiesOf(fogGame, myT);
+if (directEnemies.length > 0) {
+  const directEnemy = directEnemies[0];
+  if (minDistanceToOwned(fogGame, directEnemy, 0) !== 1) throw new Error('La distancia al vecino directo debe ser 1');
+  if (getTerritoryVisibility(fogGame, directEnemy, 0, 'normal') !== 'full') throw new Error('Un vecino directo debe tener visibilidad full en normal');
+  const directIntel = getTerritoryIntel(fogGame, directEnemy, 0, 'normal');
+  if (directIntel.visibility !== 'full' || directIntel.troops === null || typeof directIntel.production !== 'number') {
+    throw new Error('Intel de vecino directo incompleto');
+  }
+}
+
+// Encontrar un territorio a distancia 2 o más
+const allTerrs = getTerritories(fogGame).map(t => t.id);
+const distMap = allTerrs.map(id => ({id, dist: minDistanceToOwned(fogGame, id, 0)}));
+const dist2 = distMap.find(x => x.dist === 2);
+if (dist2) {
+  if (getTerritoryVisibility(fogGame, dist2.id, 0, 'normal') !== 'partial') throw new Error('Un territorio a distancia 2 debe tener visibilidad partial');
+  const pIntel = getTerritoryIntel(fogGame, dist2.id, 0, 'normal');
+  if (pIntel.visibility !== 'partial' || pIntel.unitType !== null || pIntel.production !== null) {
+    throw new Error('Intel a distancia 2 no debe revelar unidad ni producción exacta');
+  }
+}
+
+const dist3 = distMap.find(x => x.dist >= 3);
+if (dist3) {
+  if (getTerritoryVisibility(fogGame, dist3.id, 0, 'normal') !== 'hidden') throw new Error('Un territorio a distancia >=3 debe tener visibilidad hidden');
+  const hIntel = getTerritoryIntel(fogGame, dist3.id, 0, 'normal');
+  if (hIntel.visibility !== 'hidden' || hIntel.troops !== null || hIntel.troopsDisplay !== '?') {
+    throw new Error('Intel a distancia >=3 debe ocultar tropas con ?');
+  }
+
+  // Carta de Espía perfora la niebla de guerra (§11)
+  fogGame.players[0].cards = ['spy'];
+  fogGame.players[0].money = 10;
+  const spyRes = playTacticalCard(fogGame, 'spy', dist3.id, 0);
+  if (spyRes.ok && !spyRes.countered) {
+    if (getTerritoryVisibility(fogGame, dist3.id, 0, 'normal') !== 'full') {
+      throw new Error('Un territorio espiado debe otorgar visibilidad full');
+    }
+    const spiedIntel = getTerritoryIntel(fogGame, dist3.id, 0, 'normal');
+    if (spiedIntel.visibility !== 'full' || !spiedIntel.isSpied || spiedIntel.troops === null) {
+      throw new Error('Intel de territorio espiado debe ser full y mostrar isSpied=true');
+    }
+  }
+}
+
+// 10. Percepción de la IA según Dificultad (§9.3)
+if (directEnemies.length > 0) {
+  const directEnemy = directEnemies[0];
+  // En fácil, la IA tiene visión más reducida (distancia 1 es partial para observador IA)
+  const aiObserver = 1;
+  const aiDist = minDistanceToOwned(fogGame, directEnemy, aiObserver);
+  if (aiDist === 1) {
+    if (getTerritoryVisibility(fogGame, directEnemy, aiObserver, 'fácil') !== 'partial') {
+      throw new Error('En fácil, la IA debe percibir territorios fronterizos con visibilidad partial');
+    }
+  }
+}
+
+console.log('OK: Información imperfecta (§10), niebla de guerra, Espía y Dificultad IA (§9.3) verificados.');
 
 
 
