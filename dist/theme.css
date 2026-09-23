@@ -135,3 +135,17 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 /* Influence and Objectives styling */
 .inf-score{color:#ffd45f!important;font-weight:800}
 .obj-badge{display:inline-block;padding:1px 6px;border-radius:8px;background:#6fe4dc22;color:#6fe4dc;border:1px solid #6fe4dc55;font-size:.67rem;font-weight:700;vertical-align:middle}
+
+/* Commander Doctrines and Fronts styling */
+.commander-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:760px){.commander-options{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.commander-options{grid-template-columns:1fr}}
+.commander-badge{padding:2px 7px;border-radius:99px;background:#ffffff14;border:1px solid #ffffff24;font-size:.65rem;color:#d8edf7;font-weight:700;margin-left:6px;vertical-align:middle}
+.commander-badge-sm{display:inline-block;padding:2px 6px;border-radius:6px;background:#ffffff14;font-size:.7rem;font-weight:700;color:#d9edf7;border:1px solid #ffffff24}
+.front-status-row{margin-top:6px;display:flex;align-items:center;gap:4px}
+.front-badge{font-size:.63rem;padding:2px 7px;border-radius:8px;font-weight:800;letter-spacing:.03em;display:inline-flex;align-items:center;gap:4px}
+.front-badge.front-stable{background:#64ae8b20;color:#64ae8b;border:1px solid #64ae8b55}
+.front-badge.front-tense{background:#f7b73120;color:#f7b731;border:1px solid #f7b73155}
+.front-badge.front-conflict{background:#ff786d20;color:#ff786d;border:1px solid #ff786d55}
+.front-badge.front-war{background:#e74c3c2b;color:#ff6060;border:1px solid #e74c3c77;animation:warPulse 1.5s infinite alternate}
+@keyframes warPulse{from{box-shadow:0 0 2px #e74c3c44}to{box-shadow:0 0 8px #e74c3c99}}

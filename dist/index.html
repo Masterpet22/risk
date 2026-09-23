@@ -97,6 +97,14 @@
         <label class="option-card active"><input type="radio" name="rulesMode" value="classic" checked><b>Modo clásico</b><small>Solo tropas, dados y regiones</small></label>
         <label class="option-card"><input type="radio" name="rulesMode" value="terrain"><b>Modo terreno</b><small>Unidades, afinidades y ventaja +1</small></label>
       </div></fieldset>
+      <fieldset class="setup-section"><legend>Doctrina de Comandante</legend><div class="commander-options" id="commanderOptions">
+        <label class="option-card active"><input type="radio" name="commanderChoice" value="conqueror" checked><b>⚔️ El Conquistador</b><small>+1 al dado en primer ataque</small></label>
+        <label class="option-card"><input type="radio" name="commanderChoice" value="guardian"><b>🛡️ El Guardián</b><small>+1 defensa en frente en guerra</small></label>
+        <label class="option-card"><input type="radio" name="commanderChoice" value="industrial"><b>⚙️ El Industrial</b><small>+$1 base por territorio</small></label>
+        <label class="option-card"><input type="radio" name="commanderChoice" value="strategist"><b>♟️ El Estratega</b><small>Bloqueo $15 y Movilización $0</small></label>
+        <label class="option-card"><input type="radio" name="commanderChoice" value="spy"><b>👁️ El Espía</b><small>Espionaje gratis y pasiva 50%</small></label>
+        <label class="option-card"><input type="radio" name="commanderChoice" value="diplomat"><b>🕊️ El Diplomático</b><small>+20% Influencia en objetivos</small></label>
+      </div></fieldset>
       <button class="primary-btn large" id="startBtn">Comenzar campaña</button>
       <button class="continue-btn" id="continueBtn" hidden>Continuar partida guardada</button>
       <p class="autosave">El progreso se guarda automáticamente en este navegador.</p>
@@ -118,6 +126,8 @@
         <li><b>Modo terreno.</b> Infantería vence a Artillería, Artillería a Caballería y Caballería a Infantería. La ventaja suma +1 al dado mayor. El defensor también obtiene +1 cuando su unidad coincide con el terreno.</li>
         <li><b>Influencia y Objetivos.</b> La Influencia continental evalúa el poderío estratégico: (Territorios × 2) + (Regiones 100% × 8) + (Producción × 1) + (Tropas [máx 30] × 0.3) + Objetivos cumplidos. Cumplir objetivos estratégicos (expansión regional, acumular tesoro, ofensiva relámpago o eliminar rivales) otorga de 10 a 15 puntos adicionales.</li>
         <li><b>Tres Condiciones de Victoria.</b> Puedes ganar por: (A) <b>Dominio Total</b> conquistando los 24 territorios; (B) <b>Hegemonía de Influencia</b> manteniendo 150+ puntos al término de una ronda completa; o (C) <b>Límite de Campaña</b>: al concluir la ronda 40, el comandante vivo con mayor puntuación de Influencia es declarado vencedor.</li>
+        <li><b>Comandantes y Doctrinas.</b> Cada líder militar dispone de una doctrina asimétrica: <b>El Conquistador</b> (+1 al dado de ataque en el primer combate de cada turno), <b>El Guardián</b> (+1 al dado defensivo en frentes en Guerra), <b>El Industrial</b> (+$1 de producción económica base en todos sus territorios), <b>El Estratega</b> (coste reducido en $10 en Bloqueo y Movilización), <b>El Espía</b> (cartas de espionaje gratis y 50% de protección pasiva contra sabotajes) y <b>El Diplomático</b> (+20% de Influencia en objetivos).</li>
+        <li><b>Frentes de Guerra.</b> La tensión fronteriza entre comandantes vecinos evoluciona según las acciones: <b>Estable</b> (sin hostilidades), <b>Tenso</b> (por sabotajes/espionaje), <b>Conflicto</b> (combates recientes) y <b>Guerra</b> (conquistas y choques masivos). Los frentes pacíficos se enfrían un nivel al término de cada ronda completa.</li>
       </ol>
       <button class="primary-btn" id="gotItBtn">Entendido</button>
     </section>

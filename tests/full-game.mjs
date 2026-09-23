@@ -1,9 +1,10 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
   const mapId=Object.keys(MAPS)[seed%3],rulesMode=seed%2?'classic':'terrain';
-  const state=createGame({players:2+(seed%3),seed,human:false,mapId,rulesMode});
+  const playerCommander=COMMANDER_IDS[seed%COMMANDER_IDS.length];
+  const state=createGame({players:2+(seed%3),seed,human:false,mapId,rulesMode,playerCommander});
   let actions=0;
   while(state.winner===null&&actions<3000){const report=aiTurn(state,state.current,seed%2?'normal':'difícil');if(!Array.isArray(report.battles))throw new Error('Informe IA ausente');actions++;}
   const errors=validateState(state);
@@ -88,13 +89,13 @@ if(reward.campaign.players[0].lost+reward.campaign.players[1].lost<1)throw new E
 console.log('OK: combate obligatorio, selección de dados y cartas tácticas verificados.');
 
 // Ventaja circular en modo terreno y ausencia de modificadores en clásico.
-const terrain=createGame({players:2,seed:505,human:true,mapId:'archipelago',rulesMode:'terrain'});
+const terrain=createGame({players:2,seed:505,human:true,mapId:'archipelago',rulesMode:'terrain',playerCommander:'industrial'});
 while(terrain.pendingReinforcements)placeTroops(terrain,ownedIds(terrain,0)[0],1,'infantry');
 const tFrom=ownedIds(terrain,0).find(id=>terrain.territories[id].troops>1&&enemiesOf(terrain,id).length),tTo=enemiesOf(terrain,tFrom)[0];
 terrain.territories[tFrom].unitType='infantry';terrain.territories[tTo].unitType='artillery';
 const terrainRoll=attackRound(terrain,tFrom,tTo,1);
 if(terrainRoll.bonus.attacker!==1||terrainRoll.attackerDice[0]!==terrainRoll.rawAttackerDice[0]+1)throw new Error('El bono circular +1 no se aplicó');
-const classic=createGame({players:2,seed:506,human:true,mapId:'rift',rulesMode:'classic'});
+const classic=createGame({players:2,seed:506,human:true,mapId:'rift',rulesMode:'classic',playerCommander:'industrial'});
 while(classic.pendingReinforcements)placeTroops(classic,ownedIds(classic,0)[0],1);
 const cFrom=ownedIds(classic,0).find(id=>classic.territories[id].troops>1&&enemiesOf(classic,id).length),cTo=enemiesOf(classic,cFrom)[0];
 const classicRoll=attackRound(classic,cFrom,cTo,1);
@@ -123,15 +124,15 @@ economy.players[0].money=0;economy.players[0].lastIncomeRound=0;
 if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[0].money!==16)throw new Error('El cobro económico se duplicó o calculó mal');
 const before=economy.pendingReinforcements;
 if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
-const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives}
-if(upgradeGame(previousV3)?.version!==7||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v7 de forma estable');
-const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives}
-if(upgradeGame(previousV4)?.version!==7||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v7 de forma estable');
-const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives}
-if(upgradeGame(previousV5)?.version!==7||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v7 de forma estable');
-const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives}
-if(upgradeGame(previousV6)?.version!==7||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v7 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v7 verificados.');
+const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
+if(upgradeGame(previousV3)?.version!==8||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v8 de forma estable');
+const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
+if(upgradeGame(previousV4)?.version!==8||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v8 de forma estable');
+const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives;delete p.commander}
+if(upgradeGame(previousV5)?.version!==8||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v8 de forma estable');
+const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
+if(upgradeGame(previousV6)?.version!==8||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v8 de forma estable');
+console.log('OK: producción, tesoro, compras y migración v8 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
@@ -228,5 +229,89 @@ endTurn(vicC); // Cierre de ronda 40 con influencias < 150
 if(vicC.winner!==0||vicC.victoryType!=='round_limit'||vicC.phase!=='gameover')throw new Error(`La victoria por límite de 40 rondas no se activó (tipo: ${vicC.victoryType}, inf: ${vicC.players.map(p=>p.influence)})`);
 
 console.log('OK: Fórmula de Influencia (§8), Objetivos (§12) y Condiciones de Victoria B y C (§16) verificadas.');
+
+// --- PRUEBAS UNITARIAS DE DOCTRINAS Y FRENTES DE GUERRA (§9.1, §13) ---
+// 1. Doctrina El Conquistador: +1 en primer ataque del turno
+const testConq = createGame({players:2, seed:901, human:true, playerCommander:'conqueror'});
+const cqFrom = ownedIds(testConq, 0).find(id => enemiesOf(testConq, id).length);
+const cqTo = enemiesOf(testConq, cqFrom)[0];
+testConq.territories[cqFrom].troops = 10;
+testConq.territories[cqTo].troops = 5;
+testConq.phase = 'attack';
+const r1 = attackRound(testConq, cqFrom, cqTo, 1);
+if (r1.bonus.attacker !== 1) throw new Error('El Conquistador no recibió +1 en su primer ataque');
+const r2 = attackRound(testConq, cqFrom, cqTo, 1);
+if (r2.bonus.attacker !== 0) throw new Error('El Conquistador no debió recibir +1 en su segundo ataque');
+
+// 2. Doctrina El Guardián y Frentes de Guerra:
+const testGuard = createGame({players:2, seed:902, human:true, playerCommander:'guardian'});
+testGuard.players[1].commander = 'guardian';
+const gFrom = ownedIds(testGuard, 0).find(id => enemiesOf(testGuard, id).length);
+const gTo = enemiesOf(testGuard, gFrom)[0];
+testGuard.territories[gFrom].troops = 10;
+testGuard.territories[gTo].troops = 5;
+testGuard.phase = 'attack';
+const gR1 = attackRound(testGuard, gFrom, gTo, 1);
+if (gR1.bonus.defender !== 0) throw new Error('El Guardián defensor recibió bono indebido sin frente en guerra');
+updateFrontTension(testGuard, 0, 1, 'war');
+if (getFrontState(testGuard, 0, 1) !== 'war') throw new Error('El frente no se actualizó a guerra');
+if (!isTerritoryInWarFront(testGuard, gTo)) throw new Error('El territorio no figura en frente en guerra');
+const gR2 = attackRound(testGuard, gFrom, gTo, 1);
+if (gR2.bonus.defender !== 1) throw new Error('El Guardián defensor no recibió +1 con frente en guerra');
+
+// Enfriamiento de frentes en cierre de ronda completa
+testGuard.turn = 1;
+testGuard.current = 1;
+endTurn(testGuard); // R1 termina, pasa a turno 2
+testGuard.current = 1;
+endTurn(testGuard); // R2 termina sin hostilidades -> frente en guerra se enfría a conflicto
+if (getFrontState(testGuard, 0, 1) !== 'conflict') throw new Error('El frente en guerra no se enfrió a conflicto tras ronda pacífica');
+
+// 3. Doctrina El Industrial: +1 producción base por territorio
+const testInd = createGame({players:2, seed:903, human:true, playerCommander:'industrial'});
+const indTerr = ownedIds(testInd, 0)[0];
+const tObj = getTerritories(testInd).find(t => t.id === indTerr);
+const regTerrs = getTerritories(testInd).filter(t => t.region === tObj.region);
+for (const rt of regTerrs) testInd.territories[rt.id].owner = 1;
+testInd.territories[indTerr].owner = 0;
+const indProd = territoryProduction(testInd, indTerr, 0);
+if (indProd !== 2) throw new Error(`El Industrial debe producir $2 base por territorio, obtenido: $${indProd}`);
+
+// 4. Doctrina El Estratega: Costes reducidos en Bloqueo ($15) y Movilización ($0)
+const testStrat = createGame({players:2, seed:904, human:true, playerCommander:'strategist'});
+testStrat.players[0].cards = ['blockade', 'mobilize'];
+testStrat.players[0].money = 15;
+const sConn = [ownedIds(testStrat, 0)[0], getTerritories(testStrat).find(t => t.id === ownedIds(testStrat, 0)[0]).n[0]];
+const bRes = playTacticalCard(testStrat, 'blockade', sConn, 0);
+if (!bRes.ok || testStrat.players[0].money !== 0) throw new Error('El Estratega debió pagar exactamente $15 por Bloqueo');
+const mRes = playTacticalCard(testStrat, 'mobilize', null, 0);
+if (!mRes.ok || testStrat.players[0].money !== 0 || testStrat.extraFortifies !== 1) throw new Error('El Estratega debió pagar $0 por Movilización');
+
+// 5. Doctrina El Diplomático: +20% de Influencia en Objetivos
+const testDip = createGame({players:2, seed:905, human:true, playerCommander:'diplomat'});
+testDip.players[0].completedObjectives = ['regions_2']; // Vale 15 normalmente -> 15 * 1.2 = 18
+const dipInf = calculateInfluence(testDip, 0);
+testDip.players[0].commander = 'conqueror';
+const regInf = calculateInfluence(testDip, 0);
+if (Math.round((dipInf - regInf) * 10) / 10 !== 3) throw new Error(`El Diplomático debe obtener +3 pts adicionales por objetivo de 15 pts (obtenido diff: ${dipInf - regInf})`);
+
+// 6. Doctrina El Espía: Contrainteligencia pasiva y cartas gratuitas
+const testSpy = createGame({players:2, seed:906, human:true, playerCommander:'spy'});
+testSpy.players[0].cards = ['spy'];
+testSpy.players[0].money = 0;
+const spyTarget = ownedIds(testSpy, 1)[0];
+const spyRes = playTacticalCard(testSpy, 'spy', spyTarget, 0);
+if (!spyRes.ok) throw new Error('El Espía debe poder usar Espía gratis sin dinero');
+
+// 7. Migración de partida guardada a v8:
+const oldV7 = createGame({players:2, seed:907, human:true});
+oldV7.version = 7;
+delete oldV7.fronts;
+oldV7.players.forEach(p => delete p.commander);
+const upgraded = upgradeGame(oldV7);
+if (!upgraded || upgraded.version !== 8 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 8 falló');
+
+console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8 verificadas.');
+
 
 
