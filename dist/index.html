@@ -7,8 +7,8 @@
   <meta name="description" content="Conquista un continente ficticio en este juego de estrategia territorial por turnos.">
   <title>Fronteras de Acero</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=4">
-  <link rel="stylesheet" href="./theme.css?v=4">
+  <link rel="stylesheet" href="./styles.css?v=5">
+  <link rel="stylesheet" href="./theme.css?v=5">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -66,12 +66,13 @@
           </div>
         </section>
 
-        <section class="panel-section chronicle-section" id="chronicleSection">
-          <div class="section-head">
-            <span class="section-title"><span class="sec-icon">📋</span> REGISTRO DE LA RONDA</span>
-          </div>
-          <div id="log" class="log"></div>
+        <!-- 3. Mercado Táctico (reubicado desde panel derecho) -->
+        <section class="panel-section market-section" id="marketSection">
+          <div id="marketBox" class="market-box"></div>
         </section>
+
+        <!-- Elemento de registro oculto para compatibilidad total con el motor de juego -->
+        <div id="chronicleSection" class="hidden" style="display:none;"><div id="log" class="log"></div></div>
 
         <!-- Elemento de compatibilidad de regiones -->
         <div id="regions" class="hidden" style="display:none;"></div>
@@ -171,10 +172,6 @@
           <div id="objectivesBox" class="objectives-box"></div>
         </section>
 
-        <!-- 4. Mercado Táctico -->
-        <section class="panel-section market-section" id="marketSection">
-          <div id="marketBox" class="market-box"></div>
-        </section>
 
         <!-- 5. Cartas Tácticas -->
         <section class="panel-section cards-section" id="cardsSection">
@@ -462,6 +459,6 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.mjs?v=4"></script>
+  <script type="module" src="./app.mjs?v=5"></script>
 </body>
 </html>
