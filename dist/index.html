@@ -47,7 +47,7 @@
           <div><span class="eyebrow" id="turnLabel">TU TURNO</span><h2 id="phaseTitle">Despliega refuerzos</h2></div>
           <div class="reinforcements" id="reinforceBox"><span>REFUERZOS</span><strong id="reinforcements">0</strong></div>
         </div>
-        <div class="map-toolbar"><span id="mapName">Fronteras de Acero</span><button id="routesBtn" aria-pressed="false">Rutas: al seleccionar</button><span class="mode-badge" id="modeBadge">CLÁSICO</span></div>
+        <div class="map-toolbar"><span id="mapName">Fronteras de Acero</span><button id="routesBtn" aria-pressed="false">Rutas: al seleccionar</button><span class="mode-badge" id="modeBadge">CLÁSICO</span><div class="map-pan-controls"><button id="panLeft" aria-label="Mover mapa a la izquierda">←</button><button id="mapOverviewBtn" aria-label="Alternar vista completa del mapa" aria-pressed="false">⌕</button><button id="panRight" aria-label="Mover mapa a la derecha">→</button></div></div>
         <div class="map-guide" id="mapGuide"><span>1</span><strong>Selecciona un territorio propio</strong><small>Los territorios válidos brillan en tu color.</small></div>
         <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
         <span class="map-swipe-hint">Desliza para explorar el mapa →</span>
@@ -57,6 +57,7 @@
 
       <aside class="right-panel panel">
         <section class="order-card" id="orderCard">
+          <button class="order-sheet-close" id="closeOrderSheet" aria-label="Cerrar panel de acciones">×</button>
           <div class="eyebrow">ORDEN ACTUAL</div>
           <h2 id="orderTitle">Despliega refuerzos</h2>
           <p id="orderText">Selecciona uno de tus territorios para fortalecerlo.</p>
@@ -76,6 +77,8 @@
         </section>
       </aside>
     </main>
+    <button class="mobile-orders-button" id="mobileOrdersBtn" aria-controls="orderCard" aria-expanded="false"><span>Órdenes</span><strong id="mobileOrdersLabel">Abrir acciones</strong></button>
+    <div class="mobile-sheet-backdrop" id="mobileSheetBackdrop"></div>
   </div>
 
   <div class="modal-backdrop" id="startModal">

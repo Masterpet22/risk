@@ -1,4 +1,4 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops} from './engine.mjs';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops} from './engine.mjs';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),marketBox:$('#marketBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),mapName:$('#mapName'),modeBadge:$('#modeBadge'),routesBtn:$('#routesBtn'),toast:$('#toast')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,selectedDice=3,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null;
@@ -8,12 +8,18 @@ const regionShort=k=>({north:'NORTE',west:'OESTE',crown:'CORONA',ember:'BRASA',s
 function save(){if(state)localStorage.setItem(SAVE,JSON.stringify({state:pendingAiState||state,difficulty}))}
 function load(){try{const d=JSON.parse(localStorage.getItem(SAVE));const restored=upgradeGame(d?.state);if(!restored||validateState(restored).length)return false;state=restored;difficulty=d.difficulty||'normal';return true}catch{return false}}
 function showToast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),2500)}
+const mobileLayout=()=>window.matchMedia('(max-width: 1000px)').matches;
+function openMobileOrders(){if(!mobileLayout())return;document.body.classList.add('order-open');$('#mobileOrdersBtn').setAttribute('aria-expanded','true');$('#orderCard').scrollTop=0;$('#closeOrderSheet').focus()}
+function closeMobileOrders(){document.body.classList.remove('order-open');$('#mobileOrdersBtn').setAttribute('aria-expanded','false')}
+function updateMobileOrders(){if(!state)return;const label=state.winner!==null?'Resumen final':state.phase==='reinforce'?`${state.pendingReinforcements} refuerzos por colocar`:state.phase==='attack'?(selectedTo?'Ataque preparado':selectedFrom?'Elige objetivo':'Preparar ataque'):state.phase==='fortify'?'Maniobra o pasar':'Cerrar turno';$('#mobileOrdersLabel').textContent=label}
+function updateMobileMapOverlay(){const head=document.querySelector('.map-head'),toolbar=document.querySelector('.map-toolbar');head.style.left='';head.style.right='';head.style.width='';toolbar.style.left=''}
 
 function initMap(mapId='frontier'){
   const map=MAPS[mapId]||MAPS.frontier,T=map.territories;els.map.innerHTML=`<image class="map-art" href="./map-${map.id}.webp" x="0" y="0" width="1000" height="760" preserveAspectRatio="xMidYMid slice"/><rect class="map-art-shade" x="0" y="0" width="1000" height="760"/>`;
+  const wrap=document.querySelector('.map-wrap');wrap.scrollLeft=0;wrap.classList.remove('overview');$('#mapOverviewBtn').setAttribute('aria-pressed','false');$('#mapOverviewBtn').textContent='⌕';
   const drawn=new Set();for(const t of T)for(const n of t.n){const k=[t.id,n].sort().join('-');if(drawn.has(k))continue;drawn.add(k);const b=T.find(x=>x.id===n),cross=t.region!==b.region?' cross':'';els.map.insertAdjacentHTML('beforeend',`<line class="connection${cross}" data-a="${t.id}" data-b="${n}" x1="${t.x*10}" y1="${t.y*8}" x2="${b.x*10}" y2="${b.y*8}"/>`)}
-  for(const t of T){const x=t.x*10,y=t.y*8,r=48,points=Array.from({length:8},(_,i)=>{const a=Math.PI*2*i/8+.18,rr=r*(i%2?1:.88);return`${x+Math.cos(a)*rr},${y+Math.sin(a)*rr}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="unit-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
-  els.map.onclick=e=>{const g=e.target.closest('.territory');if(g)territoryClick(g.dataset.id,e.shiftKey)};els.map.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.territory')){e.preventDefault();territoryClick(e.target.closest('.territory').dataset.id)}};els.map.onpointerover=e=>{const g=e.target.closest('.territory');if(g){hoverId=g.dataset.id;updateHover(g.dataset.id,e)}};els.map.onpointermove=e=>{if(hoverId)positionTooltip(e)};els.map.onpointerout=e=>{if(e.target.closest('.territory')&&!e.relatedTarget?.closest?.('.territory')){hoverId=null;els.mapTooltip.classList.add('hidden');renderMap()}};els.mapName.textContent=map.name;updateConnections();
+  for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="unit-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
+  els.map.onclick=e=>{const g=e.target.closest('.territory');if(g)territoryClick(g.dataset.id,e.shiftKey)};els.map.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.territory')){e.preventDefault();territoryClick(e.target.closest('.territory').dataset.id)}};els.map.onpointerover=e=>{const g=e.target.closest('.territory');if(g){hoverId=g.dataset.id;updateHover(g.dataset.id,e)}};els.map.onpointermove=e=>{if(hoverId)positionTooltip(e)};els.map.onpointerout=e=>{if(e.target.closest('.territory')&&!e.relatedTarget?.closest?.('.territory')){hoverId=null;els.mapTooltip.classList.add('hidden');renderMap()}};els.mapName.textContent=map.name;updateConnections();updateMobileMapOverlay();
 }
 function positionTooltip(e){const box=document.querySelector('.map-wrap').getBoundingClientRect();els.mapTooltip.style.left=`${Math.min(e.clientX-box.left+14,box.width-230)}px`;els.mapTooltip.style.top=`${Math.max(90,e.clientY-box.top-70)}px`}
 function updateHover(id,e){
@@ -36,8 +42,9 @@ function updateHover(id,e){
   const prodText=intel.visibility==='full'?`+$${territoryProduction(state,id)}${isSabotaged?' (⚡ Saboteado)':''}`:intel.visibility==='partial'?'Aprox. región':'? Oculta';
   const unitText=state.rulesMode==='terrain'?(intel.visibility==='full'?`${unit.icon} ${unit.name}`:'? Oculta por niebla'):'';
 
+  const ownerName=intel.visibility==='hidden'?'Desconocido':p.name,ownerColor=intel.visibility==='hidden'?'#95a5a6':p.color;
   els.mapTooltip.innerHTML=`<b>${t.name}</b>
-    <div class="tip-row"><span>Propietario</span><strong style="color:${p.color}">${p.name}</strong></div>
+    <div class="tip-row"><span>Propietario</span><strong style="color:${ownerColor}">${ownerName}</strong></div>
     <div class="tip-row"><span>Tropas</span><strong>${troopsText}</strong></div>
     <div class="tip-row"><span>Producción</span><strong>${prodText}</strong></div>
     ${state.rulesMode==='terrain'?`<div class="tip-row"><span>Terreno</span><strong>${terrain.icon} ${terrain.name}</strong></div><div class="tip-row"><span>Unidad</span><strong>${unitText}</strong></div>`:''}
@@ -58,7 +65,7 @@ function updateConnections(){
   els.routesBtn.setAttribute('aria-pressed',String(routesAll));
 }
 
-function render(persist=true){if(!state)return;const p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'block':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;els.mapName.textContent=getMap(state).name;els.modeBadge.textContent=state.rulesMode==='terrain'?'TERRENO':'CLÁSICO';renderFlow();renderPlayers();renderRegions();renderMap();renderGuide();renderPanel();renderLog();if(persist)save()}
+function render(persist=true){if(!state)return;const p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'block':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;els.mapName.textContent=getMap(state).name;els.modeBadge.textContent=state.rulesMode==='terrain'?'TERRENO':'CLÁSICO';renderFlow();renderPlayers();renderRegions();renderMap();renderGuide();renderPanel();renderLog();updateMobileOrders();if(persist)save()}
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
 function renderPlayers(){
   els.players.innerHTML=state.players.map(p=>{
@@ -70,8 +77,10 @@ function renderPlayers(){
     const isHuman=p.id===0;
     const frontToHuman=!isHuman&&p.alive?getFrontState(state,0,p.id):null;
     const frontLabel=frontToHuman?FRONT_STATE_LABELS[frontToHuman]:null;
-    const hasHidden=!isHuman&&ids.some(tid=>getTerritoryVisibility(state,tid,0,difficulty)!=='full');
-    const troopsStr=hasHidden?`~${troops}`:`${troops}`;
+    const visibility=!isHuman?ids.map(tid=>getTerritoryVisibility(state,tid,0,difficulty)):[];
+    const hasHidden=visibility.includes('hidden'),hasPartial=visibility.includes('partial');
+    const troopsStr=hasHidden?'?':hasPartial?`≈${ids.reduce((sum,tid)=>{const v=getTerritoryVisibility(state,tid,0,difficulty);if(v==='full')return sum+state.territories[tid].troops;const r=approximateTroops(state.territories[tid].troops);return sum+(r==='1-2'?2:r==='3-5'?4:r==='6-9'?8:10)},0)}`:`${troops}`;
+    const terrStr=hasHidden?'?':`${ids.length}`,moneyStr=hasHidden?'?':`$${p.money}`,prodStr=hasHidden?'?':`+$${productionTotal(state,p.id)}`;
     return`<div class="player ${state.current===p.id?'active':''} ${!p.alive?'eliminated':''}" style="--pc:${p.color}">
       <div class="player-top">
         <i class="player-color"></i>
@@ -81,25 +90,25 @@ function renderPlayers(){
         ${state.current===p.id&&p.alive?'<span class="turn-badge">EN TURNO</span>':''}
       </div>
       <div class="player-stats">
-        <span><strong>${ids.length}</strong> terr.</span>
-        <span title="${hasHidden?'Tropas aproximadas (posee territorios lejanos bajo niebla)':''}"><strong class="${hasHidden?'approx-stat':''}">${troopsStr}</strong> tropas</span>
+        <span><strong>${terrStr}</strong> terr.</span>
+        <span title="${hasHidden?'Datos ocultos por la niebla continental':hasPartial?'Estimación basada en inteligencia parcial':''}"><strong class="${hasHidden||hasPartial?'approx-stat':''}">${troopsStr}</strong> tropas</span>
         <span><strong>${cardCount}</strong> cartas</span>
         <span><strong class="inf-score">${p.influence||0}</strong> inf.</span>
       </div>
       <div class="player-money">
-        Tesoro <strong>$${p.money}</strong> · Prod. <strong>+$${productionTotal(state,p.id)}</strong>${objCount>0?` · <b class="obj-badge" title="${(p.completedObjectives||[]).map(id=>OBJECTIVES_CATALOG.find(o=>o.id===id)?.name||id).join(', ')}">${objCount} obj.</b>`:''}
+        Tesoro <strong>${moneyStr}</strong> · Prod. <strong>${prodStr}</strong>${objCount>0?` · <b class="obj-badge" title="${(p.completedObjectives||[]).map(id=>OBJECTIVES_CATALOG.find(o=>o.id===id)?.name||id).join(', ')}">${objCount} obj.</b>`:''}
         ${frontLabel?`<div class="front-status-row"><span class="front-badge front-${frontToHuman}" title="Frente con ${p.name}: ${frontLabel.name}">${frontLabel.icon} Frente: ${frontLabel.name}</span></div>`:''}
       </div>
     </div>`;
   }).join('');
 }
-function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,r])=>{const owner=state.players.find(p=>ts().filter(t=>t.region===k).every(t=>state.territories[t.id].owner===p.id));return`<div class="region-row" style="--rc:${r.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${r.bonus}</strong></div>`}).join('')}
+function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,r])=>{const regionTerrs=ts().filter(t=>t.region===k),fullyVisible=regionTerrs.every(t=>getTerritoryVisibility(state,t.id,0,difficulty)==='full'),owner=fullyVisible?state.players.find(p=>regionTerrs.every(t=>state.territories[t.id].owner===p.id)):null;return`<div class="region-row" style="--rc:${r.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${r.bonus}</strong></div>`}).join('')}
 function renderMap(){
   for(const t of ts()){
     const d=state.territories[t.id],p=state.players[d.owner],g=$(`#terr-${t.id}`);
     if(!g)continue;
     const intel=getTerritoryIntel(state,t.id,0,difficulty);
-    g.style.setProperty('--owner',p.color);
+    g.style.setProperty('--owner',intel.visibility==='hidden'?'#526a7b':p.color);
     g.style.setProperty('--terrain',TERRAINS[t.terrain].color);
     g.style.setProperty('--unit',UNIT_TYPES[d.unitType].color);
     g.classList.toggle('owned',d.owner===state.current);
@@ -143,7 +152,7 @@ function renderMap(){
     let descr=`${t.name}, `;
     if(intel.visibility==='full')descr+=`${d.troops} tropas, ${p.name}`;
     else if(intel.visibility==='partial')descr+=`aprox. ${intel.troopsDisplay} tropas, ${p.name}`;
-    else descr+=`fuerza desconocida, ${p.name}`;
+    else descr+='fuerza y propietario desconocidos';
     g.setAttribute('aria-label',descr);
   }
   updateConnections();
@@ -169,7 +178,7 @@ function renderCards(){
     discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (3 cartas)</strong><p>Has robado <b>${drawn.icon} ${drawn.name}</b>. Elige qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la nueva (${drawn.name})</button></div></div>`;
   }
   const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo 3). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
-    const c=TACTICAL_CARDS[cId],canAfford=p.money>=c.cost,isReactive=c.type==='reaction',costStr=c.cost===0?(isReactive?'Reactiva':'Gratis'):`$${c.cost}`,isSelected=cardTargeting?.cardId===cId;
+    const c=TACTICAL_CARDS[cId],cost=tacticalCardCost(state,cId,p.id),canAfford=p.money>=cost,isReactive=c.type==='reaction',costStr=cost===0?(isReactive?'Reactiva':'Gratis'):`$${cost}`,isSelected=cardTargeting?.cardId===cId;
     return`<div class="card-item ${isSelected?'active-targeting':''}"><div class="card-item-top"><span class="card-title">${c.icon} ${c.name}</span><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p><div class="card-action">${isReactive?'<span class="card-passive-badge">Protección automática</span>':`<button class="play-card-btn" data-card="${cId}" ${canAfford?'':'disabled'}>${isSelected?'Seleccionando…':`Jugar (${costStr})`}</button>`}</div></div>`;
   }).join('')}</div>`;
 
@@ -187,28 +196,31 @@ function renderCards(){
     btn.onclick=()=>{
       const cId=btn.dataset.card;
       if(cId==='mobilize'){
-        if(p.money<10)return showToast('Necesitas $10');
         const res=playTacticalCard(state,'mobilize',null,state.current);
         if(res.ok){showToast('Movilización activada: maniobra adicional disponible');render()}else showToast(res.reason);
       }else if(cId==='blockade'){
-        if(p.money<25)return showToast('Necesitas $25');
         cardTargeting={cardId:'blockade',from:null};
         showToast('Pulsa el primer territorio de la conexión a bloquear');
-        render();
+        render();closeMobileOrders();
       }else if(cId==='sabotage'){
-        if(p.money<15)return showToast('Necesitas $15');
         cardTargeting={cardId:'sabotage'};
         showToast('Pulsa el territorio enemigo a sabotear');
-        render();
+        render();closeMobileOrders();
       }else if(cId==='spy'){
         cardTargeting={cardId:'spy'};
         showToast('Pulsa el territorio enemigo a espiar');
-        render();
+        render();closeMobileOrders();
       }
     };
   });
 }
-function renderEconomy(){const p=state.players[state.current],income=productionTotal(state,p.id),canBuy=p.human&&state.phase==='reinforce'&&p.money>=10;els.economyBox.innerHTML=`<div class="economy-head"><span>TESORO</span><strong>$${p.money}</strong></div><small>Producción actual: +$${income} al inicio del turno.</small>${p.human&&state.phase==='reinforce'?`<button id="buyTroopsBtn" class="secondary-btn" ${canBuy?'':'disabled'}>+3 refuerzos · $10</button>`:''}`;const button=$('#buyTroopsBtn');if(button)button.onclick=()=>{if(buyReinforcements(state)){render();showToast('Compraste 3 refuerzos por $10')}}}
+function renderEconomy(){
+  const p=state.players[state.current],income=productionTotal(state,p.id),alreadyBought=p.reinforcementsBoughtRound===state.turn,canBuy=p.human&&state.phase==='reinforce'&&p.money>=10&&!alreadyBought;
+  const main=OBJECTIVES_CATALOG.find(o=>o.id===p.mainObjective),temporary=OBJECTIVES_CATALOG.find(o=>o.id===p.temporaryObjective);
+  const objectives=p.human?`<div class="active-objectives"><div><span>OBJETIVO PRINCIPAL</span><b>${main?`${main.icon} ${main.name}`:'✓ Completados'}</b>${main?`<small>${main.desc} · +${main.value} inf.</small>`:''}</div><div><span>OBJETIVO TEMPORAL</span><b>${temporary?`${temporary.icon} ${temporary.name}`:'✓ Completados'}</b>${temporary?`<small>${temporary.desc} · +${temporary.value} inf.</small>`:''}</div></div>`:'';
+  els.economyBox.innerHTML=`<div class="economy-head"><span>TESORO</span><strong>$${p.money}</strong></div><small>Producción actual: +$${income} al inicio del turno.</small>${objectives}${p.human&&state.phase==='reinforce'?`<button id="buyTroopsBtn" class="secondary-btn" ${canBuy?'':'disabled'}>${alreadyBought?'Compra de emergencia usada':'+3 refuerzos · $10'}</button>`:''}`;
+  const button=$('#buyTroopsBtn');if(button)button.onclick=()=>{if(buyReinforcements(state)){render();showToast('Compraste 3 refuerzos por $10')}}
+}
 function renderMarket(){
   if(!els.marketBox)return;
   if(!state.market?.offers){
@@ -304,7 +316,7 @@ function renderPanel(){const human=state.players[state.current].human;els.battle
   else{els.phaseTitle.textContent='Paso 4 · Cierre';if(state.pendingCardDraw){els.orderTitle.textContent='Mano llena (3 cartas)';els.orderText.textContent='Elige qué carta descartar en el panel de cartas tácticas.';els.turnStatus.innerHTML='<strong>Descarte obligatorio:</strong> debes descartar una carta para continuar.';els.phaseBtn.textContent='Descarta una carta';els.phaseBtn.disabled=true}else{const p=state.players[state.current];els.orderTitle.textContent=state.conqueredThisTurn?'Carta táctica robada':'Cierre de turno';els.orderText.textContent=state.conqueredThisTurn?'Conquistaste: recibiste 1 carta táctica.':'No conquistaste en este turno.';els.turnStatus.innerHTML=`<strong>Influencia:</strong> ${p.influence} pts · <strong>Objetivos:</strong> ${(p.completedObjectives||[]).length} cumplidos · ${p.cards.length} cartas en mano.`;els.phaseBtn.textContent='Pasar al siguiente jugador →';els.phaseBtn.disabled=false}}
 }
 function renderAttackControls(){const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1);selectedDice=Math.min(selectedDice,max);els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} · ${state.rulesMode==='terrain'?UNIT_TYPES[a.unitType].name:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${d.troops} · ${state.rulesMode==='terrain'?UNIT_TYPES[d.unitType].name:''}</strong></div>`;els.controls.innerHTML=`<label>Dados del atacante (máximo ${max})</label><div class="dice-choice">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}">${n} dado${n>1?'s':''}</button>`).join('')}</div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn">🎲 Lanzar una ronda</button><button class="secondary-btn" id="blitzBtn">Ataque rápido</button>`;document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel()});$('#rollBtn').onclick=()=>doAttack(false);$('#blitzBtn').onclick=()=>doAttack(true)}
-function renderFortifyControls(){const max=state.territories[selectedFrom].troops-1;if(max<1)return;els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${state.territories[selectedTo].troops}</strong></div>`;els.controls.innerHTML=`<label>Tropas a mover: <strong id="moveVal">1</strong><input id="moveRange" type="range" min="1" max="${max}" value="1"></label><button class="primary-btn" id="moveBtn">Confirmar movimiento → cierre</button>`;$('#moveRange').oninput=e=>$('#moveVal').textContent=e.target.value;$('#moveBtn').onclick=()=>{if(fortify(state,selectedFrom,selectedTo,+$('#moveRange').value)){selectedFrom=selectedTo=null;render()}else showToast('No existe una ruta propia continua')}}
+function renderFortifyControls(){const max=state.territories[selectedFrom].troops-1;if(max<1)return;els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${state.territories[selectedTo].troops}</strong></div>`;els.controls.innerHTML=`<label>Tropas a mover: <strong id="moveVal">1</strong><input id="moveRange" type="range" min="1" max="${max}" value="1"></label><button class="primary-btn" id="moveBtn">Confirmar movimiento → cierre</button>`;$('#moveRange').oninput=e=>$('#moveVal').textContent=e.target.value;$('#moveBtn').onclick=()=>{if(fortify(state,selectedFrom,selectedTo,+$('#moveRange').value)){selectedFrom=selectedTo=null;render();closeMobileOrders()}else showToast('No existe una ruta propia continua')}}
 
 function territoryClick(id,shift=false){
   if(!state||aiBusy||rolling||state.winner!==null||!state.players[state.current].human)return;
@@ -319,6 +331,7 @@ function territoryClick(id,shift=false){
         else showToast(`${cardName} ejecutado sobre ${tById(id).name}`);
         cardTargeting=null;
         render();
+        if(mobileLayout())openMobileOrders();
       }else showToast(res.reason||'Error al jugar carta');
       return;
     }
@@ -341,6 +354,7 @@ function territoryClick(id,shift=false){
         showToast('Ruta bloqueada por 2 rondas.');
         cardTargeting=null;
         render();
+        if(mobileLayout())openMobileOrders();
       }else showToast(res.reason||'Error al bloquear ruta');
       return;
     }
@@ -358,7 +372,7 @@ function territoryClick(id,shift=false){
       selectedFrom=id;selectedTo=null;selectedDice=Math.min(3,d.troops-1);render();return;
     }
     if(selectedFrom&&enemiesOf(state,selectedFrom).includes(id)){
-      selectedTo=id;render();return;
+      selectedTo=id;render();openMobileOrders();return;
     }
     showToast(selectedFrom?'El objetivo debe estar unido por una ruta iluminada':'Primero elige el origen');
   }else if(state.phase==='fortify'){
@@ -367,6 +381,7 @@ function territoryClick(id,shift=false){
     else if(id===selectedFrom){selectedFrom=null;selectedTo=null}
     else selectedTo=id;
     render();
+    if(selectedTo)openMobileOrders();
   }
 }
 function diceMarkup(values,raw=[]){return values.map((v,i)=>`<i class="big-die">${v}${raw[i]!==undefined&&v>raw[i]?'<small>+1</small>':''}</i>`).join('')}
@@ -546,6 +561,7 @@ function closeEndSummary(){els.endModal.classList.add('hidden')}
 
 async function doAttack(fast){
   if(rolling)return;
+  closeMobileOrders();
   rolling=true;
   const from=selectedFrom,to=selectedTo;
   try{
@@ -580,6 +596,14 @@ async function showDefenseAttack(battle){
 }
 function closeDefense(){els.defenseModal.classList.add('hidden');if(defenseResolve){const resolve=defenseResolve;defenseResolve=null;resolve()}}
 $('#continueDefense').onclick=closeDefense;$('#closeAi').onclick=closeAiSummary;$('#closeDice').onclick=()=>{els.diceModal.classList.add('hidden');if(diceResolve){const resolve=diceResolve;diceResolve=null;resolve()}};els.routesBtn.onclick=()=>{routesAll=!routesAll;updateConnections()};
+$('#mobileOrdersBtn').onclick=()=>{if(state?.winner!==null&&state)showEndSummary();else openMobileOrders()};
+$('#closeOrderSheet').onclick=closeMobileOrders;
+$('#mobileSheetBackdrop').onclick=closeMobileOrders;
+$('#panLeft').onclick=()=>document.querySelector('.map-wrap').scrollBy({left:-300,behavior:'smooth'});
+$('#panRight').onclick=()=>document.querySelector('.map-wrap').scrollBy({left:300,behavior:'smooth'});
+$('#mapOverviewBtn').onclick=()=>{const wrap=document.querySelector('.map-wrap'),overview=wrap.classList.toggle('overview');$('#mapOverviewBtn').setAttribute('aria-pressed',String(overview));$('#mapOverviewBtn').textContent=overview?'⊕':'⌕';if(overview)wrap.scrollTo({left:0,behavior:'smooth'});updateMobileMapOverlay()};
+document.querySelector('.map-wrap').addEventListener('scroll',updateMobileMapOverlay,{passive:true});
+window.addEventListener('resize',()=>{if(!mobileLayout())closeMobileOrders();updateMobileMapOverlay()});
 els.phaseBtn.onclick=()=>{
   if(!state||rolling)return;
   if(state.phase==='gameover'){openStart();return}
@@ -587,16 +611,19 @@ els.phaseBtn.onclick=()=>{
     if(!setPhase(state,'fortify'))return showToast('Debes combatir al menos una vez');
     selectedFrom=selectedTo=cardTargeting=null;
     render();
+    closeMobileOrders();
   }else if(state.phase==='fortify'){
     setPhase(state,'close');
     selectedFrom=selectedTo=cardTargeting=null;
     render();
+    closeMobileOrders();
   }else if(state.phase==='close'){
     if(state.pendingCardDraw)return showToast('Debes descartar una carta antes de pasar el turno');
     const earned=state.conqueredThisTurn;
     endTurn(state);
     selectedFrom=selectedTo=cardTargeting=null;
     render();
+    closeMobileOrders();
     if(earned)showToast('Carta táctica robada');
     if(state.winner!==null){showEndSummary();return}
     runAiTurns();
@@ -604,7 +631,7 @@ els.phaseBtn.onclick=()=>{
 };
 async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await new Promise(r=>setTimeout(r,650));const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();for(const battle of report.battles.filter(b=>b.defenderId===0)){await showDefenseAttack(battle)}state=pendingAiState;pendingAiState=null;render();if(report.ok)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;render();if(state.winner!==null)showEndSummary()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
-function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror'});difficulty=$('#difficulty').value;selectedFrom=selectedTo=null;selectedUnit='infantry';initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();showToast('Paso 1: coloca tus refuerzos')}
+function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror'});difficulty=$('#difficulty').value;selectedFrom=selectedTo=null;selectedUnit='infantry';closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();showToast('Paso 1: coloca tus refuerzos')}
 function openStart(){els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!localStorage.getItem(SAVE)}
 document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){initMap(state.mapId);els.startModal.classList.add('hidden');render();if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=()=>els.helpModal.classList.remove('hidden');$('#closeHelp').onclick=$('#gotItBtn').onclick=()=>els.helpModal.classList.add('hidden');window.addEventListener('beforeunload',save);
 

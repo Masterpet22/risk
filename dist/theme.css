@@ -168,3 +168,87 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 .tip-row.tip-hidden strong{color:#95a5a6!important}
 .approx-stat{color:#ffd45f!important}
 
+/* A six-sided territory reads clearly as a single selectable cell. */
+.territory-shape{stroke-linejoin:round;stroke-linecap:round}
+.map-pan-controls,.mobile-orders-button,.mobile-sheet-backdrop,.order-sheet-close{display:none}
+
+/* Give the board usable width and let long information panels scroll on laptops. */
+@media(min-width:1201px){
+  .game-shell{grid-template-columns:minmax(218px,250px) minmax(0,1fr) minmax(340px,375px);min-height:690px}
+  .right-panel{min-width:0}
+  .left-panel{min-width:0}
+}
+@media(min-width:1001px) and (max-width:1200px){
+  .game-shell{height:auto;min-height:0;grid-template-columns:minmax(0,1fr) 350px}
+  .map-wrap{grid-column:1;grid-row:1;height:min(72vw,760px);min-height:620px}
+  .right-panel{grid-column:2;grid-row:1;max-height:min(72vw,760px);min-height:620px}
+  .left-panel{grid-column:1/-1;grid-row:2;display:block;overflow:visible}
+  .left-panel .players{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .left-panel .regions-card{display:block}
+  .left-panel #regions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 20px}
+}
+
+/* Actions stay reachable while the board is explored on touch devices. */
+@media(max-width:1000px){
+  .topbar{height:66px;display:flex;gap:8px;padding:0 12px}
+  .brand{min-width:0;flex:1}.brand h1{font-size:.94rem;white-space:nowrap}.brand p{display:none}
+  .round-pill{display:flex;position:static;transform:none;z-index:auto;min-width:0;padding:5px 9px;gap:5px;font-size:.6rem;letter-spacing:.08em}
+  .round-pill strong{font-size:1.1rem}.header-actions{gap:6px}.header-actions .icon-btn,.header-actions .text-btn{width:40px;min-height:40px;padding:0}
+  .header-actions #newBtn{font-size:0}.header-actions #newBtn:before{content:'↻';font-size:1.15rem;margin:0}.header-actions #newBtn:after{content:none}
+  .header-actions #summaryBtn{font-size:0}.header-actions #summaryBtn:before{content:'▤';font-size:1.1rem;margin:0}.header-actions #summaryBtn:after{content:none}
+  .turn-flow{height:72px;padding:5px 8px;gap:2px;justify-content:space-between}
+  .turn-flow>i{display:none}.flow-step{flex:1;min-width:0;flex-direction:column;gap:3px;padding:4px 2px;border-radius:10px;text-align:center}
+  .flow-step>span{width:26px;height:26px;flex:none;font-size:.85rem}.flow-step div{display:block}.flow-step b{font-size:.64rem;line-height:1.1;white-space:nowrap}.flow-step small{display:none}
+  .game-shell{display:flex;flex-direction:column;height:auto;min-height:0;padding-bottom:82px}
+  .map-wrap{order:1;width:100%;height:min(76vw,760px);min-height:580px;overflow:hidden}
+  .map-wrap #map{width:100%;height:100%;min-height:0;max-width:none}
+  .map-head{top:10px;left:14px;right:14px}.map-head h2{font-size:1.1rem}.map-head>div:first-child{padding-left:0}.map-head>div:first-child:before{display:none}
+  .map-toolbar{top:63px;left:12px;right:auto;transform:none;max-width:calc(100vw - 24px)}
+  .map-toolbar>span:first-child{display:none}.map-toolbar #routesBtn{display:inline-block;font-size:.68rem}
+  .map-pan-controls{display:none}.map-guide{display:none}.map-legend{display:none}
+  .left-panel{order:2;display:block;border-radius:0;overflow:visible}.left-panel>.eyebrow{display:block}
+  .left-panel .players{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:9px;margin-top:11px}
+  .left-panel .regions-card{display:block;margin-top:20px}.left-panel #regions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 15px}
+  .right-panel{display:contents}.right-panel .chronicle{order:3;margin:10px 12px;min-height:160px}
+  .right-panel .order-card{position:fixed;z-index:32;left:0;right:0;bottom:0;width:100%;max-height:min(86dvh,850px);overflow-y:auto;overscroll-behavior:contain;visibility:hidden;transform:translateY(105%);transition:transform .25s ease,visibility .25s;padding:22px max(16px,env(safe-area-inset-left)) calc(20px + env(safe-area-inset-bottom));border:1px solid #52718d;border-radius:20px 20px 0 0;background:#102439;box-shadow:0 -20px 65px #000c;scrollbar-color:#426d8b #102439}
+  body.order-open .right-panel .order-card{visibility:visible;transform:translateY(0)}body.order-open{overflow:hidden}
+  .order-sheet-close{display:grid;place-items:center;position:absolute;right:14px;top:11px;width:40px;height:40px;border:1px solid #55748c;border-radius:10px;background:#1c3950;color:#fff;font-size:1.35rem}
+  .mobile-orders-button{display:flex;align-items:center;justify-content:space-between;gap:12px;position:fixed;z-index:22;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));min-height:52px;padding:10px 16px;border:1px solid #ffdc71;border-radius:12px;background:linear-gradient(120deg,#f8d979,#dba734);box-shadow:0 10px 34px #000c;color:#1c1a11;text-align:left;font-weight:800}
+  .mobile-orders-button span{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase}.mobile-orders-button strong{font-size:.88rem}
+  body.order-open .mobile-orders-button{display:none}
+  .mobile-sheet-backdrop{position:fixed;z-index:31;inset:0;background:#010913bc}body.order-open .mobile-sheet-backdrop{display:block}
+  .toast{bottom:calc(74px + env(safe-area-inset-bottom));max-width:calc(100vw - 36px)}
+}
+@media(max-width:760px){
+  .map-wrap{height:600px;min-height:0;overflow-x:auto;overflow-y:hidden;scrollbar-color:#426d8b #061727}
+  .map-wrap #map{width:790px;height:600px;max-width:none}
+  .map-toolbar{min-width:0}.map-toolbar #routesBtn{display:none}
+  .map-pan-controls{display:flex;gap:5px}.map-pan-controls button{display:grid;place-items:center;width:42px;height:38px;padding:0;border:1px solid #5d8dad;border-radius:8px;background:#18354c;color:#e5f6fd;font-size:1.2rem}
+  .map-wrap.overview{height:min(78vw,550px)}.map-wrap.overview #map{width:100%;height:100%;max-width:none}
+  .map-swipe-hint{display:none}.map-tooltip{display:none!important}
+}
+@media(max-width:520px){
+  .brand-mark{width:33px;height:33px;font-size:21px}.brand h1{font-size:.77rem;letter-spacing:0}.brand{gap:8px}
+  .round-pill{padding:4px 6px;font-size:.53rem}.round-pill strong{font-size:1rem}.header-actions .icon-btn,.header-actions .text-btn{width:36px;min-height:36px}
+  .flow-step b{font-size:.58rem}.map-head h2{font-size:.98rem}.map-head .eyebrow{font-size:.61rem}
+  .left-panel{padding:14px 12px}.left-panel #regions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .right-panel .chronicle{margin:7px 10px}.order-card .market-offer{flex-wrap:wrap}.order-card .market-offer-action{margin-left:auto}
+}
+@media(prefers-reduced-motion:reduce){.right-panel .order-card{transition:none!important}}
+
+/* Keep navigation outside the territory hit area. */
+@media(max-width:1000px){
+  .map-wrap{height:calc(min(76vw,760px) + 96px);min-height:0}
+  .map-head{position:sticky;left:0;top:auto;right:auto;z-index:6;width:100%;height:56px;padding:8px 13px;align-items:center;background:#0a2033ed;border-bottom:1px solid #335a73}
+  .map-head h2{margin-top:0}.map-head .eyebrow{display:block;margin-bottom:2px}
+  .map-toolbar{position:sticky;left:0;top:auto;right:auto;z-index:6;transform:none;width:max-content;height:40px;margin:0 0 0 12px;padding:3px 5px;border-radius:0 0 10px 10px}
+  .map-wrap #map{height:calc(100% - 96px)}
+}
+@media(max-width:760px){
+  .map-wrap{height:696px}
+  .map-wrap #map{width:790px;height:600px}
+  .map-wrap.overview{height:calc(min(78vw,550px) + 96px)}
+  .map-wrap.overview #map{width:100%;height:calc(100% - 96px)}
+}
+
+.active-objectives{display:grid;gap:7px;margin-top:10px}.active-objectives>div{display:grid;gap:3px;padding:8px 9px;border:1px solid rgba(81,173,220,.22);border-radius:9px;background:rgba(5,20,35,.58)}.active-objectives span{font-size:9px;letter-spacing:.12em;color:#79b9dc}.active-objectives b{font-size:11px;color:#edf8ff}.active-objectives small{font-size:10px;line-height:1.35;color:#9fb9ca}

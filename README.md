@@ -2,7 +2,9 @@
 
 Juego de estrategia territorial por turnos, creado originalmente en Sites y publicado en GitHub Pages.
 
-El trabajo para aplicar el documento de diseño v0.2 está dividido en partes en [PLAN_DE_DESARROLLO.md](PLAN_DE_DESARROLLO.md). La primera parte añade producción territorial y dinero; la siguiente sustituye el canje clásico por cartas tácticas.
+Las fases 1 a 6 del documento de diseño v0.2 están implementadas y auditadas en [PLAN_DE_DESARROLLO.md](PLAN_DE_DESARROLLO.md): economía, cartas tácticas, mercado, influencia y objetivos, comandantes y frentes, e información imperfecta.
+
+La interfaz usa territorios hexagonales y adapta el flujo de juego a escritorio, tableta y móvil. En pantallas pequeñas, el mapa se puede desplazar o mostrar completo y las órdenes se abren como una hoja inferior para mantener visible la partida.
 
 ## Editar en local
 

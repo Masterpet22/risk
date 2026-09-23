@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -77,6 +77,13 @@ setPhase(mobGame,'fortify');
 playTacticalCard(mobGame,'mobilize',null,0);
 if(mobGame.extraFortifies!==1)throw new Error('Movilización no otorgó maniobra adicional');
 
+// Movilización también funciona cuando se juega después de la primera maniobra.
+const mobAfter=createGame({players:2,seed:102,human:true});
+mobAfter.territories.n1.owner=mobAfter.territories.n2.owner=0;mobAfter.territories.n1.troops=4;mobAfter.territories.n2.troops=2;mobAfter.phase='fortify';
+if(!fortify(mobAfter,'n1','n2',1)||mobAfter.phase!=='close')throw new Error('La primera maniobra no cerró la fase');
+mobAfter.players[0].cards=['mobilize'];mobAfter.players[0].money=10;
+if(!playTacticalCard(mobAfter,'mobilize',null,0).ok||mobAfter.phase!=='fortify'||!fortify(mobAfter,'n2','n1',1))throw new Error('Movilización no habilitó una segunda maniobra después de la primera');
+
 const reward=createGame({players:2,seed:991,human:true});
 while(reward.pendingReinforcements)placeTroops(reward,ownedIds(reward,0)[0],1);
 const strong=ownedIds(reward,0).find(id=>enemiesOf(reward,id).length);
@@ -125,14 +132,14 @@ if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[
 const before=economy.pendingReinforcements;
 if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
 const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV3)?.version!==9||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v9 de forma estable');
+if(upgradeGame(previousV3)?.version!==10||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v10 de forma estable');
 const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV4)?.version!==9||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v9 de forma estable');
+if(upgradeGame(previousV4)?.version!==10||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v10 de forma estable');
 const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV5)?.version!==9||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v9 de forma estable');
+if(upgradeGame(previousV5)?.version!==10||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v10 de forma estable');
 const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV6)?.version!==9||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v9 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v9 verificados.');
+if(upgradeGame(previousV6)?.version!==10||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v10 de forma estable');
+console.log('OK: producción, tesoro, compras y migración v10 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
@@ -226,7 +233,7 @@ for(let i=0;i<TERRITORIES.length;i++)vicC.territories[TERRITORIES[i].id].owner=i
 vicC.territories[TERRITORIES[0].id].troops=10; // Ventaja para jugador 0
 vicC.turn=40;vicC.current=1;
 endTurn(vicC); // Cierre de ronda 40 con influencias < 150
-if(vicC.winner!==0||vicC.victoryType!=='round_limit'||vicC.phase!=='gameover')throw new Error(`La victoria por límite de 40 rondas no se activó (tipo: ${vicC.victoryType}, inf: ${vicC.players.map(p=>p.influence)})`);
+if(vicC.winner===null||vicC.victoryType!=='round_limit'||vicC.phase!=='gameover'||vicC.players.some(p=>p.alive&&p.influence>vicC.players[vicC.winner].influence))throw new Error(`La victoria por límite de 40 rondas no se activó para el líder (tipo: ${vicC.victoryType}, inf: ${vicC.players.map(p=>p.influence)})`);
 
 console.log('OK: Fórmula de Influencia (§8), Objetivos (§12) y Condiciones de Victoria B y C (§16) verificadas.');
 
@@ -286,6 +293,7 @@ const bRes = playTacticalCard(testStrat, 'blockade', sConn, 0);
 if (!bRes.ok || testStrat.players[0].money !== 0) throw new Error('El Estratega debió pagar exactamente $15 por Bloqueo');
 const mRes = playTacticalCard(testStrat, 'mobilize', null, 0);
 if (!mRes.ok || testStrat.players[0].money !== 0 || testStrat.extraFortifies !== 1) throw new Error('El Estratega debió pagar $0 por Movilización');
+if(tacticalCardCost(testStrat,'blockade',0)!==15||tacticalCardCost(testStrat,'mobilize',0)!==0)throw new Error('Los costes efectivos del Estratega no coinciden con la interfaz');
 
 // 5. Doctrina El Diplomático: +20% de Influencia en Objetivos
 const testDip = createGame({players:2, seed:905, human:true, playerCommander:'diplomat'});
@@ -303,20 +311,20 @@ const spyTarget = ownedIds(testSpy, 1)[0];
 const spyRes = playTacticalCard(testSpy, 'spy', spyTarget, 0);
 if (!spyRes.ok) throw new Error('El Espía debe poder usar Espía gratis sin dinero');
 
-// 7. Migración de partida guardada a v9:
+// 7. Migración de partida guardada a v10:
 const oldV7 = createGame({players:2, seed:907, human:true});
 oldV7.version = 7;
 delete oldV7.fronts;
 oldV7.players.forEach(p => delete p.commander);
 const upgraded = upgradeGame(oldV7);
-if (!upgraded || upgraded.version !== 9 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 9 falló');
+if (!upgraded || upgraded.version !== 10 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 9 falló');
 
 const oldV8 = createGame({players:2, seed:908, human:true});
 oldV8.version = 8;
 const upgradedV8 = upgradeGame(oldV8);
-if (!upgradedV8 || upgradedV8.version !== 9) throw new Error('La migración desde versión 8 a versión 9 falló');
+if (!upgradedV8 || upgradedV8.version !== 10) throw new Error('La migración desde versión 8 a versión 9 falló');
 
-console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8/v9 verificadas.');
+console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8/v10 verificadas.');
 
 // 8. Información Imperfecta (§10) y Rangos de Tropas
 if (approximateTroops(1) !== '1-2' || approximateTroops(2) !== '1-2') throw new Error('Rango 1-2 incorrecto');
@@ -390,7 +398,15 @@ if (directEnemies.length > 0) {
   }
 }
 
+// En difícil la IA conserva la misma información; la ventaja viene de sus decisiones.
+const hardObserver=1,hardFar=allTerrs.find(id=>fogGame.territories[id].owner!==hardObserver&&minDistanceToOwned(fogGame,id,hardObserver)>=3);
+if(hardFar&&getTerritoryVisibility(fogGame,hardFar,hardObserver,'difícil')!=='hidden')throw new Error('La IA difícil recibió información perfecta que el diseño no concede');
+
+// Cada comandante mantiene un objetivo principal y uno temporal; el temporal rota por ciclo.
+const objectivesGame=createGame({players:2,seed:1234,human:true});
+const op=objectivesGame.players[0],oldTemporary=op.temporaryObjective;
+if(!op.mainObjective||!oldTemporary)throw new Error('No se asignaron los dos tipos de objetivo');
+objectivesGame.objectiveCycle=0;rotateTemporaryObjectives(objectivesGame,1);
+if(objectivesGame.objectiveCycle!==1||!op.temporaryObjective||op.temporaryObjective===oldTemporary)throw new Error('El objetivo temporal no rotó al cambiar de ciclo');
+
 console.log('OK: Información imperfecta (§10), niebla de guerra, Espía y Dificultad IA (§9.3) verificados.');
-
-
-
