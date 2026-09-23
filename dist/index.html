@@ -82,37 +82,203 @@
     <div class="mobile-sheet-backdrop" id="mobileSheetBackdrop"></div>
   </div>
 
-  <div class="modal-backdrop" id="startModal">
-    <section class="modal start-card" role="dialog" aria-modal="true" aria-labelledby="startTitle">
-      <div class="crest">♜</div>
-      <p class="eyebrow">JUEGO DE ESTRATEGIA TERRITORIAL</p>
-      <h2 id="startTitle">Fronteras de Acero</h2>
-      <p>Refuerza tus dominios, rompe las líneas enemigas y conquista los 24 territorios.</p>
-      <div class="setup-grid">
-        <label>Número de ejércitos<select id="playerCount"><option value="2">2 — duelo rápido</option><option value="3" selected>3 — equilibrado</option><option value="4">4 — guerra total</option></select></label>
-        <label>Dificultad<select id="difficulty"><option value="fácil">Fácil</option><option value="normal" selected>Normal</option><option value="difícil">Difícil</option></select></label>
-      </div>
-      <fieldset class="setup-section"><legend>Mapa</legend><div class="map-options" id="mapOptions">
-        <label class="option-card active"><input type="radio" name="mapChoice" value="frontier" checked><b>Fronteras de Acero</b><small>Equilibrado · muchas rutas</small></label>
-        <label class="option-card"><input type="radio" name="mapChoice" value="archipelago"><b>Archipiélago Quebrado</b><small>Islas · puentes estratégicos</small></label>
-        <label class="option-card"><input type="radio" name="mapChoice" value="rift"><b>La Gran Grieta</b><small>Pasos estrechos · defensivo</small></label>
-      </div></fieldset>
-      <fieldset class="setup-section"><legend>Reglas</legend><div class="rules-options" id="rulesOptions">
-        <label class="option-card active"><input type="radio" name="rulesMode" value="classic" checked><b>Modo clásico</b><small>Solo tropas, dados y regiones</small></label>
-        <label class="option-card"><input type="radio" name="rulesMode" value="terrain"><b>Modo terreno</b><small>Unidades, afinidades y ventaja +1</small></label>
-      </div></fieldset>
-      <fieldset class="setup-section"><legend>Doctrina de Comandante</legend><div class="commander-options" id="commanderOptions">
-        <label class="option-card active"><input type="radio" name="commanderChoice" value="conqueror" checked><b>⚔️ El Conquistador</b><small>+1 al dado en primer ataque</small></label>
-        <label class="option-card"><input type="radio" name="commanderChoice" value="guardian"><b>🛡️ El Guardián</b><small>+1 defensa en frente en guerra</small></label>
-        <label class="option-card"><input type="radio" name="commanderChoice" value="industrial"><b>⚙️ El Industrial</b><small>+$1 base por territorio</small></label>
-        <label class="option-card"><input type="radio" name="commanderChoice" value="strategist"><b>♟️ El Estratega</b><small>Bloqueo $15 y Movilización $0</small></label>
-        <label class="option-card"><input type="radio" name="commanderChoice" value="spy"><b>👁️ El Espía</b><small>Espionaje gratis y pasiva 50%</small></label>
-        <label class="option-card"><input type="radio" name="commanderChoice" value="diplomat"><b>🕊️ El Diplomático</b><small>+20% Influencia en objetivos</small></label>
-      </div></fieldset>
-      <button class="primary-btn large" id="startBtn">Comenzar campaña</button>
-      <button class="continue-btn" id="continueBtn" hidden>Continuar partida guardada</button>
-      <p class="autosave">El progreso se guarda automáticamente en este navegador.</p>
-    </section>
+  <div class="modal-backdrop start-backdrop" id="startModal">
+    <div class="start-layout">
+      <header class="start-hero">
+        <div class="start-crest"><span>⚑</span></div>
+        <p class="start-eyebrow">JUEGO DE ESTRATEGIA TERRITORIAL</p>
+        <h1 class="start-title" id="startTitle">Fronteras de Acero</h1>
+        <p class="start-subtitle">Refuerza tus dominios, rompe las líneas enemigas y conquista los 24 territorios.</p>
+      </header>
+
+      <section class="modal start-card" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+        <div class="start-card-header">
+          <div class="start-card-heading">
+            <span class="start-config-icon">⚙</span>
+            <h3>CONFIGURACIÓN DE PARTIDA</h3>
+          </div>
+          <p class="start-config-hint">Personaliza tu campaña y forja tu estrategia.</p>
+        </div>
+
+        <div class="setup-grid">
+          <div class="setup-group">
+            <label for="playerCount"><span class="setup-icon">👥</span> NÚMERO DE EJÉRCITOS</label>
+            <div class="select-shell">
+              <select id="playerCount">
+                <option value="2">2 — duelo rápido</option>
+                <option value="3" selected>3 — equilibrado</option>
+                <option value="4">4 — guerra total</option>
+              </select>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+          <div class="setup-group">
+            <label for="difficulty"><span class="setup-icon">📊</span> DIFICULTAD</label>
+            <div class="select-shell">
+              <select id="difficulty">
+                <option value="fácil">Fácil</option>
+                <option value="normal" selected>Normal</option>
+                <option value="difícil">Difícil</option>
+              </select>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+        </div>
+
+        <fieldset class="setup-section">
+          <legend class="section-legend">
+            <span class="legend-main"><span class="legend-icon">🗺</span> MAPA</span>
+            <span class="legend-hint">Cada territorio ofrece un nuevo desafío estratégico.</span>
+          </legend>
+          <div class="map-grid" id="mapOptions">
+            <label class="map-card option-card active">
+              <input type="radio" name="mapChoice" value="frontier" checked>
+              <div class="map-thumb-wrap">
+                <img src="./map-frontier.webp" alt="Mapa Fronteras de Acero" class="map-thumb" loading="eager">
+              </div>
+              <div class="map-meta">
+                <span class="map-icon">🗺</span>
+                <div class="map-text">
+                  <b>Fronteras de Acero</b>
+                  <small>Equilibrado · muchas rutas</small>
+                </div>
+              </div>
+            </label>
+            <label class="map-card option-card">
+              <input type="radio" name="mapChoice" value="archipelago">
+              <div class="map-thumb-wrap">
+                <img src="./map-archipelago.webp" alt="Mapa Archipiélago Quebrado" class="map-thumb" loading="lazy">
+              </div>
+              <div class="map-meta">
+                <span class="map-icon">🌊</span>
+                <div class="map-text">
+                  <b>Archipiélago Quebrado</b>
+                  <small>Islas · puentes estratégicos</small>
+                </div>
+              </div>
+            </label>
+            <label class="map-card option-card">
+              <input type="radio" name="mapChoice" value="rift">
+              <div class="map-thumb-wrap">
+                <img src="./map-rift.webp" alt="Mapa La Gran Grieta" class="map-thumb" loading="lazy">
+              </div>
+              <div class="map-meta">
+                <span class="map-icon">⛰</span>
+                <div class="map-text">
+                  <b>La Gran Grieta</b>
+                  <small>Pasos estrechos · defensivo</small>
+                </div>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-section">
+          <legend class="section-legend">
+            <span class="legend-main"><span class="legend-icon">📜</span> REGLAS</span>
+            <span class="legend-hint">Elige el estilo de campaña que mejor se adapte a tu estrategia.</span>
+          </legend>
+          <div class="rules-grid" id="rulesOptions">
+            <label class="rule-card option-card active">
+              <input type="radio" name="rulesMode" value="classic" checked>
+              <span class="rule-icon">⚔️</span>
+              <div class="rule-meta">
+                <b>Modo clásico</b>
+                <small>Solo tropas, dados y regiones.</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+            <label class="rule-card option-card">
+              <input type="radio" name="rulesMode" value="terrain">
+              <span class="rule-icon">⛰️</span>
+              <div class="rule-meta">
+                <b>Modo terreno</b>
+                <small>Unidades, afinidades y ventaja +1.</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-section">
+          <legend class="section-legend">
+            <span class="legend-main"><span class="legend-icon">⭐</span> DOCTRINA DEL COMANDANTE</span>
+            <span class="legend-hint">Tu comandante define tu estilo de juego.</span>
+          </legend>
+          <div class="commanders-grid" id="commanderOptions">
+            <label class="commander-card option-card active">
+              <input type="radio" name="commanderChoice" value="conqueror" checked>
+              <span class="cmd-icon">⚔️</span>
+              <div class="cmd-meta">
+                <b>El Conquistador</b>
+                <small>+1 al dado en primer ataque</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+            <label class="commander-card option-card">
+              <input type="radio" name="commanderChoice" value="guardian">
+              <span class="cmd-icon">🛡️</span>
+              <div class="cmd-meta">
+                <b>El Guardián</b>
+                <small>+1 defensa en frente en guerra</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+            <label class="commander-card option-card">
+              <input type="radio" name="commanderChoice" value="industrial">
+              <span class="cmd-icon">⚙️</span>
+              <div class="cmd-meta">
+                <b>El Industrial</b>
+                <small>+$1 base por territorio</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+            <label class="commander-card option-card">
+              <input type="radio" name="commanderChoice" value="strategist">
+              <span class="cmd-icon">♟️</span>
+              <div class="cmd-meta">
+                <b>El Estratega</b>
+                <small>Bloqueo $15 y Movilización $0</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+            <label class="commander-card option-card">
+              <input type="radio" name="commanderChoice" value="spy">
+              <span class="cmd-icon">👁️</span>
+              <div class="cmd-meta">
+                <b>El Espía</b>
+                <small>Espionaje gratis y pasiva 50%</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+            <label class="commander-card option-card">
+              <input type="radio" name="commanderChoice" value="diplomat">
+              <span class="cmd-icon">🕊️</span>
+              <div class="cmd-meta">
+                <b>El Diplomático</b>
+                <small>+40% en objetivos y dividendo paz</small>
+              </div>
+              <span class="radio-indicator"></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="start-actions">
+          <button class="primary-btn start-cta" id="startBtn">
+            <span class="btn-symbol">▶</span>
+            <span>Comenzar campaña</span>
+            <span class="btn-chevron">›</span>
+          </button>
+          <button class="secondary-btn continue-cta" id="continueBtn" hidden>
+            <span class="btn-symbol">⤓</span>
+            <span>Continuar partida guardada</span>
+            <span class="btn-chevron">›</span>
+          </button>
+        </div>
+
+        <p class="autosave-footnote">El progreso se guarda automáticamente en este navegador.</p>
+      </section>
+    </div>
   </div>
 
   <div class="modal-backdrop hidden" id="helpModal">
