@@ -1,4 +1,10 @@
 /* Campaign presentation. Rules and layout mechanics remain in styles.css. */
+* {
+  user-select: none;          /* estándar */
+  -webkit-user-select: none;  /* Safari/Chrome */
+  -moz-user-select: none;     /* Firefox */
+  -ms-user-select: none;      /* IE/Edge */
+}
 :root{--bg:#071421;--panel:#0b1a2b;--panel2:#10243a;--line:#284a62;--text:#f6f4eb;--muted:#acc8dc;--gold:#f7c750;--cyan:#27ded7;--danger:#ff5f69;--shadow:0 22px 60px #020913bb}
 html,body{background:#06111e;color:var(--text)}
 body{background-image:radial-gradient(circle at 52% -20%,#193551 0,transparent 55%),linear-gradient(135deg,#081521,#06111e)}
