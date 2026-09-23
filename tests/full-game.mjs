@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -301,7 +301,7 @@ testDip.players[0].completedObjectives = ['regions_2']; // Vale 15 normalmente -
 const dipInf = calculateInfluence(testDip, 0);
 testDip.players[0].commander = 'conqueror';
 const regInf = calculateInfluence(testDip, 0);
-if (Math.round((dipInf - regInf) * 10) / 10 !== 3) throw new Error(`El Diplomático debe obtener +3 pts adicionales por objetivo de 15 pts (obtenido diff: ${dipInf - regInf})`);
+if (Math.round((dipInf - regInf) * 10) / 10 !== 6) throw new Error(`El Diplomático debe obtener +6 pts adicionales por objetivo de 15 pts (+40%) (obtenido diff: ${dipInf - regInf})`);
 
 // 6. Doctrina El Espía: Contrainteligencia pasiva y cartas gratuitas
 const testSpy = createGame({players:2, seed:906, human:true, playerCommander:'spy'});
@@ -465,4 +465,59 @@ const tsunamiActive = triggerEvent(tsunamiGame, tsunamiAnnounced);
 if (!tsunamiActive || tsunamiGame.activeEvent.type !== 'tsunami') throw new Error('El tsunami no se activó correctamente');
 
 console.log('OK: Eventos dinámicos del mapa (§14), aviso previo, impacto, bajas mínimas y caducidad verificados.');
+
+{
+// --- PRUEBAS DE BALANCE (PARTE 8) ---
+// 1. Resistencia nacional: bono de emergencia (+1) si territorios <= 3
+const resGame = createGame({players:2, seed:701, human:true});
+const p0ResTerrs = ownedIds(resGame, 0);
+p0ResTerrs.slice(2).forEach(tid => { resGame.territories[tid].owner = 1; });
+const rCount = reinforcementCount(resGame, 0);
+if (rCount !== 4) throw new Error(`Resistencia nacional falló: esperado 4 refuerzos, obtenido ${rCount}`);
+
+// 2. Comandante El Espía: carta inicial de espía y bono +1 al atacar objetivo espiado
+const spyGame = createGame({players:2, seed:702, human:true, playerCommander:'spy'});
+if (!spyGame.players[0].cards.includes('spy')) throw new Error('El Espía debe iniciar con una carta de Espía');
+const spyOrigin = ownedIds(spyGame, 0).find(id => enemiesOf(spyGame, id).length);
+const spyTarget = enemiesOf(spyGame, spyOrigin)[0];
+playTacticalCard(spyGame, 'spy', spyTarget, 0);
+if (!isTerritorySpied(spyGame, spyTarget, 0)) throw new Error('El objetivo debe figurar como espiado');
+spyGame.territories[spyOrigin].troops = 5;
+spyGame.territories[spyTarget].troops = 2;
+spyGame.phase = 'attack';
+const spyBattle = attackRound(spyGame, spyOrigin, spyTarget, 3);
+if (!spyBattle.bonus.attackerReasons.some(r => r.includes('El Espía'))) {
+  throw new Error('El Espía debió recibir +1 al dado de ataque contra objetivo espiado');
+}
+
+// 3. Comandante El Estratega: carta inicial y descuento de $5 en el mercado
+const stratGame = createGame({players:2, seed:703, human:true, playerCommander:'strategist'});
+if (!stratGame.players[0].cards.includes('mobilize')) throw new Error('El Estratega debe iniciar con una carta de Movilización');
+const firstOffer = stratGame.market.offers[0];
+const origCost = firstOffer.cost;
+stratGame.players[0].money = origCost;
+const stratBuy = buyMarketItem(stratGame, firstOffer.id, 0);
+if (!stratBuy.ok) throw new Error(`El Estratega no pudo comprar con descuento: ${stratBuy.reason}`);
+if (stratGame.players[0].money !== 5) {
+  throw new Error('El Estratega no recibió el descuento de -$5 en el Mercado');
+}
+
+// 4. Comandante El Diplomático: +40% en objetivos y subsidio de pacificación
+const dipGame = createGame({players:2, seed:704, human:true, playerCommander:'diplomat'});
+dipGame.players[0].completedObjectives = ['territories_8'];
+const dipInf = calculateInfluence(dipGame, 0);
+const nonDipGame = createGame({players:2, seed:704, human:true, playerCommander:'conqueror'});
+nonDipGame.players[0].completedObjectives = ['territories_8'];
+const nonDipInf = calculateInfluence(nonDipGame, 0);
+if (dipInf - nonDipInf !== 4) throw new Error(`El Diplomático debió otorgar +4 pts adicionales (+40% de 10 = 14 vs 10), diferencia: ${dipInf - nonDipInf}`);
+
+dipGame.players[0].money = 0;
+dipGame.current = 1;
+dipGame.turn = 1;
+dipGame.phase = 'close';
+endTurn(dipGame);
+if (dipGame.players[0].money < 3) throw new Error('El Diplomático debió recibir subsidio diplomático al mantenerse en paz');
+
+}
+console.log('OK: Balance (§6, §7.3, §9.1, §9.2, §15, §16), Resistencia Nacional y Doctrinas reequilibradas verificados.');
 
