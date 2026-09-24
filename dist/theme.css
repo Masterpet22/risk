@@ -1140,9 +1140,9 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 }
 
 .player.active {
-  border: 1.5px solid #27ded7;
-  box-shadow: 0 0 15px rgba(39, 222, 215, 0.25);
-  background: linear-gradient(135deg, rgba(7, 36, 48, 0.88), rgba(5, 20, 32, 0.92));
+  border: 1.5px solid var(--pc);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--pc) 30%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pc) 15%, #072430), #051420eb);
 }
 
 .player-top {
@@ -1172,8 +1172,8 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 }
 
 .player.active .player-avatar {
-  background: #27ded7;
-  box-shadow: 0 0 12px #27ded7;
+  background: var(--pc);
+  box-shadow: 0 0 12px var(--pc);
 }
 
 .player-name {
@@ -1191,9 +1191,9 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 }
 
 .player.active .player-status-tag {
-  background: rgba(39, 222, 215, 0.2);
-  border: 1px solid rgba(39, 222, 215, 0.6);
-  color: #5efff8;
+  background: color-mix(in srgb, var(--pc) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc) 65%, transparent);
+  color: color-mix(in srgb, var(--pc) 45%, white);
 }
 
 .player:not(.active) .player-status-tag {
@@ -2898,4 +2898,219 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
     width: 40px !important;
     height: 40px !important;
   }
+}
+
+/* ==========================================================================
+   Controles con relieve, cartas legibles, dados por ejército y mercado modal
+   ========================================================================== */
+
+/* Relieve consistente sin alterar las dimensiones del layout. */
+.primary-btn,
+.secondary-btn,
+.text-btn,
+.icon-btn,
+.play-card-btn,
+.market-buy-btn,
+.panel-launch-btn,
+.zoom-btn,
+.map-corner-btn,
+.dice-choice button {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 -2px 0 rgba(0,0,0,.28), 0 4px 9px rgba(0,0,0,.3) !important;
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease !important;
+}
+
+.primary-btn:hover:not(:disabled),
+.secondary-btn:hover:not(:disabled),
+.text-btn:hover:not(:disabled),
+.icon-btn:hover:not(:disabled),
+.play-card-btn:hover:not(:disabled),
+.market-buy-btn:hover:not(:disabled),
+.panel-launch-btn:hover:not(:disabled),
+.zoom-btn:hover:not(:disabled),
+.map-corner-btn:hover:not(:disabled),
+.dice-choice button:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.08) !important;
+}
+
+.primary-btn:active:not(:disabled),
+.secondary-btn:active:not(:disabled),
+.text-btn:active:not(:disabled),
+.icon-btn:active:not(:disabled),
+.play-card-btn:active:not(:disabled),
+.market-buy-btn:active:not(:disabled),
+.panel-launch-btn:active:not(:disabled),
+.zoom-btn:active:not(:disabled),
+.map-corner-btn:active:not(:disabled),
+.dice-choice button:active:not(:disabled) {
+  transform: translateY(1px) !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.38), 0 1px 3px rgba(0,0,0,.25) !important;
+}
+
+/* Selector de color del ejército. */
+.color-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 8px;
+}
+
+.color-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #284b63;
+  border-radius: 9px;
+  background: #0b2032;
+  color: #a9c3d3;
+  cursor: pointer;
+}
+
+.color-choice input { position:absolute; opacity:0; }
+.color-choice > span {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,.68);
+  border-radius: 50%;
+  background: var(--choice-color);
+  box-shadow: 0 0 10px var(--choice-color);
+}
+.color-choice b { font-size:.72rem; }
+.color-choice.active {
+  border-color: var(--choice-color);
+  color: #fff;
+  background: color-mix(in srgb,var(--choice-color) 14%,#0b2032);
+  box-shadow: inset 0 0 16px color-mix(in srgb,var(--choice-color) 12%,transparent),0 0 10px color-mix(in srgb,var(--choice-color) 25%,transparent);
+}
+
+/* Mano táctica: tarjetas horizontales con descripción visible. */
+.cards-section { gap: 8px !important; }
+.cards-box { padding: 0 !important; border: 0 !important; background: transparent !important; }
+.cards-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 7px !important;
+}
+.card-item {
+  display: grid !important;
+  grid-template-columns: 38px minmax(0,1fr) auto !important;
+  align-items: center !important;
+  aspect-ratio: auto !important;
+  min-height: 58px !important;
+  padding: 7px 8px !important;
+  gap: 8px !important;
+  border: 1px solid #31546d !important;
+  border-radius: 10px !important;
+  background: linear-gradient(145deg,#132d43,#0b2032) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05),0 5px 13px rgba(0,0,0,.26) !important;
+  text-align: left !important;
+  overflow: hidden !important;
+}
+.card-item .card-icon {
+  display: grid !important;
+  place-items: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  border: 1px solid #41647c !important;
+  border-radius: 9px !important;
+  background: #081827 !important;
+  font-size: 1.18rem !important;
+}
+.card-copy { min-width:0 !important; }
+.card-name-row { display:flex !important; align-items:center !important; justify-content:space-between !important; gap:7px !important; }
+.card-item .card-title {
+  display:block !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  font-size:.75rem !important;
+  color:#f2f8fb !important;
+}
+.card-item .card-cost {
+  position:static !important;
+  flex-shrink:0 !important;
+  padding:1px 5px !important;
+  font-size:.58rem !important;
+}
+.card-item .card-desc {
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  overflow:hidden !important;
+  margin:3px 0 0 !important;
+  color:#91afc3 !important;
+  font-size:.64rem !important;
+  line-height:1.25 !important;
+}
+.card-item .card-action { margin:0 !important; }
+.card-item .play-card-btn { min-width:54px !important; padding:5px 7px !important; font-size:.64rem !important; }
+.card-item .card-passive-badge { font-size:.61rem !important; }
+.panel-launch-btn {
+  width:100% !important;
+  margin:0 !important;
+  padding:9px 11px !important;
+  border-color:#98762f !important;
+  background:linear-gradient(180deg,#3a321d,#241f15) !important;
+  color:#f8d572 !important;
+  font-weight:800 !important;
+}
+.panel-launch-btn small {
+  float:right;
+  padding:1px 6px;
+  border-radius:99px;
+  background:#f7c750;
+  color:#151209;
+}
+
+/* Mercado exclusivo dentro de SweetAlert. */
+.modal-market-box {
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+}
+.modal-market-box .market-offers-list { gap:8px !important; }
+.modal-market-box .market-offer {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+  text-align:left !important;
+}
+.modal-market-box .market-offer-info,
+.modal-market-box .market-offer-info > div { min-width:0 !important; }
+.modal-market-box .market-buy-btn { width:auto !important; }
+.market-rotation-note { margin:9px 0 0 !important; color:#7898ad !important; font-size:.69rem !important; text-align:center !important; }
+
+.modal-action-row {
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-top:14px;
+}
+
+.modal-action-row > button { min-width:150px; }
+
+/* Cada bando lanza dados con el color de su comandante. */
+#attackerDice .big-die,
+#defenderDice .big-die {
+  color:#07121b !important;
+  border:1px solid rgba(255,255,255,.72) !important;
+  text-shadow:0 1px 0 rgba(255,255,255,.25) !important;
+}
+#attackerDice .big-die {
+  background:var(--attacker-dice-color,#4ecdc4) !important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3),inset 0 -4px 0 rgba(0,0,0,.18),0 7px 18px color-mix(in srgb,var(--attacker-dice-color,#4ecdc4) 35%,transparent) !important;
+}
+#defenderDice .big-die {
+  background:var(--defender-dice-color,#ff6b6b) !important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3),inset 0 -4px 0 rgba(0,0,0,.18),0 7px 18px color-mix(in srgb,var(--defender-dice-color,#ff6b6b) 35%,transparent) !important;
+}
+
+@media(max-width:760px){
+  .color-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .card-item{grid-template-columns:36px minmax(0,1fr) auto !important}
 }

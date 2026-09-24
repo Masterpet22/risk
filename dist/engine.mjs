@@ -127,16 +127,18 @@ const terr=(s,id)=>getTerritories(s).find(t=>t.id===id);
 
 export function makeRng(seed=Date.now()){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier',rulesMode='classic',playerCommander='conqueror'}={}){
+export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier',rulesMode='classic',playerCommander='conqueror',playerColor=PLAYER_COLORS[0]}={}){
   const rng=makeRng(seed),map=getMap(mapId),order=shuffle(map.territories.map(t=>t.id),rng);
   const chosenCmd=COMMANDERS[playerCommander]?playerCommander:'conqueror';
+  const chosenColor=PLAYER_COLORS.includes(playerColor)?playerColor:PLAYER_COLORS[0];
+  const playerColors=[chosenColor,...PLAYER_COLORS.filter(color=>color!==chosenColor)];
   const availCmds=COMMANDER_IDS.filter(c=>c!==chosenCmd);
   const pCommanders=Array.from({length:players},(_,i)=>{
     if(i===0)return chosenCmd;
     return availCmds[(i-1)%availCmds.length]||COMMANDER_IDS[i%COMMANDER_IDS.length];
   });
   const state={version:10,seed,mapId:map.id,rulesMode,turn:1,current:0,phase:'reinforce',winner:null,victoryType:null,log:[],campaign:{complete:true,players:Array.from({length:players},()=>({rolls:0,conquests:0,lost:0,defeated:0,trades:0,cards:0})),conquests:[]},pendingReinforcements:0,attackMadeThisTurn:false,conqueredThisTurn:false,turnConquests:{},blockedConnections:[],sabotagedTerritories:{},spiedTerritories:{},extraFortifies:0,pendingCardDraw:null,tempDefense:{},fronts:{},objectiveCycle:0,announcedEvent:null,activeEvent:null,
-    players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:PLAYER_COLORS[i],human:human&&i===0,commander:pCommanders[i],alive:true,cards:pCommanders[i]==='spy'?['spy']:pCommanders[i]==='strategist'?['mobilize']:[],money:0,lastIncomeRound:0,completedObjectives:[],mainObjectiveResolved:false,eliminatedRivals:0,influence:0})),territories:{},rngState:Math.floor(rng()*0xffffffff)};
+    players:Array.from({length:players},(_,i)=>({id:i,name:human&&i===0?'Tú':PLAYER_NAMES[i]||`Ejército ${i+1}`,color:playerColors[i%playerColors.length],human:human&&i===0,commander:pCommanders[i],alive:true,cards:pCommanders[i]==='spy'?['spy']:pCommanders[i]==='strategist'?['mobilize']:[],money:0,lastIncomeRound:0,completedObjectives:[],mainObjectiveResolved:false,eliminatedRivals:0,influence:0})),territories:{},rngState:Math.floor(rng()*0xffffffff)};
   state.market=generateMarket(state,0);
   order.forEach((id,i)=>state.territories[id]={owner:i%players,troops:1,unitType:['infantry','artillery','cavalry'][i%3]});
   const reserves=Math.max(8,14-Math.floor(map.territories.length/players));state.players.forEach(p=>{const owned=order.filter(id=>state.territories[id].owner===p.id);for(let k=0;k<reserves;k++)state.territories[owned[k%owned.length]].troops++});

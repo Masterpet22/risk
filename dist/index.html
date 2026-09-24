@@ -8,8 +8,8 @@
   <title>Fronteras de Acero</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-  <link rel="stylesheet" href="./styles.css?v=9">
-  <link rel="stylesheet" href="./theme.css?v=9">
+  <link rel="stylesheet" href="./styles.css?v=10">
+  <link rel="stylesheet" href="./theme.css?v=12">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -69,11 +69,6 @@
           </div>
         </section>
 
-        <!-- 3. Mercado Táctico (reubicado desde panel derecho) -->
-        <section class="panel-section market-section" id="marketSection">
-          <div id="marketBox" class="market-box"></div>
-        </section>
-
         <!-- Elemento de registro oculto para compatibilidad total con el motor de juego -->
         <div id="chronicleSection" class="hidden" style="display:none;"><div id="log" class="log"></div></div>
 
@@ -114,9 +109,6 @@
         <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
 
         <footer class="map-floating-footer">
-          <div class="map-compass" title="Rosa de los vientos" aria-label="Norte">
-            <span>N</span><i aria-hidden="true">🧭</i>
-          </div>
           <div class="map-legend">
             <span><i class="dot friendly"></i>Tu territorio</span>
             <span><i class="dot hostile"></i>Territorio enemigo</span>
@@ -174,6 +166,9 @@
         <!-- 2. Cartas Tácticas -->
         <section class="panel-section cards-section" id="cardsSection">
           <div id="cardsBox" class="cards-box"></div>
+          <button id="marketModalBtn" class="secondary-btn panel-launch-btn" type="button">
+            <span aria-hidden="true">🛒</span> Abrir mercado táctico
+          </button>
         </section>
 
         <!-- Panel de terreno (condicional) -->
@@ -272,6 +267,19 @@
                 </div>
               </div>
             </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-section color-setup-section">
+          <legend class="section-legend">
+            <span class="legend-main"><span class="legend-icon">🎨</span> COLOR DEL EJÉRCITO</span>
+            <span class="legend-hint">También identificará tus dados y territorios.</span>
+          </legend>
+          <div class="color-options" id="colorOptions">
+            <label class="color-choice active" style="--choice-color:#4ecdc4"><input type="radio" name="colorChoice" value="#4ecdc4" checked><span></span><b>Cian</b></label>
+            <label class="color-choice" style="--choice-color:#ff6b6b"><input type="radio" name="colorChoice" value="#ff6b6b"><span></span><b>Carmesí</b></label>
+            <label class="color-choice" style="--choice-color:#f7b731"><input type="radio" name="colorChoice" value="#f7b731"><span></span><b>Áureo</b></label>
+            <label class="color-choice" style="--choice-color:#9b7ede"><input type="radio" name="colorChoice" value="#9b7ede"><span></span><b>Violeta</b></label>
           </div>
         </fieldset>
 
@@ -418,7 +426,10 @@
         <div><span>DEFENSOR</span><div class="big-dice defender" id="defenderDice"></div></div>
       </div>
       <div class="comparison" id="comparison" aria-live="assertive"></div>
-      <button class="primary-btn hidden-control" id="closeDice">Ver el mapa y continuar</button>
+      <div class="modal-action-row">
+        <button class="secondary-btn hidden-control" id="skipAiDice">Omitir turno enemigo</button>
+        <button class="primary-btn hidden-control" id="closeDice">Ver el mapa y continuar</button>
+      </div>
     </section>
   </div>
 
@@ -428,7 +439,10 @@
       <h2 id="defenseTitle">Tu territorio está bajo ataque</h2>
       <p class="battle-route" id="defenseRoute"></p>
       <div class="defense-outcome" id="defenseOutcome"></div>
-      <button class="primary-btn" id="continueDefense">Continuar</button>
+      <div class="modal-action-row">
+        <button class="secondary-btn" id="skipAiDefense">Omitir turno enemigo</button>
+        <button class="primary-btn" id="continueDefense">Continuar</button>
+      </div>
     </section>
   </div>
 
@@ -437,7 +451,10 @@
       <p class="eyebrow">INFORME DEL TURNO ENEMIGO</p>
       <h2 id="aiTitle">Movimiento de la IA</h2>
       <div id="aiSummary" class="ai-summary"></div>
-      <button class="primary-btn" id="closeAi">Continuar</button>
+      <div class="modal-action-row">
+        <button class="secondary-btn" id="skipAiSummary">Omitir turnos restantes</button>
+        <button class="primary-btn" id="closeAi">Continuar</button>
+      </div>
     </section>
   </div>
 
@@ -459,6 +476,6 @@
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-  <script type="module" src="./app.mjs?v=9"></script>
+  <script type="module" src="./app.mjs?v=13"></script>
 </body>
 </html>
