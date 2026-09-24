@@ -7,8 +7,8 @@
   <meta name="description" content="Conquista un continente ficticio en este juego de estrategia territorial por turnos.">
   <title>Fronteras de Acero</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=7">
-  <link rel="stylesheet" href="./theme.css?v=7">
+  <link rel="stylesheet" href="./styles.css?v=8">
+  <link rel="stylesheet" href="./theme.css?v=8">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -51,6 +51,9 @@
             <span class="sec-badge" id="alivePlayersCount"></span>
           </div>
           <div id="players" class="players"></div>
+
+          <!-- El tesoro pertenece al comandante activo; se mantiene junto a su información. -->
+          <div id="economyBox" class="economy-box commander-economy"></div>
         </section>
 
         <section class="panel-section territory-card-section" id="selectedTerritoryCard">
@@ -132,7 +135,8 @@
           <button id="panRight"></button>
           <button id="mapOverviewBtn"></button>
         </div>
-        <div class="map-tooltip hidden" id="mapTooltip"></div>
+        <!-- Conservado solo como ancla técnica; la información vive en Territorio seleccionado. -->
+        <div class="map-tooltip hidden" id="mapTooltip" aria-hidden="true"></div>
         <span class="map-swipe-hint">Desliza para explorar el mapa →</span>
       </section>
 
@@ -158,12 +162,7 @@
           </div>
         </section>
 
-        <!-- 2. Tesoro y Producción -->
-        <section class="panel-section economy-section" id="economySection">
-          <div id="economyBox" class="economy-box"></div>
-        </section>
-
-        <!-- 3. Objetivos Activos -->
+        <!-- 2. Objetivos Activos -->
         <section class="panel-section objectives-section" id="objectivesSection">
           <div class="section-head">
             <span class="section-title"><span class="sec-icon">🚩</span> OBJETIVOS</span>

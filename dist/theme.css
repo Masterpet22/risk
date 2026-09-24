@@ -2487,3 +2487,184 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 .front-tag-conflict { color: #f7b731 !important; }
 .front-tag-tense { color: #ffd45f !important; }
 .front-tag-stable { color: #4ce7e1 !important; }
+
+/* ==========================================================================
+   Prioridad de combate, inspección lateral y mano táctica compacta
+   ========================================================================== */
+
+/* La ficha flotante se elimina; el contenido vive en Territorio seleccionado. */
+.map-tooltip {
+  display: none !important;
+}
+
+.territory-card-section .intel-row .spec-val {
+  color: #6fe4dc !important;
+}
+
+.territory-card-section .alert-row {
+  margin-top: 2px !important;
+  padding: 5px 7px !important;
+  border: 1px solid rgba(255, 107, 107, 0.35) !important;
+  border-radius: 6px !important;
+  background: rgba(255, 107, 107, 0.09) !important;
+}
+
+.territory-card-section .alert-row .spec-val {
+  color: #ff9b91 !important;
+}
+
+/* El tesoro se integra visualmente con el comandante activo. */
+.commander-economy {
+  margin: 2px 0 0 !important;
+  padding: 8px 9px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(70, 55, 24, 0.55), rgba(13, 31, 47, 0.8)) !important;
+}
+
+.commander-economy .economy-head strong {
+  font-size: 1.05rem !important;
+}
+
+.commander-economy small {
+  font-size: 0.68rem !important;
+}
+
+.commander-economy button {
+  padding: 6px 8px !important;
+  margin-top: 2px !important;
+}
+
+/* El panel de órdenes no oculta controles críticos en un scroll interno. */
+@media (min-width: 761px) {
+  .context-action-panel,
+  .context-action-panel[data-phase] {
+    height: auto !important;
+    min-height: 305px !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .context-action-panel[data-phase="attack"] {
+    min-height: 405px !important;
+    border-color: rgba(247, 199, 80, 0.62) !important;
+    box-shadow: 0 0 22px rgba(247, 199, 80, 0.08) !important;
+  }
+
+  .context-action-panel .context-action-body {
+    overflow: visible !important;
+    flex: 0 0 auto !important;
+  }
+
+  .context-action-panel[data-phase="attack"] .context-phase-btn {
+    margin-top: 6px !important;
+  }
+}
+
+/* Cartas cuadradas: lectura por icono y detalle al pasar o enfocar. */
+.cards-box {
+  position: relative;
+  padding: 9px !important;
+}
+
+.cards-list {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.card-item {
+  position: relative !important;
+  aspect-ratio: 1 / 1 !important;
+  min-width: 0 !important;
+  padding: 7px 5px 5px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  text-align: center !important;
+  cursor: default !important;
+  overflow: visible !important;
+}
+
+.card-item:focus-visible {
+  outline: 2px solid #6fe4dc !important;
+  outline-offset: 2px !important;
+}
+
+.card-icon {
+  font-size: 1.45rem !important;
+  line-height: 1 !important;
+}
+
+.card-item .card-title {
+  display: block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 0.61rem !important;
+}
+
+.card-item .card-cost {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  padding: 1px 4px !important;
+  font-size: 0.56rem !important;
+}
+
+.card-item .card-action {
+  margin: 0 !important;
+  justify-content: center !important;
+}
+
+.card-item .play-card-btn {
+  padding: 2px 6px !important;
+  font-size: 0.59rem !important;
+}
+
+.card-item .card-passive-badge {
+  font-size: 0.58rem !important;
+}
+
+.card-hover-detail {
+  position: absolute !important;
+  z-index: 30 !important;
+  left: 50% !important;
+  bottom: calc(100% + 8px) !important;
+  width: min(220px, calc(100vw - 36px)) !important;
+  transform: translate(-50%, 5px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 9px 10px !important;
+  border: 1px solid rgba(76, 231, 225, 0.48) !important;
+  border-radius: 8px !important;
+  background: rgba(5, 17, 29, 0.97) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.72) !important;
+  color: #a9c5d7 !important;
+  font-size: 0.7rem !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
+}
+
+.card-hover-detail strong {
+  color: #ffffff !important;
+}
+
+.card-item:hover .card-hover-detail,
+.card-item:focus-within .card-hover-detail,
+.card-item:focus .card-hover-detail {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translate(-50%, 0) !important;
+}
+
+@media (max-width: 1000px) {
+  .commander-economy {
+    max-width: 420px;
+  }
+}
