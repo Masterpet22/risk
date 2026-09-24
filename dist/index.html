@@ -7,8 +7,9 @@
   <meta name="description" content="Conquista un continente ficticio en este juego de estrategia territorial por turnos.">
   <title>Fronteras de Acero</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=8">
-  <link rel="stylesheet" href="./theme.css?v=8">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./theme.css?v=9">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -102,12 +103,20 @@
           </div>
         </header>
 
-        <div id="eventBanner" class="event-banner hidden" role="alert"></div>
+        <div class="map-utility-stack" aria-label="Información del mapa">
+          <div id="eventBanner" class="event-banner hidden" role="status"></div>
+          <button id="objectivesMapBtn" class="map-corner-btn objectives-map-btn hidden" type="button" aria-label="Ver objetivos">
+            <span aria-hidden="true">🚩</span>
+            <small id="objectivesMapBadge">2</small>
+          </button>
+        </div>
 
         <svg id="map" viewBox="0 0 1000 760" role="application" aria-label="Mapa interactivo de territorios"></svg>
 
         <footer class="map-floating-footer">
-          <div class="map-compass" title="Rosa de los vientos">✦</div>
+          <div class="map-compass" title="Rosa de los vientos" aria-label="Norte">
+            <span>N</span><i aria-hidden="true">🧭</i>
+          </div>
           <div class="map-legend">
             <span><i class="dot friendly"></i>Tu territorio</span>
             <span><i class="dot hostile"></i>Territorio enemigo</span>
@@ -162,16 +171,7 @@
           </div>
         </section>
 
-        <!-- 2. Objetivos Activos -->
-        <section class="panel-section objectives-section" id="objectivesSection">
-          <div class="section-head">
-            <span class="section-title"><span class="sec-icon">🚩</span> OBJETIVOS</span>
-          </div>
-          <div id="objectivesBox" class="objectives-box"></div>
-        </section>
-
-
-        <!-- 5. Cartas Tácticas -->
+        <!-- 2. Cartas Tácticas -->
         <section class="panel-section cards-section" id="cardsSection">
           <div id="cardsBox" class="cards-box"></div>
         </section>
@@ -458,6 +458,7 @@
 
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.mjs?v=7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+  <script type="module" src="./app.mjs?v=9"></script>
 </body>
 </html>

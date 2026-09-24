@@ -2,6 +2,7 @@ import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedI
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),marketBox:$('#marketBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),mapName:$('#mapName'),modeBadge:$('#modeBadge'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null;
+let objectivesModalHtml='',eventModalData=null;
 const SAVE='fronteras-acero-save-v3';
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
 const regionShort=k=>({north:'NORTE',west:'OESTE',crown:'CORONA',ember:'BRASA',sun:'SOL',isles:'JADE'}[k]);
@@ -45,28 +46,43 @@ function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=s
 function renderEventBanner(){
   if(!els.eventBanner)return;
   const eventKey = state.activeEvent ? ('active-' + state.turn + '-' + state.activeEvent.type) : state.announcedEvent ? ('ann-' + state.turn + '-' + state.announcedEvent.type) : null;
-  if(!eventKey || (state._dismissedEvent && state._dismissedEvent === eventKey)){
+  if(!eventKey){
     els.eventBanner.className='event-banner hidden';
     els.eventBanner.innerHTML='';
+    eventModalData=null;
     return;
   }
   if(state.activeEvent){
     const ev=EVENT_CATALOG[state.activeEvent.type]||{name:'Desastre',icon:'⚡',desc:'Fuerza natural devastadora'};
     const regName=REGIONS[state.activeEvent.region]?.name||state.activeEvent.region;
     els.eventBanner.className='event-banner event-banner-active';
-    els.eventBanner.innerHTML='<span class="event-tag">¡DESASTRE ACTIVO!</span><span class="event-banner-content"><strong>' + ev.icon + ' ' + ev.name + '</strong> en la región <b>' + regName + '</b>. Bajas y rutas cortadas hasta Ronda ' + state.activeEvent.expiresRound + '.</span><button class="event-banner-close" id="closeEventBanner" title="Ocultar aviso" aria-label="Cerrar aviso">×</button>';
+    els.eventBanner.innerHTML='<button class="map-corner-btn event-map-btn" id="openEventAlert" type="button" aria-label="Ver desastre activo"><span aria-hidden="true">' + (ev.icon||'⚡') + '</span><small>ACTIVO</small></button>';
+    eventModalData={icon:'error',title:(ev.icon||'⚡')+' '+ev.name,html:'<p><strong>Desastre activo en '+regName+'.</strong></p><p>'+ev.desc+'</p><p>Sus efectos permanecen hasta la ronda '+state.activeEvent.expiresRound+'.</p>'};
   }else if(state.announcedEvent){
     const ev=EVENT_CATALOG[state.announcedEvent.type]||{name:'Amenaza',icon:'⚠️',desc:'Fuerza natural en desarrollo'};
     const regName=REGIONS[state.announcedEvent.region]?.name||state.announcedEvent.region;
     els.eventBanner.className='event-banner event-banner-announced';
-    els.eventBanner.innerHTML='<span class="event-tag">⚠️ ALERTA R' + state.announcedEvent.triggerRound + '</span><span class="event-banner-content"><strong>' + ev.icon + ' ' + ev.name + ' inminente</strong> en región <b>' + regName + '</b>. Impacto previsto para Ronda ' + state.announcedEvent.triggerRound + ' (' + ev.desc + ').</span><button class="event-banner-close" id="closeEventBanner" title="Ocultar aviso" aria-label="Cerrar aviso">×</button>';
+    els.eventBanner.innerHTML='<button class="map-corner-btn event-map-btn" id="openEventAlert" type="button" aria-label="Ver alerta de la ronda '+state.announcedEvent.triggerRound+'"><span aria-hidden="true">⚠️</span><small>R'+state.announcedEvent.triggerRound+'</small></button>';
+    eventModalData={icon:'warning',title:(ev.icon||'⚠️')+' '+ev.name+' inminente',html:'<p><strong>Alerta en la región '+regName+'.</strong></p><p>'+ev.desc+'</p><p>Impacto previsto para la ronda '+state.announcedEvent.triggerRound+'.</p>'};
   }
-  const closeBtn = els.eventBanner.querySelector('#closeEventBanner');
-  if(closeBtn) closeBtn.onclick = () => {
-    state._dismissedEvent = eventKey;
-    els.eventBanner.className = 'event-banner hidden';
-  };
+  const alertBtn=els.eventBanner.querySelector('#openEventAlert');
+  if(alertBtn)alertBtn.onclick=openEventModal;
 }
+
+function openStrategicModal(options){
+  if(!window.Swal){showToast('No se pudo abrir el detalle');return}
+  window.Swal.fire({
+    ...options,
+    confirmButtonText:'Cerrar',
+    showCloseButton:true,
+    background:'#071827',
+    color:'#eaf6ff',
+    confirmButtonColor:'#d6aa3c',
+    customClass:{popup:'strategy-swal',htmlContainer:'strategy-swal-content'}
+  });
+}
+function openEventModal(){if(eventModalData)openStrategicModal(eventModalData)}
+function openObjectivesModal(){if(objectivesModalHtml)openStrategicModal({title:'🚩 Objetivos',html:objectivesModalHtml})}
 function renderPlayers(){
   const aliveCount = state.players.filter(p => p.alive).length;
   const aliveBadge = $('#alivePlayersCount');
@@ -416,8 +432,8 @@ function renderTerritoryInspect(id) {
 }
 
 function renderObjectives() {
-  const box = $('#objectivesBox');
-  if (!box || !state) return;
+  const button = $('#objectivesMapBtn');
+  if (!button || !state) return;
   const p = state.players[state.current] || state.players[0];
   const main = OBJECTIVES_CATALOG.find(o => o.id === p.mainObjective);
   const temp = OBJECTIVES_CATALOG.find(o => o.id === p.temporaryObjective);
@@ -436,7 +452,8 @@ function renderObjectives() {
     return '0/1';
   };
 
-  box.innerHTML = '<div class="objective-item">' +
+  objectivesModalHtml = '<div class="objectives-box swal-objectives">' +
+  '<div class="objective-item">' +
     '<div class="obj-top">' +
       '<span class="obj-title">' + (main ? (main.icon + ' ' + main.name) : '👑 Hegemonía') + '</span>' +
       '<span class="obj-progress-badge">' + getProgress(main) + '</span>' +
@@ -449,7 +466,11 @@ function renderObjectives() {
       '<span class="obj-progress-badge">' + getProgress(temp) + '</span>' +
     '</div>' +
     '<small class="obj-desc">' + (temp ? (temp.desc + ' · +' + temp.value + ' infl.') : 'Objetivos temporales completados.') + '</small>' +
-  '</div>';
+  '</div></div>';
+  button.classList.remove('hidden');
+  button.setAttribute('aria-label','Ver objetivos de '+p.name);
+  const badge=$('#objectivesMapBadge');
+  if(badge)badge.textContent=String((p.completedObjectives||[]).length)+'✓';
 }
 
 function renderEconomy(){
@@ -986,8 +1007,8 @@ async function doAttack(fast){
     if(!result.ok||!rounds.length)return;
     if(rounds.at(-1).conquered){selectedFrom=to;selectedTo=null}
     else if(state.territories[from].troops<2){selectedFrom=selectedTo=null}
-    render();
     await presentDiceRounds(rounds,{from:tById(from).name,to:tById(to).name,fast});
+    render();
     if(state.winner!==null)showEndSummary();
   }finally{rolling=false}
 }
@@ -997,8 +1018,9 @@ function closeAiSummary(){els.aiModal.classList.add('hidden');if(aiResolve){cons
 async function showDefenseAttack(battle){
   state=battle.beforeState;render(false);
   await playAttackApproach(battle.fromId,battle.toId);
-  state=battle.afterState;render(false);
+  state=battle.afterState;
   await presentDiceRounds(battle.roundResults,{from:battle.from,to:battle.to,defending:true,fast:true});
+  render(false);
   const remaining=state.territories[battle.toId].troops;
   const lost=battle.conquered;
   els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-defeat',lost);
@@ -1011,6 +1033,7 @@ async function showDefenseAttack(battle){
 }
 function closeDefense(){els.defenseModal.classList.add('hidden');if(defenseResolve){const resolve=defenseResolve;defenseResolve=null;resolve()}}
 $('#continueDefense').onclick=closeDefense;$('#closeAi').onclick=closeAiSummary;$('#closeDice').onclick=()=>{els.diceModal.classList.add('hidden');if(diceResolve){const resolve=diceResolve;diceResolve=null;resolve()}};els.routesBtn.onclick=()=>{routesAll=!routesAll;updateConnections()};
+$('#objectivesMapBtn').onclick=openObjectivesModal;
 $('#mobileOrdersBtn').onclick=()=>{if(state?.winner!==null&&state)showEndSummary();else openMobileOrders()};
 $('#closeOrderSheet').onclick=closeMobileOrders;
 $('#mobileSheetBackdrop').onclick=closeMobileOrders;
