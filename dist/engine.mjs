@@ -100,9 +100,23 @@ export function isTerritoryInWarFront(state,tid){
 
 const IDS=['n1','n2','n3','n4','w1','w2','w3','w4','c1','c2','c3','c4','e1','e2','e3','e4','s1','s2','s3','s4','i1','i2','i3','i4'];
 const REGIONS_BY_ID=Object.fromEntries(IDS.map(id=>[id,{n:'north',w:'west',c:'crown',e:'ember',s:'sun',i:'isles'}[id[0]]]));
+const MAP_REGION_IDENTITIES={
+  frontier:{
+    north:{name:'Dominio Boreal',short:'BOREAL'},west:{name:'Marca Occidental',short:'OCCIDENTE'},crown:{name:'Tierras de la Corona',short:'CORONA'},
+    ember:{name:'Cuenca de Brasa',short:'BRASA'},sun:{name:'Desiertos del Sol',short:'SOL'},isles:{name:'Costa de Jade',short:'JADE'}
+  },
+  archipelago:{
+    north:{name:'Islas de la Bruma',short:'BRUMA'},west:{name:'Bajíos del Cuervo',short:'BAJÍOS'},crown:{name:'Canales del Trono',short:'TRONO'},
+    ember:{name:'Cinturón Ígneo',short:'ÍGNEO'},sun:{name:'Mar Dorado',short:'DORADO'},isles:{name:'Arrecifes de Jade',short:'ARRECIFE'}
+  },
+  rift:{
+    north:{name:'Cumbres del Hielo',short:'CUMBRES'},west:{name:'Mesetas del Ocaso',short:'MESETAS'},crown:{name:'Corona Quebrada',short:'GRIETA'},
+    ember:{name:'Fosas de Brasa',short:'FOSAS'},sun:{name:'Eriales del Sol',short:'ERIALES'},isles:{name:'Agujas de Jade',short:'AGUJAS'}
+  }
+};
 function mapFrom(id,name,description,names,positions,edges,terrainOffset=0){
   const neighbors=Object.fromEntries(IDS.map(x=>[x,[]]));for(const [a,b] of edges){neighbors[a].push(b);neighbors[b].push(a)}
-  return{id,name,description,territories:IDS.map((tid,i)=>({id:tid,name:names[i],region:REGIONS_BY_ID[tid],x:positions[i][0],y:positions[i][1],n:neighbors[tid],terrain:['plain','forest','mountain'][(i+terrainOffset)%3]}))};
+  return{id,name,description,regions:MAP_REGION_IDENTITIES[id],territories:IDS.map((tid,i)=>({id:tid,name:names[i],region:REGIONS_BY_ID[tid],x:positions[i][0],y:positions[i][1],n:neighbors[tid],terrain:['plain','forest','mountain'][(i+terrainOffset)%3]}))};
 }
 const baseEdges=[['n1','n2'],['n1','w1'],['n2','n3'],['n2','w2'],['n3','n4'],['n3','c1'],['n4','c2'],['n4','i1'],['w1','w2'],['w1','w3'],['w2','w3'],['w2','c1'],['w3','w4'],['w3','c3'],['w4','e1'],['c1','c2'],['c1','c3'],['c2','c4'],['c2','i1'],['c3','c4'],['c3','e2'],['c4','e3'],['c4','s1'],['c4','i2'],['e1','e2'],['e2','e3'],['e2','s1'],['e3','e4'],['e3','s2'],['e4','s3'],['s1','s2'],['s1','i2'],['s2','s3'],['s2','s4'],['s3','s4'],['s4','i4'],['i1','i2'],['i2','i3'],['i3','i4']];
 const islandEdges=[['n1','n2'],['n2','n3'],['n3','n4'],['n4','n1'],['w1','w2'],['w2','w3'],['w3','w4'],['w4','w1'],['c1','c2'],['c2','c3'],['c3','c4'],['c4','c1'],['e1','e2'],['e2','e3'],['e3','e4'],['e4','e1'],['s1','s2'],['s2','s3'],['s3','s4'],['s4','s1'],['i1','i2'],['i2','i3'],['i3','i4'],['i4','i1'],['n3','c1'],['n4','i1'],['w2','c1'],['w4','e1'],['c3','e2'],['c4','s1'],['c2','i4'],['e3','s4'],['s2','i3']];
@@ -121,7 +135,8 @@ export const MAPS={
 export const TERRITORIES=MAPS.frontier.territories;
 export const PLAYER_COLORS=['#4ecdc4','#ff6b6b','#f7b731','#9b7ede'];
 export const PLAYER_NAMES=['Tú','Legión Carmesí','Casa Áurea','Pacto Violeta'];
-export const getMap=s=>MAPS[typeof s==='string'?s:s?.mapId]||MAPS.frontier;
+export const getMap=s=>MAPS[typeof s==='string'?s:(s?.mapId||s?.id)]||MAPS.frontier;
+export const getRegion=(s,key)=>({...REGIONS[key],...(getMap(s).regions?.[key]||{})});
 export const getTerritories=s=>getMap(s).territories;
 const terr=(s,id)=>getTerritories(s).find(t=>t.id===id);
 
@@ -424,7 +439,10 @@ export function checkObjectives(state,pid){
 
 export function upgradeGame(state){
   if(!state)return null;
-  if(state.version===10)return state;
+  if(state.version===10){
+    if(state.rulesMode!=='terrain')clearTerrainEvents(state);
+    return state;
+  }
   if(![3,4,5,6,7,8,9].includes(state.version))return null;
   if(state.version===3){
     state.players.forEach(p=>{p.money=0;p.lastIncomeRound=0});
@@ -471,6 +489,7 @@ export function upgradeGame(state){
   });
   state.announcedEvent=state.announcedEvent||null;
   state.activeEvent=state.activeEvent||null;
+  if(state.rulesMode!=='terrain')clearTerrainEvents(state);
   state.version=10;
   if(state.winner===null&&state.players[state.current]?.lastIncomeRound===0)collectIncome(state,state.current);
   return state;
@@ -483,7 +502,20 @@ function nextRand(s){s.rngState=(Math.imul(1664525,s.rngState)+1013904223)>>>0;r
 function roll(s,n){return Array.from({length:n},()=>1+Math.floor(nextRand(s)*6)).sort((a,b)=>b-a)}
 function addLog(s,text,p=null){s.log.unshift({text,p,turn:s.turn});if(s.log.length>60)s.log.length=60}
 
+function clearTerrainEvents(state){
+  const active=state.activeEvent;
+  if(active?.type==='tempest'&&state.sabotagedTerritories){
+    for(const t of getTerritories(state).filter(t=>t.region===active.region)){
+      if(state.sabotagedTerritories[t.id]===active.expiresRound)delete state.sabotagedTerritories[t.id];
+    }
+  }
+  state.blockedConnections=(state.blockedConnections||[]).filter(connection=>!EVENT_IDS.includes(connection.cause));
+  state.announcedEvent=null;
+  state.activeEvent=null;
+}
+
 export function announceEvent(state,type=null,region=null,triggerRound=state.turn+1){
+  if(state.rulesMode!=='terrain')return null;
   if(state.activeEvent||state.announcedEvent)return null;
   const types=EVENT_IDS;
   const chosenType=type&&EVENT_CATALOG[type]?type:types[Math.floor(nextRand(state)*types.length)];
@@ -507,11 +539,12 @@ export function announceEvent(state,type=null,region=null,triggerRound=state.tur
     triggerRound,
     duration:def.duration
   };
-  addLog(state,`⚠️ ¡Alerta geológica! Se predice un ${def.name} en ${REGIONS[chosenRegion].name} para la ronda ${triggerRound}.`);
+  addLog(state,`⚠️ ¡Alerta geológica! Se predice un ${def.name} en ${getRegion(state,chosenRegion).name} para la ronda ${triggerRound}.`);
   return state.announcedEvent;
 }
 
 export function triggerEvent(state,event=state.announcedEvent){
+  if(state.rulesMode!=='terrain')return null;
   if(!event||!EVENT_CATALOG[event.type])return null;
   const def=EVENT_CATALOG[event.type];
   const affectedTerrs=getTerritories(state).filter(t=>t.region===event.region);
@@ -565,15 +598,19 @@ export function triggerEvent(state,event=state.announcedEvent){
   };
   state.announcedEvent=null;
 
-  addLog(state,`¡${def.icon} ${def.name} golpea ${REGIONS[event.region].name}! ${casualties} bajas y rutas cortadas.`);
+  addLog(state,`¡${def.icon} ${def.name} golpea ${getRegion(state,event.region).name}! ${casualties} bajas y rutas cortadas.`);
   return state.activeEvent;
 }
 
 export function checkEventCycle(state){
+  if(state.rulesMode!=='terrain'){
+    clearTerrainEvents(state);
+    return;
+  }
   if(state.activeEvent){
     if(state.turn>=state.activeEvent.expiresRound){
       const def=EVENT_CATALOG[state.activeEvent.type];
-      addLog(state,`El ${def?def.name:'evento'} en ${REGIONS[state.activeEvent.region]?.name||state.activeEvent.region} ha concluido. Conexiones restauradas.`);
+      addLog(state,`El ${def?def.name:'evento'} en ${getRegion(state,state.activeEvent.region).name} ha concluido. Conexiones restauradas.`);
       state.activeEvent=null;
     }
   }

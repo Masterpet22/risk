@@ -1,11 +1,11 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=10';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=12';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),mapName:$('#mapName'),modeBadge:$('#modeBadge'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
 let objectivesModalHtml='',marketModalHtml='',eventModalData=null;
 const SAVE='fronteras-acero-save-v3';
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
-const regionShort=k=>({north:'NORTE',west:'OESTE',crown:'CORONA',ember:'BRASA',sun:'SOL',isles:'JADE'}[k]);
+const regionShort=(map,key)=>getRegion(map,key).short||getRegion(map,key).name.toUpperCase();
 function save(){if(state)localStorage.setItem(SAVE,JSON.stringify({state:pendingAiState||state,difficulty}))}
 function load(){try{const d=JSON.parse(localStorage.getItem(SAVE));const restored=upgradeGame(d?.state);if(!restored||validateState(restored).length)return false;state=restored;difficulty=d.difficulty||'normal';return true}catch{return false}}
 function showToast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),2500)}
@@ -15,11 +15,35 @@ function closeMobileOrders(){document.body.classList.remove('order-open');$('#mo
 function updateMobileOrders(){if(!state)return;const label=state.winner!==null?'Resumen final':state.phase==='reinforce'?`${state.pendingReinforcements} refuerzos por colocar`:state.phase==='attack'?(selectedTo?'Ataque preparado':selectedFrom?'Elige objetivo':'Preparar ataque'):state.phase==='fortify'?'Maniobra o pasar':'Cerrar turno';$('#mobileOrdersLabel').textContent=label}
 function updateMobileMapOverlay(){const head=document.querySelector('.map-head')||document.querySelector('.map-floating-header'),toolbar=document.querySelector('.map-toolbar')||document.querySelector('.map-floating-footer');if(head&&head.style){head.style.left='';head.style.right='';head.style.width=''}if(toolbar&&toolbar.style){toolbar.style.left=''}}
 
+function routeGeometry(a,b,territories){
+  const x1=a.x*10,y1=a.y*8,x2=b.x*10,y2=b.y*8,dx=x2-x1,dy=y2-y1,length=Math.hypot(dx,dy)||1;
+  const segmentDistance=(p)=>{const u=Math.max(0,Math.min(1,((p.x*10-x1)*dx+(p.y*8-y1)*dy)/(length*length)));return Math.hypot(p.x*10-(x1+dx*u),p.y*8-(y1+dy*u))};
+  const blockers=territories.filter(t=>t.id!==a.id&&t.id!==b.id&&segmentDistance(t)<62);
+  let cx=(x1+x2)/2,cy=(y1+y2)/2,curved=false;
+  if(blockers.length){
+    const nx=-dy/length,ny=dx/length,candidates=[58,-58,82,-82,108,-108,138,-138];
+    let best=null;
+    for(const offset of candidates){
+      const tx=(x1+x2)/2+nx*offset,ty=(y1+y2)/2+ny*offset;
+      let clearance=Infinity;
+      for(const territory of territories){
+        if(territory.id===a.id||territory.id===b.id)continue;
+        for(let step=1;step<12;step++){const q=step/12,u=1-q,px=u*u*x1+2*u*q*tx+q*q*x2,py=u*u*y1+2*u*q*ty+q*q*y2;clearance=Math.min(clearance,Math.hypot(px-territory.x*10,py-territory.y*8))}
+      }
+      const edgePenalty=(tx<28||tx>972||ty<28||ty>732)?45:0,score=clearance-Math.abs(offset)*.16-edgePenalty;
+      if(!best||score>best.score)best={score,cx:tx,cy:ty};
+    }
+    cx=best.cx;cy=best.cy;curved=true;
+  }
+  const point=t=>{const u=1-t;return curved?{x:u*u*x1+2*u*t*cx+t*t*x2,y:u*u*y1+2*u*t*cy+t*t*y2}:{x:x1+dx*t,y:y1+dy*t}};
+  return{d:curved?`M ${x1} ${y1} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2} ${y2}`:`M ${x1} ${y1} L ${x2} ${y2}`,point,curved};
+}
+
 function initMap(mapId='frontier'){
   const map=MAPS[mapId]||MAPS.frontier,T=map.territories;els.map.innerHTML=`<image class="map-art" href="./map-${map.id}.webp" x="0" y="0" width="1000" height="760" preserveAspectRatio="xMidYMid slice"/><rect class="map-art-shade" x="0" y="0" width="1000" height="760"/>`;
   const wrap=document.querySelector('.map-wrap');wrap.scrollLeft=0;wrap.classList.remove('overview');$('#mapOverviewBtn').setAttribute('aria-pressed','false');$('#mapOverviewBtn').textContent='⌕';
-  const drawn=new Set();for(const t of T)for(const n of t.n){const k=[t.id,n].sort().join('-');if(drawn.has(k))continue;drawn.add(k);const b=T.find(x=>x.id===n),cross=t.region!==b.region?' cross':'';els.map.insertAdjacentHTML('beforeend',`<line class="connection${cross}" data-a="${t.id}" data-b="${n}" x1="${t.x*10}" y1="${t.y*8}" x2="${b.x*10}" y2="${b.y*8}"/>`)}
-  for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="unit-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
+  const drawn=new Set();for(const t of T)for(const n of t.n){const k=[t.id,n].sort().join('-');if(drawn.has(k))continue;drawn.add(k);const b=T.find(x=>x.id===n),cross=t.region!==b.region?' cross':'',route=routeGeometry(t,b,T);els.map.insertAdjacentHTML('beforeend',`<path class="connection${cross}" data-a="${t.id}" data-b="${n}" data-routed="${route.curved}" d="${route.d}"/>`)}
+  for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(map,t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="unit-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
   els.map.onclick=e=>{const g=e.target.closest('.territory');if(g)territoryClick(g.dataset.id,e.shiftKey)};els.map.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.territory')){e.preventDefault();territoryClick(e.target.closest('.territory').dataset.id)}};els.map.onpointerover=e=>{const g=e.target.closest('.territory');if(g&&hoverId!==g.dataset.id){hoverId=g.dataset.id;updateHover(g.dataset.id)}};els.map.onpointerout=e=>{if(e.target.closest('.territory')&&!e.relatedTarget?.closest?.('.territory')){hoverId=null;renderMap()}};els.mapName.textContent=map.name;updateConnections();updateMobileMapOverlay();
 }
 function updateHover(id){
@@ -32,7 +56,7 @@ function updateConnections(){
   document.querySelectorAll('.connection').forEach(l=>{
     const a=l.dataset.a,b=l.dataset.b;
     const isBlocked=isConnectionBlocked(state,a,b);
-    l.classList.toggle('blocked',isBlocked);const isEventBlocked=isBlocked&&state?.blockedConnections?.some(bc=>((bc.a===a&&bc.b===b)||(bc.a===b&&bc.b===a))&&bc.expiresTurn>=state.turn&&['earthquake','tsunami','tempest'].includes(bc.cause));l.classList.toggle('blocked-event',!!isEventBlocked);
+    l.classList.toggle('blocked',isBlocked);const isEventBlocked=state?.rulesMode==='terrain'&&isBlocked&&state?.blockedConnections?.some(bc=>((bc.a===a&&bc.b===b)||(bc.a===b&&bc.b===a))&&bc.expiresTurn>=state.turn&&['earthquake','tsunami','tempest'].includes(bc.cause));l.classList.toggle('blocked-event',!!isEventBlocked);
     const related=selectedFrom&&(a===selectedFrom||b===selectedFrom),hovered=hoverId&&(a===hoverId||b===hoverId);
     l.classList.toggle('visible',!!(related||hovered||isBlocked));
     l.classList.toggle('show-all',routesAll);
@@ -45,6 +69,12 @@ function render(persist=true){if(!state)return;const p=state.players[state.curre
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
 function renderEventBanner(){
   if(!els.eventBanner)return;
+  if(!state||state.rulesMode!=='terrain'){
+    els.eventBanner.className='event-banner hidden';
+    els.eventBanner.innerHTML='';
+    eventModalData=null;
+    return;
+  }
   const eventKey = state.activeEvent ? ('active-' + state.turn + '-' + state.activeEvent.type) : state.announcedEvent ? ('ann-' + state.turn + '-' + state.announcedEvent.type) : null;
   if(!eventKey){
     els.eventBanner.className='event-banner hidden';
@@ -54,13 +84,13 @@ function renderEventBanner(){
   }
   if(state.activeEvent){
     const ev=EVENT_CATALOG[state.activeEvent.type]||{name:'Desastre',icon:'⚡',desc:'Fuerza natural devastadora'};
-    const regName=REGIONS[state.activeEvent.region]?.name||state.activeEvent.region;
+    const regName=getRegion(state,state.activeEvent.region).name;
     els.eventBanner.className='event-banner event-banner-active';
     els.eventBanner.innerHTML='<button class="map-corner-btn event-map-btn" id="openEventAlert" type="button" aria-label="Ver desastre activo"><span aria-hidden="true">' + (ev.icon||'⚡') + '</span><small>ACTIVO</small></button>';
     eventModalData={icon:'error',title:(ev.icon||'⚡')+' '+ev.name,html:'<p><strong>Desastre activo en '+regName+'.</strong></p><p>'+ev.desc+'</p><p>Sus efectos permanecen hasta la ronda '+state.activeEvent.expiresRound+'.</p>'};
   }else if(state.announcedEvent){
     const ev=EVENT_CATALOG[state.announcedEvent.type]||{name:'Amenaza',icon:'⚠️',desc:'Fuerza natural en desarrollo'};
-    const regName=REGIONS[state.announcedEvent.region]?.name||state.announcedEvent.region;
+    const regName=getRegion(state,state.announcedEvent.region).name;
     els.eventBanner.className='event-banner event-banner-announced';
     els.eventBanner.innerHTML='<button class="map-corner-btn event-map-btn" id="openEventAlert" type="button" aria-label="Ver alerta de la ronda '+state.announcedEvent.triggerRound+'"><span aria-hidden="true">⚠️</span><small>R'+state.announcedEvent.triggerRound+'</small></button>';
     eventModalData={icon:'warning',title:(ev.icon||'⚠️')+' '+ev.name+' inminente',html:'<p><strong>Alerta en la región '+regName+'.</strong></p><p>'+ev.desc+'</p><p>Impacto previsto para la ronda '+state.announcedEvent.triggerRound+'.</p>'};
@@ -245,7 +275,7 @@ function toggleCommanderPopover(pid, anchorEl) {
   }
 }
 
-function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,r])=>{const regionTerrs=ts().filter(t=>t.region===k),fullyVisible=regionTerrs.every(t=>getTerritoryVisibility(state,t.id,0,difficulty)==='full'),owner=fullyVisible?state.players.find(p=>regionTerrs.every(t=>state.territories[t.id].owner===p.id)):null;return`<div class="region-row" style="--rc:${r.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${r.bonus}</strong></div>`}).join('')}
+function renderRegions(){els.regions.innerHTML=Object.entries(REGIONS).map(([k,base])=>{const r=getRegion(state,k),regionTerrs=ts().filter(t=>t.region===k),fullyVisible=regionTerrs.every(t=>getTerritoryVisibility(state,t.id,0,difficulty)==='full'),owner=fullyVisible?state.players.find(p=>regionTerrs.every(t=>state.territories[t.id].owner===p.id)):null;return`<div class="region-row" style="--rc:${base.color}"><i class="region-swatch"></i><span>${r.name}${owner?` · ${owner.name}`:''}</span><strong>+${base.bonus}</strong></div>`}).join('')}
 function renderMap(){
   for(const t of ts()){
     const d=state.territories[t.id],p=state.players[d.owner],g=$(`#terr-${t.id}`);
@@ -265,7 +295,7 @@ function renderMap(){
     g.classList.toggle('spied',!!intel.isSpied);
 
     const isSabotaged=state.sabotagedTerritories?.[t.id]>=state.turn;
-    g.classList.toggle('sabotaged',!!isSabotaged);g.classList.toggle('event-threatened',state.announcedEvent?.region===t.region);g.classList.toggle('event-active',state.activeEvent?.region===t.region);
+    g.classList.toggle('sabotaged',!!isSabotaged);g.classList.toggle('event-threatened',state.rulesMode==='terrain'&&state.announcedEvent?.region===t.region);g.classList.toggle('event-active',state.rulesMode==='terrain'&&state.activeEvent?.region===t.region);
 
     if(cardTargeting){
       if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage')g.classList.toggle('card-valid-target',d.owner!==state.current);
@@ -386,6 +416,7 @@ function renderTerritoryInspect(id) {
   const t = tById(id);
   const d = state.territories[id];
   const owner = state.players[d.owner];
+  const terrainMode = state.rulesMode === 'terrain';
   const terrain = TERRAINS[t.terrain] || { name: 'Normal', icon: '📍', color: '#ffd45f' };
   const unit = UNIT_TYPES[d.unitType] || { name: 'Infantería', icon: '◆' };
   const intel = getTerritoryIntel(state, id, 0, difficulty);
@@ -395,35 +426,40 @@ function renderTerritoryInspect(id) {
   const ownerName = vis === 'hidden' ? 'Desconocido' : owner.name;
   const ownerColor = vis === 'hidden' ? '#95a5a6' : owner.color;
   const productionText = vis === 'full' ? ('+$' + territoryProduction(state, id) + (isSabotaged ? ' · saboteado' : '')) : vis === 'partial' ? 'Aprox. regional' : 'Oculta por niebla';
-  const unitText = state.rulesMode !== 'terrain' ? 'Tropas estándar' : vis === 'full' ? (unit.icon + ' ' + unit.name) : 'Oculta por niebla';
+  const unitText = vis === 'full' ? (unit.icon + ' ' + unit.name) : 'Oculta por niebla';
   const intelText = vis === 'full' ? (intel.isSpied ? '👁 Revelado por Espía' : d.owner === 0 ? '✓ Bajo tu mando' : '✓ Visión completa') : vis === 'partial' ? '⚠ Información parcial' : '🌫 Niebla profunda';
   let alertText = '';
-  if (state.activeEvent?.region === t.region) {
+  if (terrainMode && state.activeEvent?.region === t.region) {
     const ev = EVENT_CATALOG[state.activeEvent.type];
     alertText = (ev?.icon || '⚡') + ' ' + (ev?.name || 'Desastre') + ' activo';
-  } else if (state.announcedEvent?.region === t.region) {
+  } else if (terrainMode && state.announcedEvent?.region === t.region) {
     const ev = EVENT_CATALOG[state.announcedEvent.type];
     alertText = '⚠ ' + (ev?.name || 'Amenaza') + ' · ronda ' + state.announcedEvent.triggerRound;
   }
 
   const mapImg = state.mapId === 'archipelago' ? './map-archipelago.webp' : state.mapId === 'rift' ? './map-rift.webp' : './map-frontier.webp';
-  const regionName = t.region ? (REGIONS[t.region]?.name || t.region) : 'Continental';
+  const regionName = t.region ? getRegion(state,t.region).name : 'Continental';
+  const terrainIcon = terrainMode ? '<span class="terrain-huge-icon">' + terrain.icon + '</span>' : '';
+  const territoryBadge = terrainMode ? (terrain.name + ' · ' + regionName) : regionName;
+  const unitRow = terrainMode
+    ? '<div class="territory-spec-row"><span class="spec-lbl">Unidad</span><span class="spec-val">' + unitText + '</span></div>'
+    : '';
 
   container.innerHTML = '<div class="territory-active-preview">' +
     '<div class="territory-header-row">' +
       '<div class="territory-thumb-art" style="background-image: url(' + mapImg + ');">' +
-        '<span class="terrain-huge-icon">' + terrain.icon + '</span>' +
+        terrainIcon +
       '</div>' +
       '<div class="territory-identity">' +
         '<h4 class="territory-specs-title">⚔️ ' + t.name + '</h4>' +
-        '<span class="territory-sub-badge">' + terrain.name + ' · ' + regionName + '</span>' +
+        '<span class="territory-sub-badge">' + territoryBadge + '</span>' +
       '</div>' +
     '</div>' +
     '<div class="territory-data-table">' +
       '<div class="territory-spec-row"><span class="spec-lbl">Propietario</span><span class="spec-val" style="color:' + ownerColor + ';">● ' + ownerName + '</span></div>' +
       '<div class="territory-spec-row"><span class="spec-lbl">Guarnición</span><span class="spec-val">' + troopsDisplay + '</span></div>' +
       '<div class="territory-spec-row"><span class="spec-lbl">Producción</span><span class="spec-val">' + productionText + '</span></div>' +
-      '<div class="territory-spec-row"><span class="spec-lbl">Unidad</span><span class="spec-val">' + unitText + '</span></div>' +
+      unitRow +
       '<div class="territory-spec-row"><span class="spec-lbl">Conexiones</span><span class="spec-val">' + (t.n?.length || 0) + ' rutas directas</span></div>' +
       '<div class="territory-spec-row intel-row"><span class="spec-lbl">Inteligencia</span><span class="spec-val">' + intelText + '</span></div>' +
       (alertText ? '<div class="territory-spec-row alert-row"><span class="spec-lbl">Alerta</span><span class="spec-val">' + alertText + '</span></div>' : '') +
@@ -833,13 +869,12 @@ function comparisonMarkup(r){
 async function playAttackApproach(from,to){
   const origin=tById(from),target=tById(to);
   if(!origin||!target)return;
-  const x1=origin.x*10,y1=origin.y*8,x2=target.x*10,y2=target.y*8;
-  const dx=x2-x1,dy=y2-y1,length=Math.hypot(dx,dy)||1,ux=dx/length,uy=dy/length;
-  const midX=(x1+x2)/2,midY=(y1+y2)/2;
+  const route=routeGeometry(origin,target,ts()),start=route.point(0),end=route.point(1),mid=route.point(.5);
+  const x1=start.x,y1=start.y,x2=end.x,y2=end.y,midX=mid.x,midY=mid.y;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const svgNS='http://www.w3.org/2000/svg',layer=document.createElementNS(svgNS,'g');
   layer.classList.add('attack-march');layer.setAttribute('aria-hidden','true');
-  layer.innerHTML=`<line class="attack-route" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><circle class="clash-ring" cx="${midX}" cy="${midY}" r="8"/><g class="marchers attacker"/><g class="marchers defender"/>`;
+  layer.innerHTML=`<path class="attack-route" d="${route.d}"/><circle class="clash-ring" cx="${midX}" cy="${midY}" r="8"/><g class="marchers attacker"/><g class="marchers defender"/>`;
   const figures=`<g transform="translate(-14 2)"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g><g transform="translate(0 -4)"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g><g transform="translate(14 2)"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g>`;
   const attacker=layer.querySelector('.attacker'),defender=layer.querySelector('.defender');
   attacker.innerHTML=figures;defender.innerHTML=figures;
@@ -852,8 +887,7 @@ async function playAttackApproach(from,to){
     function frame(now){
       start??=now;
       const t=Math.min(1,(now-start)/duration),ease=t*t*(3-2*t);
-      const ax=x1+(midX-ux*16-x1)*ease,ay=y1+(midY-uy*16-y1)*ease;
-      const bx=x2+(midX+ux*16-x2)*ease,by=y2+(midY+uy*16-y2)*ease;
+      const ap=route.point(ease*.46),bp=route.point(1-ease*.46),ax=ap.x,ay=ap.y,bx=bp.x,by=bp.y;
       attacker.setAttribute('transform',`translate(${ax} ${ay})`);
       defender.setAttribute('transform',`translate(${bx} ${by})`);
       if(t<1)requestAnimationFrame(frame);else resolve();

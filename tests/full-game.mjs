@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -109,14 +109,17 @@ const classicRoll=attackRound(classic,cFrom,cTo,1);
 if(classicRoll.bonus.attacker||classicRoll.bonus.defender)throw new Error('El modo clásico aplicó modificadores');
 console.log('OK: 3 mapas, informes IA, modo clásico y rueda de terreno verificados.');
 
+const allTerritoryNames=new Set(),allRegionNames=new Set();
 for(const map of Object.values(MAPS)){
   const byId=Object.fromEntries(map.territories.map(t=>[t.id,t]));
+  for(const t of map.territories){if(allTerritoryNames.has(t.name))throw new Error(`Nombre territorial repetido entre mapas: ${t.name}`);allTerritoryNames.add(t.name)}
+  for(const key of Object.keys(REGIONS)){const regionName=getRegion(map,key).name;if(allRegionNames.has(regionName))throw new Error(`Nombre regional repetido entre mapas: ${regionName}`);allRegionNames.add(regionName)}
   for(const t of map.territories)for(const n of t.n)if(!byId[n]?.n.includes(t.id))throw new Error(`${map.name}: ruta asimétrica ${t.id}-${n}`);
   const seen=new Set([map.territories[0].id]),queue=[map.territories[0].id];
   while(queue.length){const id=queue.shift();for(const n of byId[id].n)if(!seen.has(n)){seen.add(n);queue.push(n)}}
   if(seen.size!==map.territories.length)throw new Error(`${map.name}: mapa desconectado`);
 }
-console.log('OK: conectividad y rutas simétricas verificadas en los 3 mapas.');
+console.log('OK: conectividad, rutas simétricas y nombres únicos verificados en los 3 mapas.');
 
 // Economía: mayoría regional, control total, cobro único, gasto y continuidad del guardado anterior.
 const economy=createGame({players:2,seed:314,human:true});
@@ -412,7 +415,7 @@ if(objectivesGame.objectiveCycle!==1||!op.temporaryObjective||op.temporaryObject
 console.log('OK: Información imperfecta (§10), niebla de guerra, Espía y Dificultad IA (§9.3) verificados.');
 
 // 11. Eventos Dinámicos del Mapa (§14)
-const eventGame = createGame({players:2, seed:555, human:true});
+const eventGame = createGame({players:2, seed:555, human:true, rulesMode:'terrain'});
 if (eventGame.announcedEvent !== null || eventGame.activeEvent !== null) throw new Error('Los eventos iniciales deben ser null');
 
 // Aviso con 1 ronda de anticipación (§14.3)
@@ -458,11 +461,30 @@ checkEventCycle(eventGame);
 if (eventGame.activeEvent !== null) throw new Error('El evento activo debió expirar al cumplirse su duración');
 
 // Tsunami en islas/costas
-const tsunamiGame = createGame({players:2, seed:556, human:true});
+const tsunamiGame = createGame({players:2, seed:556, human:true, rulesMode:'terrain'});
 const tsunamiAnnounced = announceEvent(tsunamiGame, 'tsunami', 'isles', 3);
 if (tsunamiAnnounced.region !== 'isles') throw new Error('El tsunami debe dirigirse a la región Jade/islas');
 const tsunamiActive = triggerEvent(tsunamiGame, tsunamiAnnounced);
 if (!tsunamiActive || tsunamiGame.activeEvent.type !== 'tsunami') throw new Error('El tsunami no se activó correctamente');
+
+// El modo clásico no anuncia ni activa desastres, aunque se invoque el ciclo.
+const classicEventGame = createGame({players:2, seed:557, human:true, rulesMode:'classic'});
+const classicTroopsBefore = Object.values(classicEventGame.territories).reduce((sum,t)=>sum+t.troops,0);
+if (announceEvent(classicEventGame,'earthquake','crown',3)!==null) throw new Error('El modo clásico anunció un desastre');
+if (triggerEvent(classicEventGame,{type:'earthquake',region:'crown',triggerRound:3,duration:2})!==null) throw new Error('El modo clásico activó un desastre');
+classicEventGame.turn=7;
+checkEventCycle(classicEventGame);
+const classicTroopsAfter = Object.values(classicEventGame.territories).reduce((sum,t)=>sum+t.troops,0);
+if (classicEventGame.announcedEvent!==null||classicEventGame.activeEvent!==null||classicTroopsAfter!==classicTroopsBefore) throw new Error('El modo clásico aplicó efectos de desastre');
+
+// Las partidas clásicas guardadas también deben limpiar efectos antiguos.
+const legacyEventTerritory = getTerritories(classicEventGame).find(t=>t.region==='crown').id;
+classicEventGame.activeEvent={type:'tempest',region:'crown',expiresRound:9};
+classicEventGame.announcedEvent={type:'earthquake',region:'west',triggerRound:8};
+classicEventGame.blockedConnections.push({a:'c1',b:'c2',expiresTurn:9,cause:'tempest'});
+classicEventGame.sabotagedTerritories[legacyEventTerritory]=9;
+upgradeGame(classicEventGame);
+if(classicEventGame.activeEvent||classicEventGame.announcedEvent||classicEventGame.blockedConnections.some(b=>EVENT_IDS.includes(b.cause))||classicEventGame.sabotagedTerritories[legacyEventTerritory]) throw new Error('La migración clásica conservó efectos de desastre antiguos');
 
 console.log('OK: Eventos dinámicos del mapa (§14), aviso previo, impacto, bajas mínimas y caducidad verificados.');
 

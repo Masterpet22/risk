@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=12">
+  <link rel="stylesheet" href="./theme.css?v=14">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -294,7 +294,7 @@
               <span class="rule-icon">⚔️</span>
               <div class="rule-meta">
                 <b>Modo clásico</b>
-                <small>Solo tropas, dados y regiones.</small>
+                <small>Solo tropas, dados y regiones; sin desastres.</small>
               </div>
               <span class="radio-indicator"></span>
             </label>
@@ -303,7 +303,7 @@
               <span class="rule-icon">⛰️</span>
               <div class="rule-meta">
                 <b>Modo terreno</b>
-                <small>Unidades, afinidades y ventaja +1.</small>
+                <small>Unidades, afinidades, ventaja +1 y desastres.</small>
               </div>
               <span class="radio-indicator"></span>
             </label>
@@ -409,7 +409,7 @@
         <li><b>Comandantes y Doctrinas.</b> Cada líder militar dispone de una doctrina asimétrica: <b>El Conquistador</b> (+1 al dado de ataque en el primer combate de cada turno), <b>El Guardián</b> (+1 al dado defensivo en frentes en Guerra), <b>El Industrial</b> (+$1 de producción económica base en todos sus territorios), <b>El Estratega</b> (descuento de $5 en Mercado, Movilización gratis, Bloqueo a $15 y 1 Movilización inicial), <b>El Espía</b> (+1 al dado de ataque contra objetivos espiados, 1 Espía inicial y 50% de protección pasiva contra sabotajes) y <b>El Diplomático</b> (+40% de Influencia en objetivos y subsidio de $3 por mantener frentes pacíficos).</li>
         <li><b>Frentes de Guerra.</b> La tensión fronteriza entre comandantes vecinos evoluciona según las acciones: <b>Estable</b> (sin hostilidades), <b>Tenso</b> (por sabotajes/espionaje), <b>Conflicto</b> (combates recientes) y <b>Guerra</b> (conquistas y choques masivos). Los frentes pacíficos se enfrían un nivel al término de cada ronda completa.</li>
         <li><b>Información Imperfecta y Niebla de Guerra.</b> No dispones de certeza total sobre territorios remotos: <b>Completa</b> en tus tierras, vecinos directos (distancia 1) y objetivos espiados (guarnición, unidad y producción exactas); <b>Parcial</b> a distancia 2 (rango aproximado de tropas como 1-2, 3-5, 6-9 o 10+, con unidad oculta); y <b>Oculta</b> en tierras lejanas (guarnición desconocida con ? tropas). Jugar la carta de <b>Espía</b> levanta la niebla y revela datos completos de cualquier territorio durante 1 ronda. La dificultad de la IA ajusta su nivel de percepción sin alterar las tiradas de dados.</li>
-        <li><b>Eventos Dinámicos del Mapa (Desastres Naturales).</b> El continente sufre fuerzas impredecibles: <b>Terremotos</b> en fallas continentales, <b>Tsunamis</b> en costas e islas, y <b>Temporales</b> en estrechos marítimos y pasos montañosos. Se anuncian con 1 ronda de anticipación para permitir evacuaciones o repliegues; al activarse, causan bajas en la guarnición (respetando un mínimo de 1 tropa) y bloquean temporalmente rutas durante 2 rondas. En dificultad difícil, la IA tiene en cuenta las alertas tempranas para no reforzar zonas en riesgo.</li>
+        <li><b>Eventos Dinámicos del Mapa (solo modo terreno).</b> El continente sufre fuerzas impredecibles: <b>Terremotos</b> en fallas continentales, <b>Tsunamis</b> en costas e islas, y <b>Temporales</b> en estrechos marítimos y pasos montañosos. Se anuncian con 1 ronda de anticipación para permitir evacuaciones o repliegues; al activarse, causan bajas en la guarnición (respetando un mínimo de 1 tropa) y bloquean temporalmente rutas durante 2 rondas. En dificultad difícil, la IA tiene en cuenta las alertas tempranas para no reforzar zonas en riesgo.</li>
       </ol>
       <button class="primary-btn" id="gotItBtn">Entendido</button>
     </section>
@@ -476,6 +476,6 @@
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-  <script type="module" src="./app.mjs?v=13"></script>
+  <script type="module" src="./app.mjs?v=17"></script>
 </body>
 </html>

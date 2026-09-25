@@ -3114,3 +3114,80 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
   .color-options{grid-template-columns:repeat(2,minmax(0,1fr))}
   .card-item{grid-template-columns:36px minmax(0,1fr) auto !important}
 }
+
+/* Ajustes de viewport: un solo scroll en configuración y controles sin solaparse. */
+html:has(#startModal:not(.hidden)),
+body:has(#startModal:not(.hidden)) {
+  overflow: hidden !important;
+}
+
+#startModal.start-backdrop {
+  align-items: flex-start !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+#startModal .start-layout {
+  margin-block: auto !important;
+}
+
+#startModal .start-card {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.map-floating-footer {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: end !important;
+  gap: 10px !important;
+}
+
+.map-floating-footer .map-legend,
+.map-floating-footer .map-zoom-bar {
+  position: static !important;
+  inset: auto !important;
+  min-width: 0;
+}
+
+.map-floating-footer .map-legend {
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  row-gap: 5px;
+}
+
+.map-floating-footer .map-zoom-bar {
+  flex: none;
+  justify-self: end;
+}
+
+@media (min-width: 1101px) and (max-height: 820px) {
+  #startModal.start-backdrop { padding: 10px 18px !important; }
+  #startModal .start-layout { gap: 28px !important; }
+  #startModal .start-hero { padding-left: 4px !important; }
+  #startModal .start-crest { width: 46px; height: 46px; margin-bottom: 14px; }
+  #startModal .start-title { font-size: 2.85rem; margin-bottom: 10px; }
+  #startModal .start-subtitle { font-size: .9rem; line-height: 1.45; }
+  #startModal .start-card { padding: 13px 18px 11px !important; }
+  #startModal .start-card-header { margin-bottom: 8px; padding-bottom: 7px; }
+  #startModal .setup-section,
+  #startModal .setup-grid { margin-top: 7px !important; margin-bottom: 7px !important; }
+  #startModal .setup-section legend { margin-bottom: 5px; }
+  #startModal .map-thumb-wrap { height: 60px; }
+  #startModal .map-meta { min-height: 36px; padding: 5px 8px; }
+  #startModal .color-choice { min-height: 30px; padding: 4px 7px; }
+  #startModal .rule-card,
+  #startModal .commander-card { padding: 6px 8px; }
+  #startModal .start-actions { margin-top: 7px; }
+  #startModal .start-cta,
+  #startModal .continue-cta { padding-block: 8px; }
+  #startModal .autosave-footnote { margin-top: 5px; }
+}
+
+@media (max-width: 1280px) and (min-width: 761px) {
+  .map-floating-footer .map-legend { gap: 7px; padding: 5px 8px; font-size: .64rem; }
+  .map-floating-footer { left: 10px; right: 10px; }
+}
