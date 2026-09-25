@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -14,7 +14,7 @@ for(let seed=1;seed<=60;seed++){
     if(state.players.filter(p=>p.alive).length!==1)throw new Error(`Semilla ${seed}: victoria inconsistente`);
     if(Object.values(state.territories).some(t=>t.owner!==state.winner))throw new Error(`Semilla ${seed}: el ganador no posee todo el mapa`);
   }else if(state.victoryType==='influence'){
-    if(state.players[state.winner].influence<150)throw new Error(`Semilla ${seed}: ganador por influencia con menos de 150 pts`);
+    if(state.players[state.winner].influence<INFLUENCE_TARGET)throw new Error(`Semilla ${seed}: ganador por influencia con menos de ${INFLUENCE_TARGET} pts`);
   }else if(state.victoryType==='round_limit'){
     if(state.turn<40)throw new Error(`Semilla ${seed}: límite de ronda declarado antes de ronda 40`);
   }else{
@@ -153,14 +153,14 @@ if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[
 const before=economy.pendingReinforcements;
 if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
 const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV3)?.version!==10||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v10 de forma estable');
+if(upgradeGame(previousV3)?.version!==11||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v11 de forma estable');
 const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV4)?.version!==10||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v10 de forma estable');
+if(upgradeGame(previousV4)?.version!==11||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v11 de forma estable');
 const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV5)?.version!==10||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v10 de forma estable');
+if(upgradeGame(previousV5)?.version!==11||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v11 de forma estable');
 const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV6)?.version!==10||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v10 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v10 verificados.');
+if(upgradeGame(previousV6)?.version!==11||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v11 de forma estable');
+console.log('OK: producción, tesoro, compras y migración v11 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
@@ -218,42 +218,48 @@ console.log('OK: Mercado táctico verificado (catálogo, compras, stock de ciclo
 // --- PRUEBAS UNITARIAS DE INFLUENCIA Y OBJETIVOS (§8, §12, §16) ---
 const ig=createGame({players:2,seed:808,human:true});
 // 1. Verificación de la fórmula de Influencia:
-// INFLUENCIA = (Territorios * 2) + (Regiones 100% * 8) + (Producción * 1) + (min(Tropas, 30) * 0.3) + Objetivos
+// INFLUENCIA = min(Territorios, 8) + min(Regiones, 3) * 3 + Objetivos
 for(const t of TERRITORIES)ig.territories[t.id].owner=1;
 // Jugador 0 controla región Norte completa (4 territorios: n1, n2, n3, n4)
 ig.territories.n1.owner=ig.territories.n2.owner=ig.territories.n3.owner=ig.territories.n4.owner=0;
 ig.territories.n1.troops=15;ig.territories.n2.troops=10;ig.territories.n3.troops=10;ig.territories.n4.troops=10;
-// Total tropas = 45 -> el tope debe ser 30 -> 30 * 0.3 = 9
-// Territorios = 4 -> 4 * 2 = 8
-// Regiones 100% = 1 (Norte) -> 1 * 8 = 8
-// Producción: 4 territorios con 100% de región -> cada uno produce 1 + 1 + 2 = 4 -> total producción = 16 -> 16 * 1 = 16
-// Objetivos = 0
-// Total esperado = 8 + 8 + 16 + 9 + 0 = 41
 const calcInf=calculateInfluence(ig,0);
-if(calcInf!==41)throw new Error(`Cálculo de influencia erróneo: esperado 41, obtenido ${calcInf}`);
+if(calcInf!==7)throw new Error(`Cálculo de influencia erróneo: esperado 7, obtenido ${calcInf}`);
+const baseBreakdown=influenceBreakdown(ig,0);
+if(baseBreakdown.production.points!==0||baseBreakdown.troops.points!==0||baseBreakdown.territories.cap!==8)throw new Error('Producción o tropas aún conceden Influencia, o falta el límite territorial');
 
-// 2. Cumplimiento de objetivos
-ig.players[0].money=60;
-checkObjectives(ig,0);
-if(!ig.players[0].completedObjectives.includes('treasury_50'))throw new Error('El objetivo Poderío Económico ($50) no se cumplió');
+// 2. Elección y cumplimiento de objetivos
+const offeredMain=ig.players[0].objectiveChoices.main[0];
+if(!chooseObjective(ig,0,'main',offeredMain).ok||ig.players[0].mainObjective!==offeredMain)throw new Error('No se pudo elegir un objetivo principal ofertado');
+ig.players[0].completedObjectives=['investment_60'];
 const infWithObj=calculateInfluence(ig,0);
-if(infWithObj!==51)throw new Error(`Influencia con objetivo errónea: esperado 51, obtenido ${infWithObj}`);
+if(infWithObj!==25)throw new Error(`Influencia con objetivo errónea: esperado 25, obtenido ${infWithObj}`);
+if(objectiveProgress(ig,0,'investment_60').target!==60)throw new Error('El progreso del objetivo económico no expone su meta');
 
-// 3. Condición de Victoria B: Hegemonía por Influencia (>= 150)
+const objectiveActions=createGame({players:2,seed:818,human:true});
+objectiveActions.players[0].mainObjective='investment_60';objectiveActions.players[0].objectiveChoices.main=[];objectiveActions.players[0].money=100;
+buyReinforcements(objectiveActions,0);
+if(objectiveProgress(objectiveActions,0,'investment_60').raw!==10)throw new Error('La compra básica no registró inversión para objetivos');
+for(const t of TERRITORIES)objectiveActions.territories[t.id].owner=0;
+objectiveActions.phase='fortify';objectiveActions.territories.n1.troops=8;objectiveActions.players[0].temporaryObjective='fortify_6';objectiveActions.players[0].objectiveChoices.temporary=[];
+if(!fortify(objectiveActions,'n1','n2',6)||!objectiveActions.players[0].completedObjectives.includes('fortify_6'))throw new Error('La Maniobra no completó la misión logística');
+
+// 3. Condición de Victoria B: Hegemonía por Influencia
 const vicB=createGame({players:2,seed:809,human:true});
 for(const t of TERRITORIES)vicB.territories[t.id].owner=0;
 vicB.territories.i4.owner=1;vicB.territories.i4.troops=2; // Rival vivo con 1 territorio
+vicB.players[0].completedObjectives=['regional_network','tactical_doctrine','logistics_12','investment_60'];
 vicB.current=1;vicB.turn=2;
-endTurn(vicB); // Jugador 1 termina su turno, vuelve a 0 (cierre de ronda completa con Influencia > 150)
-if(vicB.winner!==0||vicB.victoryType!=='influence'||vicB.phase!=='gameover')throw new Error('La victoria por Hegemonía de Influencia (>= 150) no se activó al cierre de ronda');
+endTurn(vicB);
+if(vicB.winner!==0||vicB.victoryType!=='influence'||vicB.phase!=='gameover'||vicB.players[0].influence<INFLUENCE_TARGET)throw new Error('La victoria por Hegemonía no se activó al cierre de ronda');
 
-// 4. Condición de Victoria C: Límite de 40 rondas (ambos con < 150 de influencia)
+// 4. Condición de Victoria C: Límite de 40 rondas
 const vicC=createGame({players:2,seed:810,human:true});
 // Reparto balanceado 13 vs 11 alternando territorios para evitar regiones al 100%
 for(let i=0;i<TERRITORIES.length;i++)vicC.territories[TERRITORIES[i].id].owner=i%2===0?0:1;
 vicC.territories[TERRITORIES[0].id].troops=10; // Ventaja para jugador 0
 vicC.turn=40;vicC.current=1;
-endTurn(vicC); // Cierre de ronda 40 con influencias < 150
+endTurn(vicC);
 if(vicC.winner===null||vicC.victoryType!=='round_limit'||vicC.phase!=='gameover'||vicC.players.some(p=>p.alive&&p.influence>vicC.players[vicC.winner].influence))throw new Error(`La victoria por límite de 40 rondas no se activó para el líder (tipo: ${vicC.victoryType}, inf: ${vicC.players.map(p=>p.influence)})`);
 
 console.log('OK: Fórmula de Influencia (§8), Objetivos (§12) y Condiciones de Victoria B y C (§16) verificadas.');
@@ -318,11 +324,11 @@ if(tacticalCardCost(testStrat,'blockade',0)!==15||tacticalCardCost(testStrat,'mo
 
 // 5. Doctrina El Diplomático: +20% de Influencia en Objetivos
 const testDip = createGame({players:2, seed:905, human:true, playerCommander:'diplomat'});
-testDip.players[0].completedObjectives = ['regions_2']; // Vale 15 normalmente -> 15 * 1.2 = 18
+testDip.players[0].completedObjectives = ['investment_60'];
 const dipInf = calculateInfluence(testDip, 0);
 testDip.players[0].commander = 'conqueror';
 const regInf = calculateInfluence(testDip, 0);
-if (Math.round((dipInf - regInf) * 10) / 10 !== 6) throw new Error(`El Diplomático debe obtener +6 pts adicionales por objetivo de 15 pts (+40%) (obtenido diff: ${dipInf - regInf})`);
+if (Math.round((dipInf - regInf) * 10) / 10 !== 7.2) throw new Error(`El Diplomático debe obtener +7.2 pts adicionales por objetivo de 18 pts (+40%) (obtenido diff: ${dipInf - regInf})`);
 
 // 6. Doctrina El Espía: Contrainteligencia pasiva y cartas gratuitas
 const testSpy = createGame({players:2, seed:906, human:true, playerCommander:'spy'});
@@ -332,20 +338,20 @@ const spyTarget = ownedIds(testSpy, 1)[0];
 const spyRes = playTacticalCard(testSpy, 'spy', spyTarget, 0);
 if (!spyRes.ok) throw new Error('El Espía debe poder usar Espía gratis sin dinero');
 
-// 7. Migración de partida guardada a v10:
+// 7. Migración de partida guardada a v11:
 const oldV7 = createGame({players:2, seed:907, human:true});
 oldV7.version = 7;
 delete oldV7.fronts;
 oldV7.players.forEach(p => delete p.commander);
 const upgraded = upgradeGame(oldV7);
-if (!upgraded || upgraded.version !== 10 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 9 falló');
+if (!upgraded || upgraded.version !== 11 || !upgraded.fronts || !upgraded.players[0].commander) throw new Error('La migración a versión 11 falló');
 
 const oldV8 = createGame({players:2, seed:908, human:true});
 oldV8.version = 8;
 const upgradedV8 = upgradeGame(oldV8);
-if (!upgradedV8 || upgradedV8.version !== 10) throw new Error('La migración desde versión 8 a versión 9 falló');
+if (!upgradedV8 || upgradedV8.version !== 11) throw new Error('La migración desde versión 8 a versión 11 falló');
 
-console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8/v10 verificadas.');
+console.log('OK: Doctrinas de Comandante (§9.1), Frentes de Guerra (§13) y Migración v8/v11 verificadas.');
 
 // 8. Información Imperfecta (§10) y Rangos de Tropas
 if (approximateTroops(1) !== '1-2' || approximateTroops(2) !== '1-2') throw new Error('Rango 1-2 incorrecto');
@@ -423,12 +429,13 @@ if (directEnemies.length > 0) {
 const hardObserver=1,hardFar=allTerrs.find(id=>fogGame.territories[id].owner!==hardObserver&&minDistanceToOwned(fogGame,id,hardObserver)>=3);
 if(hardFar&&getTerritoryVisibility(fogGame,hardFar,hardObserver,'difícil')!=='hidden')throw new Error('La IA difícil recibió información perfecta que el diseño no concede');
 
-// Cada comandante mantiene un objetivo principal y uno temporal; el temporal rota por ciclo.
+// El jugador elige entre tres objetivos; las opciones temporales rotan por ciclo.
 const objectivesGame=createGame({players:2,seed:1234,human:true});
-const op=objectivesGame.players[0],oldTemporary=op.temporaryObjective;
-if(!op.mainObjective||!oldTemporary)throw new Error('No se asignaron los dos tipos de objetivo');
+const op=objectivesGame.players[0],oldChoices=[...op.objectiveChoices.temporary];
+if(op.mainObjective||op.temporaryObjective||op.objectiveChoices.main.length!==3||oldChoices.length!==3)throw new Error('No se ofrecieron tres elecciones por tipo al jugador humano');
+if(!chooseObjective(objectivesGame,0,'temporary',oldChoices[0]).ok)throw new Error('No se pudo elegir la misión temporal');
 objectivesGame.objectiveCycle=0;rotateTemporaryObjectives(objectivesGame,1);
-if(objectivesGame.objectiveCycle!==1||!op.temporaryObjective||op.temporaryObjective===oldTemporary)throw new Error('El objetivo temporal no rotó al cambiar de ciclo');
+if(objectivesGame.objectiveCycle!==1||op.temporaryObjective||op.objectiveChoices.temporary.length!==3)throw new Error('Las opciones temporales no rotaron al cambiar de ciclo');
 
 console.log('OK: Información imperfecta (§10), niebla de guerra, Espía y Dificultad IA (§9.3) verificados.');
 
@@ -544,7 +551,7 @@ if (stratGame.players[0].money !== 5) {
 
 // 4. Comandante El Diplomático: +40% en objetivos y subsidio de pacificación
 const dipGame = createGame({players:2, seed:704, human:true, playerCommander:'diplomat'});
-dipGame.players[0].completedObjectives = ['territories_8'];
+dipGame.players[0].completedObjectives = ['conquer_2'];
 const dipInf = calculateInfluence(dipGame, 0);
 const dipBreakdown = influenceBreakdown(dipGame, 0);
 const dipRowsTotal = dipBreakdown.territories.points + dipBreakdown.regions.points + dipBreakdown.production.points + dipBreakdown.troops.points + dipBreakdown.objectives.basePoints + dipBreakdown.objectives.bonusPoints;
@@ -552,7 +559,7 @@ if (dipRowsTotal !== dipBreakdown.total || dipBreakdown.total !== dipInf || dipB
   throw new Error('El desglose visible de Influencia no coincide con calculateInfluence');
 }
 const nonDipGame = createGame({players:2, seed:704, human:true, playerCommander:'conqueror'});
-nonDipGame.players[0].completedObjectives = ['territories_8'];
+nonDipGame.players[0].completedObjectives = ['conquer_2'];
 const nonDipInf = calculateInfluence(nonDipGame, 0);
 if (dipInf - nonDipInf !== 4) throw new Error(`El Diplomático debió otorgar +4 pts adicionales (+40% de 10 = 14 vs 10), diferencia: ${dipInf - nonDipInf}`);
 

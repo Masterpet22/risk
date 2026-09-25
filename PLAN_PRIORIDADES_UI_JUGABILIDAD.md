@@ -1,5 +1,7 @@
 # Plan de prioridades de interfaz y jugabilidad
 
+Versión documental 0.3 · última revisión 25 de septiembre de 2026.
+
 Este plan toma como punto de partida el estado jugable actual. El orden prioriza primero la comprensión de las decisiones y la fiabilidad de los controles; después, la presentación y el refinamiento general.
 
 ## Principios de trabajo
@@ -208,7 +210,7 @@ Criterio de cierre: todas las métricas permanecen en almacenamiento local, pued
 
 ### P4.2 Revisar la bola de nieve territorial y la Influencia alternativa
 
-**Estado: diagnóstico completado; ajuste numérico pendiente.** La simulación reproducible de 120 campañas y sus umbrales están documentados en `INFORME_BALANCE_P4.md`. La ventaja territorial de ronda 8 predijo el 89,2% de las victorias, por lo que no se aplicó al juego principal un ajuste superficial que no modificó los resultados.
+**Estado: Influencia v2 implementada; balance operativo pendiente.** La simulación reproducible de 600 campañas y sus umbrales están documentados en `INFORME_BALANCE_P4.md`. La nueva fórmula elimina producción y tropas, limita la presencia a 17 puntos y convierte los objetivos elegibles en la fuente principal. La mediana ya está en rango y ninguna condición de victoria supera el 80%; la economía y los refuerzos todavía mantienen la correlación territorial en 0,72.
 
 - Medir la correlación entre ventaja territorial temprana y victoria final.
 - Comparar producción, refuerzos, control regional e Influencia obtenidos por el líder frente al resto.
@@ -240,6 +242,8 @@ Criterio de cierre: el informe de simulación demuestra que una ventaja temprana
 
 ### P5.1 Dividir la lógica de interfaz
 
+**Estado: primera extracción completada; trabajo gradual restante.** Persistencia, rutas, presentación de combate, controles de Maniobra, accesibilidad, modales y telemetría tienen módulos independientes con pruebas aisladas. `app.mjs` conserva la orquestación y los renderizadores específicos del mapa, panel de órdenes, Mercado, Crónica y tutorial para evitar una reescritura monolítica.
+
 - Separar `app.mjs` en módulos con responsabilidades acotadas:
   - estado y persistencia;
   - mapa y rutas;
@@ -254,6 +258,8 @@ Criterio de cierre: el informe de simulación demuestra que una ventaja temprana
 
 ### P5.2 Sincronizar GDD, README y planes
 
+**Estado: completado.** El GDD v0.3, README y ambos planes describen los sistemas implementados, la arquitectura actual, las pruebas, el diagnóstico de balance y el alcance futuro con fecha común de revisión.
+
 - Actualizar el GDD con las reglas realmente implementadas, modos, economía, cartas, Frentes, eventos e Influencia.
 - Actualizar `README.md` con arquitectura, controles actuales, pruebas y flujo de publicación.
 - Conciliar `PLAN_DE_DESARROLLO.md` con este plan de prioridades, eliminando estados contradictorios.
@@ -261,6 +267,8 @@ Criterio de cierre: el informe de simulación demuestra que una ventaja temprana
 - Tratar cualquier cambio de reglas como incompleto hasta que código, pruebas y documentación coincidan.
 
 ### P5.3 Optimización posterior
+
+**Estado: completado para el alcance individual actual.** Las animaciones se reducen mediante `prefers-reduced-motion` y también en dispositivos que declaran actualización lenta; se eliminan filtros costosos en ese perfil. El multijugador permanece explícitamente pospuesto.
 
 - Optimizar animaciones para `prefers-reduced-motion` y dispositivos de bajo rendimiento.
 - Dejar multijugador para después de estabilizar estos flujos, como ya establece el plan general del proyecto.
@@ -284,3 +292,16 @@ Criterio de cierre: el informe de simulación demuestra que una ventaja temprana
 15. P5.3 — Optimización y preparación para trabajo futuro.
 
 Se recomienda comenzar por **P0.2** porque sustituye un control que actualmente dificulta una acción básica y puede implementarse sin modificar las reglas del motor. A continuación, **P0.1** unifica selección, animación y resultado de combate. El bloque P0 se cierra con **P0.3**, que hace reversible la única decisión repetitiva de Reclutamiento antes de abordar mejoras informativas más amplias.
+
+## Estado final y trabajo restante
+
+Los bloques P0, P1, P2, P3, P4.1, P4.3, P5.2 y P5.3 están cerrados para el alcance individual actual. P5.1 cuenta con una primera extracción estable y debe continuar únicamente cuando se modifiquen las áreas implicadas.
+
+Queda pendiente, en este orden:
+
+1. **Balance P4.2:** revisar economía regional, refuerzos y prioridad de las misiones de recuperación hasta elevar las remontadas de 20,3% a 25% y bajar la correlación de 0,72 a 0,60.
+2. **Simulación factorial:** repetir la muestra de 600 campañas después de cada cambio operativo y separar el efecto real de doctrina, posición, mapa y cantidad de comandantes.
+3. **Modularización gradual P5.1:** extraer tutorial, panel de órdenes, mapa, Mercado y Crónica de `app.mjs` cuando haya una necesidad funcional, manteniendo pruebas de arranque e interacción después de cada extracción.
+4. **Multijugador:** permanece fuera del alcance hasta estabilizar el balance individual; requerirá servidor autoritativo y un plan propio.
+
+No quedan ajustes visuales, de accesibilidad, telemetría o documentación pendientes dentro de las fases ya cerradas.

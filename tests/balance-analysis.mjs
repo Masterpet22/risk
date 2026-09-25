@@ -1,6 +1,6 @@
 import {createGame,aiTurn,MAPS,COMMANDER_IDS,ownedIds,productionTotal,reinforcementCount,influenceBreakdown} from '../dist/engine.mjs';
 
-const GAMES=120,EARLY_ROUND=8;
+const GAMES=Number(process.env.BALANCE_GAMES||120),EARLY_ROUND=8;
 const games=[],commanderGames={},commanderWins={},victoryTypes={};
 const add=(bucket,key,value=1)=>bucket[key]=(bucket[key]||0)+value;
 const playerMetrics=(state,player)=>{const breakdown=influenceBreakdown(state,player.id);return{id:player.id,commander:player.commander,territories:ownedIds(state,player.id).length,production:productionTotal(state,player.id),reinforcements:reinforcementCount(state,player.id),influence:breakdown.total,regions:breakdown.regions.count,objectiveInfluence:breakdown.objectives.points,breakdown}};

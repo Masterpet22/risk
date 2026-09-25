@@ -1,12 +1,17 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=14';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=15';
 import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
+import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=1';
+import {routeGeometry} from './map-routes.mjs?v=1';
+import {createLiveAnnouncer,restoreFocus,escapeHtml} from './ui-accessibility.mjs?v=1';
+import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1';
+import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=1';
+import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
 let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
 let lastRenderedPhase=null;
-let lastAnnouncement='',helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,defenseReturnFocus=null,endReturnFocus=null;
-const SAVE='fronteras-acero-save-v3';
+let helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,defenseReturnFocus=null,endReturnFocus=null;
 const TUTORIAL_KEY='fronteras-acero-tutorial-v1';
 let tutorialActive=false,tutorialCurrent=null;
 const tutorialSteps=[
@@ -52,11 +57,10 @@ function skipTutorial(){const status=tutorialStatus();status.dismissed=true;save
 function restartTutorial(){saveTutorialStatus({version:1,seen:[],dismissed:false,completed:false});tutorialActive=true;tutorialCurrent=null;els.helpModal.classList.add('hidden');renderTutorial();restoreFocus($('#nextTutorialBtn'),'#mobileOrdersBtn');showToast('Tutorial contextual reiniciado')}
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
 const regionShort=(map,key)=>getRegion(map,key).short||getRegion(map,key).name.toUpperCase();
-function save(){if(state)localStorage.setItem(SAVE,JSON.stringify({state:pendingAiState||state,difficulty}))}
-function load(){try{const d=JSON.parse(localStorage.getItem(SAVE));const restored=upgradeGame(d?.state);if(!restored||validateState(restored).length)return false;state=restored;difficulty=d.difficulty||'normal';return true}catch{return false}}
+function save(){if(state)saveCampaign(pendingAiState||state,difficulty)}
+function load(){const restored=loadCampaign();if(!restored)return false;state=restored.state;difficulty=restored.difficulty;return true}
 function showToast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),2500)}
-function announce(message){if(!message||message===lastAnnouncement||!els.announcements)return;lastAnnouncement=message;els.announcements.textContent='';requestAnimationFrame(()=>{els.announcements.textContent=message})}
-function restoreFocus(element,fallback='#mobileOrdersBtn'){requestAnimationFrame(()=>{const target=element?.isConnected?element:$(fallback);if(target&&!target.disabled&&typeof target.focus==='function')target.focus()})}
+const announce=createLiveAnnouncer(els.announcements);
 const mobileLayout=()=>window.matchMedia('(max-width: 1200px)').matches;
 function openMobileOrders(){if(!mobileLayout())return;document.body.classList.add('order-open');$('#mobileOrdersBtn').setAttribute('aria-expanded','true');$('#orderCard').scrollTop=0;setTimeout(()=>{if(document.body.classList.contains('order-open'))$('#closeOrderSheet').focus()},360)}
 function closeMobileOrders(){const wasOpen=document.body.classList.contains('order-open');document.body.classList.remove('order-open');$('#mobileOrdersBtn').setAttribute('aria-expanded','false');if(wasOpen)restoreFocus($('#mobileOrdersBtn'))}
@@ -70,30 +74,6 @@ function updateControlAccessibility(){
   document.querySelectorAll('.zoom-btn').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('active'))));
 }
 function updateMobileMapOverlay(){const head=document.querySelector('.map-head')||document.querySelector('.map-floating-header'),toolbar=document.querySelector('.map-toolbar')||document.querySelector('.map-floating-footer');if(head&&head.style){head.style.left='';head.style.right='';head.style.width=''}if(toolbar&&toolbar.style){toolbar.style.left=''}}
-
-function routeGeometry(a,b,territories){
-  const x1=a.x*10,y1=a.y*8,x2=b.x*10,y2=b.y*8,dx=x2-x1,dy=y2-y1,length=Math.hypot(dx,dy)||1;
-  const segmentDistance=(p)=>{const u=Math.max(0,Math.min(1,((p.x*10-x1)*dx+(p.y*8-y1)*dy)/(length*length)));return Math.hypot(p.x*10-(x1+dx*u),p.y*8-(y1+dy*u))};
-  const blockers=territories.filter(t=>t.id!==a.id&&t.id!==b.id&&segmentDistance(t)<62);
-  let cx=(x1+x2)/2,cy=(y1+y2)/2,curved=false;
-  if(blockers.length){
-    const nx=-dy/length,ny=dx/length,candidates=[58,-58,82,-82,108,-108,138,-138];
-    let best=null;
-    for(const offset of candidates){
-      const tx=(x1+x2)/2+nx*offset,ty=(y1+y2)/2+ny*offset;
-      let clearance=Infinity;
-      for(const territory of territories){
-        if(territory.id===a.id||territory.id===b.id)continue;
-        for(let step=1;step<12;step++){const q=step/12,u=1-q,px=u*u*x1+2*u*q*tx+q*q*x2,py=u*u*y1+2*u*q*ty+q*q*y2;clearance=Math.min(clearance,Math.hypot(px-territory.x*10,py-territory.y*8))}
-      }
-      const edgePenalty=(tx<28||tx>972||ty<28||ty>732)?45:0,score=clearance-Math.abs(offset)*.16-edgePenalty;
-      if(!best||score>best.score)best={score,cx:tx,cy:ty};
-    }
-    cx=best.cx;cy=best.cy;curved=true;
-  }
-  const point=t=>{const u=1-t;return curved?{x:u*u*x1+2*u*t*cx+t*t*x2,y:u*u*y1+2*u*t*cy+t*t*y2}:{x:x1+dx*t,y:y1+dy*t}};
-  return{d:curved?`M ${x1} ${y1} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2} ${y2}`:`M ${x1} ${y1} L ${x2} ${y2}`,point,curved};
-}
 
 function initMap(mapId='frontier'){
   const map=MAPS[mapId]||MAPS.frontier,T=map.territories;els.map.innerHTML=`<image class="map-art" href="./map-${map.id}.webp" x="0" y="0" width="1000" height="760" preserveAspectRatio="xMidYMid slice"/><rect class="map-art-shade" x="0" y="0" width="1000" height="760"/>`;
@@ -160,24 +140,9 @@ function renderEventBanner(){
   if(alertBtn)alertBtn.onclick=openEventModal;
 }
 
-function openStrategicModal(options){
-  if(!window.Swal){showToast('No se pudo abrir el detalle');return}
-  const returnFocus=document.activeElement,didOpen=options.didOpen,didClose=options.didClose;
-  return window.Swal.fire({
-    ...options,
-    confirmButtonText:'Cerrar',
-    showCloseButton:true,
-    background:'#071827',
-    color:'#eaf6ff',
-    confirmButtonColor:'#d6aa3c',
-    customClass:{popup:'strategy-swal',htmlContainer:'strategy-swal-content'},
-    didOpen:popup=>didOpen?.(popup),
-    didClose:()=>{didClose?.();restoreFocus(returnFocus,'#helpBtn')}
-  });
-}
+const openStrategicModal=options=>showStrategicModal(options,{onUnavailable:()=>showToast('No se pudo abrir el detalle')});
 function openEventModal(){if(eventModalData)openStrategicModal(eventModalData)}
-function openObjectivesModal(){if(objectivesModalHtml)openStrategicModal({title:'🚩 Objetivos',html:objectivesModalHtml})}
-const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+function openObjectivesModal(){if(objectivesModalHtml)openStrategicModal({title:'🚩 Objetivos',html:objectivesModalHtml,didOpen:popup=>{popup.querySelectorAll('[data-objective-choice]').forEach(button=>button.onclick=()=>{const result=chooseObjective(state,state.current,button.dataset.objectiveKind,button.dataset.objectiveChoice);if(!result.ok)return showToast(result.reason);render();window.Swal?.close();showToast('Objetivo elegido: '+(OBJECTIVES_CATALOG.find(o=>o.id===result.objectiveId)?.name||result.objectiveId))})}})}
 function openInfluenceModal(pid=0){
   const p=state?.players?.[pid];
   if(!p?.human)return;
@@ -186,14 +151,12 @@ function openInfluenceModal(pid=0){
   openStrategicModal({title:'✦ Desglose de Influencia',width:520,html:`<div class="influence-breakdown">
     <div class="influence-total"><div><small>${escapeHtml(p.name)}</small><strong>${b.total} / ${b.target}</strong></div><span>Faltan ${b.remaining} para la victoria</span></div>
     <div class="influence-progress"><i style="width:${pct}%"></i></div>
-    <div class="influence-row"><span>Territorios <small>${b.territories.count} × 2</small></span><strong>+${b.territories.points}</strong></div>
-    <div class="influence-row"><span>Regiones completas <small>${b.regions.count} × 8</small></span><strong>+${b.regions.points}</strong></div>
-    <div class="influence-row"><span>Producción actual <small>$${b.production.value} × 1</small></span><strong>+${b.production.points}</strong></div>
-    <div class="influence-row"><span>Tropas <small>${b.troops.count}; cuentan ${b.troops.capped}/${b.troops.cap} × 0.3</small></span><strong>+${b.troops.points}</strong></div>
+    <div class="influence-row"><span>Presencia territorial <small>${b.territories.capped}/${b.territories.cap} territorios puntuables</small></span><strong>+${b.territories.points}</strong></div>
+    <div class="influence-row"><span>Regiones completas <small>${b.regions.capped}/${b.regions.cap} × 3</small></span><strong>+${b.regions.points}</strong></div>
     <div class="influence-row"><span>Objetivos completados <small>${b.objectives.count} objetivos</small></span><strong>+${b.objectives.basePoints}</strong></div>
     ${diplomat}
     <div class="influence-row influence-final"><span>Total calculado ahora</span><strong>${b.total}</strong></div>
-    <p class="influence-hint">Puedes aumentarla controlando territorios y regiones, mejorando tu producción, conservando tropas o completando objetivos.</p>
+    <p class="influence-hint">Producción y tropas aumentan tu capacidad de actuar, pero no conceden Influencia. La principal ruta hacia la Hegemonía son los objetivos.</p>
   </div>`});
 }
 function chronicleCategory(text){
@@ -616,40 +579,21 @@ function renderObjectives() {
   const p = state.players[state.current] || state.players[0];
   const main = OBJECTIVES_CATALOG.find(o => o.id === p.mainObjective);
   const temp = OBJECTIVES_CATALOG.find(o => o.id === p.temporaryObjective);
-
-  const getProgress = (obj) => {
-    if (!obj) return '✓';
-    const myTerrs = ownedIds(state, p.id).length;
-    if (obj.id === 'territories_8') return Math.min(8, myTerrs) + '/8';
-    if (obj.id === 'territories_12') return Math.min(12, myTerrs) + '/12';
-    if (obj.id === 'treasury_50') return '$' + Math.min(50, p.money) + '/$50';
-    if (obj.id === 'regions_2') {
-      const regs = Object.keys(REGIONS).filter(k => ts().filter(t => t.region === k).every(t => state.territories[t.id].owner === p.id)).length;
-      return Math.min(2, regs) + '/2';
-    }
-    if (obj.id === 'conquer_2') return (state.conqueredThisTurn ? 1 : 0) + '/2';
-    return '0/1';
+  const activeCard=(obj,label)=>'<div class="objective-item"><div class="obj-top"><span class="obj-title">'+obj.icon+' '+obj.name+'</span><span class="obj-progress-badge">'+objectiveProgress(state,p.id,obj.id).label+'</span></div><small class="obj-desc">'+obj.desc+' · +'+obj.value+' infl. · '+label+'</small></div>';
+  const choiceCards=(kind,label)=>{
+    const choices=p.objectiveChoices?.[kind]||[];
+    if(!choices.length)return '<div class="objective-item"><div class="obj-top"><span class="obj-title">✓ '+label+'</span></div><small class="obj-desc">No hay otra misión disponible en esta etapa.</small></div>';
+    return '<div class="objective-choice-group"><p><strong>Elige tu '+label.toLowerCase()+'</strong><br><small>Solo una opción quedará activa.</small></p>'+choices.map(id=>{const obj=OBJECTIVES_CATALOG.find(o=>o.id===id);return '<button type="button" class="objective-choice-btn" data-objective-kind="'+kind+'" data-objective-choice="'+id+'"><span>'+obj.icon+' <b>'+obj.name+'</b> · +'+obj.value+'</span><small>'+obj.desc+'</small></button>'}).join('')+'</div>';
   };
+  const mainHtml=main?activeCard(main,'Objetivo principal'):p.mainObjectiveResolved?'<div class="objective-item"><div class="obj-top"><span class="obj-title">✓ Objetivo principal cumplido</span></div></div>':choiceCards('main','Objetivo principal');
+  const tempResolved=p.temporaryObjectiveResolvedCycle===(state.objectiveCycle||0);
+  const tempHtml=temp?activeCard(temp,'Misión del ciclo'):tempResolved?'<div class="objective-item"><div class="obj-top"><span class="obj-title">✓ Misión del ciclo cumplida</span></div><small class="obj-desc">Recibirás nuevas opciones al rotar el Mercado.</small></div>':choiceCards('temporary','Misión del ciclo');
 
-  objectivesModalHtml = '<div class="objectives-box swal-objectives">' +
-  '<div class="objective-item">' +
-    '<div class="obj-top">' +
-      '<span class="obj-title">' + (main ? (main.icon + ' ' + main.name) : '👑 Hegemonía') + '</span>' +
-      '<span class="obj-progress-badge">' + getProgress(main) + '</span>' +
-    '</div>' +
-    '<small class="obj-desc">' + (main ? (main.desc + ' · +' + main.value + ' infl.') : 'Objetivos principales completados.') + '</small>' +
-  '</div>' +
-  '<div class="objective-item">' +
-    '<div class="obj-top">' +
-      '<span class="obj-title">' + (temp ? (temp.icon + ' ' + temp.name) : '🚩 Supremacía') + '</span>' +
-      '<span class="obj-progress-badge">' + getProgress(temp) + '</span>' +
-    '</div>' +
-    '<small class="obj-desc">' + (temp ? (temp.desc + ' · +' + temp.value + ' infl.') : 'Objetivos temporales completados.') + '</small>' +
-  '</div></div>';
+  objectivesModalHtml = '<div class="objectives-box swal-objectives">'+mainHtml+tempHtml+'<p class="objective-system-note">La presencia aporta un máximo de 17 puntos. Para alcanzar la Hegemonía necesitas completar misiones de varias clases.</p></div>';
   button.classList.remove('hidden');
   button.setAttribute('aria-label','Ver objetivos de '+p.name);
   const badge=$('#objectivesMapBadge');
-  if(badge)badge.textContent=String((p.completedObjectives||[]).length)+'✓';
+  if(badge)badge.textContent=(!main&&!p.mainObjectiveResolved)||(!temp&&!tempResolved)?'!':String((p.completedObjectives||[]).length)+'✓';
 }
 
 function renderEconomy(){
@@ -909,12 +853,12 @@ function renderAttackControls(){const a=state.territories[selectedFrom],d=state.
 function renderFortifyControls(){
   const origin=state.territories[selectedFrom],destination=state.territories[selectedTo],max=origin.troops-1;
   if(max<1)return;
-  selectedMove=Math.max(1,Math.min(max,selectedMove));
+  selectedMove=clampMoveAmount(selectedMove,max);
   els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${destination.troops} ${destination.troops===1?'tropa':'tropas'}</strong></div>`;
   els.controls.innerHTML=`<div class="move-picker"><label for="moveAmount">Tropas a mover</label><div class="move-stepper"><button type="button" data-move-delta="-1" aria-label="Mover una tropa menos">−</button><input id="moveAmount" type="number" inputmode="numeric" min="1" max="${max}" value="${selectedMove}" aria-label="Cantidad de tropas a mover"><button type="button" data-move-delta="1" aria-label="Mover una tropa más">+</button></div><div class="move-presets" role="group" aria-label="Cantidades rápidas"><button type="button" data-move-value="1" aria-label="Mover 1 tropa">1</button><button type="button" data-move-value="${Math.max(1,Math.ceil(max/2))}" aria-label="Mover la mitad disponible">Mitad</button><button type="button" data-move-value="${max}" aria-label="Mover el máximo disponible, ${max} tropas">Máximo</button></div><div class="move-preview" id="movePreview"></div></div><button class="primary-btn" id="moveBtn">Confirmar movimiento → ${state.extraFortifies>0?'otra maniobra':'cierre'}</button>`;
   const input=$('#moveAmount'),moveBtn=$('#moveBtn'),preview=$('#movePreview');
-  const paintPreview=()=>{preview.innerHTML=`<div><span>${tById(selectedFrom).name}</span><strong>${origin.troops} → ${origin.troops-selectedMove}</strong></div><i>→</i><div><span>${tById(selectedTo).name}</span><strong>${destination.troops} → ${destination.troops+selectedMove}</strong></div>`;input.setAttribute('aria-valuetext',`${selectedMove} tropas. ${tById(selectedFrom).name} queda con ${origin.troops-selectedMove}; ${tById(selectedTo).name} queda con ${destination.troops+selectedMove}`)};
-  const setAmount=(value,shouldAnnounce=false)=>{const parsed=Number.parseInt(value,10);if(!Number.isInteger(parsed)){moveBtn.disabled=true;return}selectedMove=Math.max(1,Math.min(max,parsed));input.value=selectedMove;moveBtn.disabled=false;paintPreview();if(shouldAnnounce)announce(input.getAttribute('aria-valuetext'))};
+  const paintPreview=()=>{const content=movementPreview({originName:tById(selectedFrom).name,destinationName:tById(selectedTo).name,originTroops:origin.troops,destinationTroops:destination.troops,amount:selectedMove});preview.innerHTML=content.html;input.setAttribute('aria-valuetext',content.accessible)};
+  const setAmount=(value,shouldAnnounce=false)=>{const amount=clampMoveAmount(value,max);if(amount===null){moveBtn.disabled=true;return}selectedMove=amount;input.value=selectedMove;moveBtn.disabled=false;paintPreview();if(shouldAnnounce)announce(input.getAttribute('aria-valuetext'))};
   document.querySelectorAll('[data-move-delta]').forEach(button=>button.onclick=()=>setAmount(selectedMove+(+button.dataset.moveDelta),true));
   document.querySelectorAll('[data-move-value]').forEach(button=>button.onclick=()=>setAmount(+button.dataset.moveValue,true));
   input.oninput=()=>setAmount(input.value,true);
@@ -993,50 +937,6 @@ function territoryClick(id,shift=false){
     if(selectedTo)openMobileOrders();
   }
 }
-function diceMarkup(values,raw=[]){
-  return values.map((v,i)=>{
-    const r=raw[i];
-    const hasBonus=r!==undefined&&v!==r;
-    const diff=v-(r??v);
-    if(hasBonus){
-      return '<i class="big-die die-with-bonus" title="Tirada base: ' + r + ' + bonificación: ' + diff + ' = ' + v + '"><span class="die-num">' + v + '</span><small class="die-calc-tag">' + r + ' +' + diff + '</small></i>';
-    }
-    return '<i class="big-die"><span class="die-num">' + v + '</span></i>';
-  }).join('');
-}
-function comparisonMarkup(r){
-  const attackerBonuses = r.bonus?.attackerReasons || [];
-  const defenderBonuses = r.bonus?.defenderReasons || [];
-
-  const rows = Array.from({length:Math.min(r.attackerDice.length,r.defenderDice.length)},(_,i)=>{
-    const a=r.attackerDice[i], d=r.defenderDice[i];
-    const rawA=r.rawAttackerDice?.[i] ?? a;
-    const rawD=r.rawDefenderDice?.[i] ?? d;
-    const win=a>d;
-    const tie=a===d;
-
-    const aNote = a !== rawA ? (' <small class="cmp-breakdown">(base ' + rawA + ' +' + (a - rawA) + ')</small>') : '';
-    const dNote = d !== rawD ? (' <small class="cmp-breakdown">(base ' + rawD + ' +' + (d - rawD) + ')</small>') : '';
-
-    return '<div class="compare-row">' +
-      '<span>🎲 ' + a + aNote + '</span>' +
-      '<b>' + (win ? 'vence a' : tie ? 'empata con' : 'pierde ante') + '</b>' +
-      '<span>' + (dNote ? d + dNote : d) + ' 🎲</span>' +
-      '<em>' + (win ? '−1 defensor' : tie ? '−1 atacante (el defensor gana empates)' : '−1 atacante') + '</em>' +
-    '</div>';
-  }).join('');
-
-  let bonusExplain = '';
-  if (attackerBonuses.length || defenderBonuses.length) {
-    bonusExplain = '<div class="combat-bonuses-detail">' +
-      (attackerBonuses.length ? ('<div class="bonus-detail-item attacker">⚔ <strong>Atacante:</strong> dado base ' + r.rawAttackerDice[0] + ' + ' + r.bonus.attacker + ' (' + attackerBonuses.join(', ') + ') = <strong>' + r.attackerDice[0] + '</strong>.</div>') : '') +
-      (defenderBonuses.length ? ('<div class="bonus-detail-item defender">🛡 <strong>Defensor:</strong> dado base ' + r.rawDefenderDice[0] + ' + ' + r.bonus.defender + ' (' + defenderBonuses.join(', ') + ') = <strong>' + r.defenderDice[0] + '</strong>.</div>') : '') +
-    '</div>';
-  }
-
-  return rows + bonusExplain;
-}
-function soldierFigures(count){const layouts={1:[[0,-2]],2:[[-9,1],[9,1]],3:[[-14,3],[0,-4],[14,3]]},points=layouts[Math.max(1,Math.min(3,count))]||layouts[1];return points.map(([x,y])=>`<g transform="translate(${x} ${y})"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g>`).join('')}
 async function playAttackApproach(from,to,attackerCount=3,defenderCount=2){
   const origin=tById(from),target=tById(to);
   if(!origin||!target)return;
@@ -1075,11 +975,6 @@ function setBattleTone(tone){
   const card=els.diceModal.querySelector('.dice-card');
   card.classList.remove('outcome-victory','outcome-defeat','outcome-neutral');
   card.classList.add(`outcome-${tone}`);
-}
-function roundTone(round,defending){
-  const ownLosses=defending?round.defenderLosses:round.attackerLosses;
-  const enemyLosses=defending?round.attackerLosses:round.defenderLosses;
-  return ownLosses<enemyLosses?'victory':ownLosses>enemyLosses?'defeat':'neutral';
 }
 async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,attackerColor='#4ecdc4',defenderColor='#ff6b6b'}){
   if(!rounds.length)return;
@@ -1321,7 +1216,7 @@ async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiReq
 async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const humanCards=[...(state.players[0]?.cards||[])];const report=aiTurn(state,state.current,difficulty);const remaining=[...(state.players[0]?.cards||[])];for(const cardId of humanCards){const index=remaining.indexOf(cardId);if(index>=0)remaining.splice(index,1);else if(cardId==='counter')recordCardPlayed(cardId)}pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
 function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
-const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!localStorage.getItem(SAVE);restoreFocus($('#startBtn'))}
+const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!hasSavedCampaign();restoreFocus($('#startBtn'))}
 function telemetryList(values,labels={}){const entries=Object.entries(values||{}).sort((a,b)=>b[1]-a[1]);return entries.length?entries.slice(0,4).map(([key,value])=>`<span><b>${labels[key]||key}</b> ${value}</span>`).join(''):'<span>Sin datos todavía</span>'}
 function renderTelemetryHelp(){const box=$('#telemetrySummary');if(!box)return;const summary=telemetrySummary(),cardLabels=Object.fromEntries(Object.entries(TACTICAL_CARDS).map(([id,card])=>[id,card.name])),offerLabels=Object.fromEntries(MARKET_CATALOG.map(offer=>[offer.id,offer.name])),commanderLabels=Object.fromEntries(Object.entries(COMMANDERS).map(([id,commander])=>[id,commander.name]));box.innerHTML=`<div class="telemetry-kpis"><div><strong>${summary.completed}</strong><span>campañas</span></div><div><strong>${summary.victories}</strong><span>victorias</span></div><div><strong>${Object.values(summary.cardsPlayed).reduce((a,b)=>a+b,0)}</strong><span>cartas jugadas</span></div></div><div class="telemetry-groups"><div><small>Comandantes elegidos</small>${telemetryList(summary.commanders,commanderLabels)}</div><div><small>Cartas utilizadas</small>${telemetryList(summary.cardsPlayed,cardLabels)}</div><div><small>Ofertas compradas</small>${telemetryList(summary.offersBought,offerLabels)}</div><div><small>Ofertas ignoradas</small>${telemetryList(summary.offersIgnored,offerLabels)}</div></div>`}
 function downloadTelemetry(){const blob=new Blob([exportTelemetry()],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='fronteras-acero-telemetria.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),0);showToast('Telemetría exportada como JSON')}
@@ -1332,7 +1227,7 @@ document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()
 document.querySelectorAll('.color-choice input').forEach(input=>input.onchange=()=>document.querySelectorAll('.color-choice').forEach(label=>label.classList.toggle('active',label.querySelector('input').checked)));
 
 function registerWebMCP(){const c=document.modelContext;if(!c?.registerTool)return;try{c.registerTool({name:'get_campaign_state',title:'Consultar campaña',description:'Devuelve mapa, reglas, turno, fase y jugadores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>state?{map:getMap(state).name,mode:state.rulesMode,turn:state.turn,phase:state.phase,currentPlayer:state.players[state.current].name,winner:state.winner===null?null:state.players[state.winner].name}:{status:'no_game'}})}catch(e){console.warn('WebMCP no disponible',e)}}
-initMap('frontier');applyRandomStartBg();if(localStorage.getItem(SAVE))$('#continueBtn').hidden=false;registerWebMCP();
+initMap('frontier');applyRandomStartBg();if(hasSavedCampaign())$('#continueBtn').hidden=false;registerWebMCP();
 document.querySelectorAll('.zoom-btn').forEach(btn => btn.onclick = () => setMapZoom(+btn.dataset.zoom));
 if($('#saveQuickBtn')) $('#saveQuickBtn').onclick = () => { save(); showToast('💾 Partida guardada con éxito'); };
 

@@ -1,35 +1,35 @@
 # Informe de balance P4
 
 Fecha de revisión: 2026-09-25  
-Muestra: 120 campañas deterministas, 2–4 comandantes, tres mapas, modos clásico/terreno y dificultad normal/difícil.  
-Script reproducible: `node tests/balance-analysis.mjs`
+Muestra: 600 campañas deterministas, 2–4 comandantes, tres mapas, modos clásico/terreno y dificultad normal/difícil.
+Script reproducible: `$env:BALANCE_GAMES='600'; node tests/balance-analysis.mjs`
 
 ## Umbrales de control
 
 | Indicador | Zona saludable propuesta | Resultado | Estado |
 |---|---:|---:|---|
-| Victoria del líder territorial temprano (ronda 8) | ≤ 75% | 89,2% | Fuera de rango |
-| Remontadas después de ronda 8 | ≥ 25% | 10,8% | Fuera de rango |
-| Correlación territorios tempranos/victoria | ≤ 0,60 | 0,80 | Fuera de rango |
-| Duración mediana | 12–24 rondas | 8 rondas | Demasiado corta |
-| Variedad de condiciones de victoria | Ninguna > 80% | Influencia 100% | Fuera de rango |
+| Victoria del líder territorial temprano (ronda 8) | ≤ 75% | 79,7% | Cerca, aún fuera de rango |
+| Remontadas después de ronda 8 | ≥ 25% | 20,3% | Cerca, aún fuera de rango |
+| Correlación territorios tempranos/victoria | ≤ 0,60 | 0,72 | Fuera de rango |
+| Duración mediana | 12–24 rondas | 13 rondas | En rango |
+| Variedad de condiciones de victoria | Ninguna > 80% | Dominio 78%, Influencia 21%, límite 1% | En rango |
 
 ## Diagnóstico
 
-La ventaja territorial temprana no hace la victoria matemáticamente inevitable, pero sí demasiado predecible. En la ronda 8, el líder medio controla 15,8 territorios frente a 5,0 del resto, produce 51,2 frente a 12,1, recibe 11,4 refuerzos frente a 4,1 y acumula 141,5 puntos de Influencia frente a 46,4. La conquista está otorgando al mismo tiempo presencia, producción, refuerzos, regiones e Influencia; esos multiplicadores explican la bola de nieve.
+El rediseño de Influencia v2 eliminó producción y tropas de la puntuación, limitó la presencia a 8 puntos por territorios y 9 por regiones, y trasladó el peso a misiones elegibles. En la ronda 8, el líder medio obtiene 38,3 puntos de Influencia frente a 21,6 del resto; la diferencia sigue siendo importante, pero ya no reproduce de forma directa la brecha económica de 58,4 frente a 12,9 de producción.
 
-La composición media de la Influencia ganadora fue: 36,2 por territorios, 26,2 por regiones, 62,3 por producción, 8,2 por tropas y 33,9 por objetivos. La producción es la fuente individual dominante y vuelve a premiar el mismo avance territorial. Los objetivos aportan una ruta secundaria relevante, pero no compensan la pérdida simultánea de territorio, economía y refuerzos.
+La composición media de la Influencia ganadora fue: 8,0 por territorios, 8,6 por regiones, 0 por producción, 0 por tropas y 37,4 por objetivos. Los objetivos son ahora la fuente principal y existen rutas de posición, táctica, logística, economía, inteligencia, defensa y recuperación. La duración mediana subió de 8 a 13 rondas y la distribución dejó de estar monopolizada por Hegemonía.
 
-Una primera simulación contrafactual redujo el peso de territorios a 1,5 puntos, producción a 0,75 y aumentó objetivos un 25%, con una compensación ligera al rezagado. No cambió el líder final en la muestra (0%); un ajuste lineal pequeño no basta. No se aplicaron estos valores al juego principal.
+La mejora no cierra por sí sola la bola de nieve militar. El líder territorial temprano todavía gana el 79,7% de las veces y el 78% de las campañas termina por Dominio total. La causa restante está en la capacidad operativa: quien conquista sigue recibiendo mucha más producción y refuerzos, aunque esos recursos ya no puntúen directamente.
 
 Las tasas brutas por comandante no son todavía una comparación causal: la asignación actual de doctrinas a posiciones de IA no está completamente balanceada entre muestras. Aun así, el rango observado —Diplomático 5%, Conquistador 24%, Guardián 56%— justifica una simulación factorial que rote doctrina, posición inicial, mapa y número de jugadores antes de retocar doctrinas.
 
 ## Próxima iteración recomendada
 
-1. Separar la Influencia económica de la expansión: limitar el aporte de producción o usar una escala decreciente en vez de una relación 1:1.
-2. Retrasar la victoria por Influencia para que no cierre sistemáticamente alrededor de la ronda 8.
-3. Añadir fuentes no territoriales verificables: objetivos de recuperación, estabilización de Frentes, uso eficiente de cartas y especialización regional sin control total.
-4. Reforzar al rezagado mediante opciones, no mediante dados: ofertas de recuperación, objetivos adaptativos y bonificación por estabilizar fronteras bajo presión.
-5. Ejecutar una matriz factorial de al menos 600 campañas antes de modificar comandantes.
+1. Conservar Influencia v2 y medir elecciones reales de objetivos mediante la telemetría local.
+2. Profundizar la misión de recuperación para que aparezca con mayor prioridad al jugador rezagado.
+3. Reducir el multiplicador operativo de la expansión revisando producción regional y refuerzos, sin devolver esos valores a Influencia.
+4. Incorporar estabilización de Frentes como futura ruta de objetivo cuando los Frentes sean geográficos.
+5. Repetir la matriz de 600 campañas después de cualquier cambio económico y antes de modificar comandantes.
 
-Conclusión: P4 detectó una bola de nieve real. La instrumentación y los umbrales quedan preparados, pero el balance numérico no debe considerarse cerrado hasta que una variante consiga al menos 25% de remontadas y reduzca la correlación por debajo de 0,60 sin alargar la mediana más allá de 24 rondas.
+Conclusión: Influencia v2 corrige la fuente de puntuación dominante y lleva duración y variedad de victoria a la zona saludable. El balance general todavía no está cerrado: faltan 4,7 puntos porcentuales de remontadas y reducir la correlación territorial de 0,72 a 0,60 o menos. El siguiente cuello de botella ya no es Influencia, sino la economía y los refuerzos que alimentan el Dominio total.

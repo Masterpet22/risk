@@ -2880,6 +2880,13 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
   background: rgba(12, 36, 54, 0.92) !important;
 }
 
+.objective-choice-group{display:grid;gap:8px;padding:10px;border:1px solid rgba(214,170,60,.35);border-radius:10px;background:rgba(7,24,39,.7)}
+.objective-choice-group p,.objective-system-note{margin:0;color:#b8cedc;line-height:1.4}
+.objective-choice-btn{display:flex;flex-direction:column;gap:4px;width:100%;min-height:54px;padding:10px 12px;text-align:left;border:1px solid #315873;border-radius:9px;background:#0d2a3e;color:#eaf6ff;cursor:pointer}
+.objective-choice-btn:hover,.objective-choice-btn:focus-visible{border-color:#d6aa3c;background:#12364e;outline:2px solid rgba(214,170,60,.35);outline-offset:2px}
+.objective-choice-btn small{color:#9db8c9;line-height:1.35}
+.objective-system-note{padding:4px 2px;font-size:.78rem}
+
 @media (max-width: 760px) {
   .map-utility-stack {
     top: 78px !important;
@@ -2901,6 +2908,12 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 .telemetry-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.telemetry-groups>div{display:flex;flex-wrap:wrap;gap:5px;padding:9px;border-radius:8px;background:#0a2031}.telemetry-groups small{width:100%;color:#83a7bc;text-transform:uppercase;letter-spacing:.06em}.telemetry-groups span{padding:3px 6px;border-radius:6px;background:#102d42;color:#cde2ee;font-size:.72rem}.telemetry-groups span b{color:#fff}
 .telemetry-actions{display:flex;gap:8px;margin-top:10px}.telemetry-actions button{flex:1}.danger-btn{border-color:#a84d59!important;color:#ff9da7!important}
 @media(max-width:600px){.telemetry-groups{grid-template-columns:1fr}.telemetry-actions{flex-direction:column}}
+
+@media (prefers-reduced-motion: reduce), (update: slow) {
+  html { scroll-behavior:auto !important; }
+  *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+  .connection,.territory-shape,.army-disc,.marchers { filter:none !important; }
+}
 
 /* ==========================================================================
    Controles con relieve, cartas legibles, dados por ejército y mercado modal

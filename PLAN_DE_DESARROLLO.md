@@ -1,18 +1,35 @@
 # Plan de desarrollo de Fronteras de Acero
 
-Basado en el documento de diseño «Fronteras de Acero», versión 0.2 (22 de septiembre de 2026). Cada parte se publica cuando sus reglas, interfaz, guardado y partidas simuladas funcionan juntas.
+Versión documental 0.4 · última revisión 25 de septiembre de 2026.
 
-| Parte | Entrega jugable | Criterio de cierre |
+Este plan refleja el juego implementado. El detalle de prioridades de experiencia y deuda técnica está en `PLAN_PRIORIDADES_UI_JUGABILIDAD.md`; las métricas de balance están en `INFORME_BALANCE_P4.md`.
+
+| Parte | Estado | Entrega actual o criterio pendiente |
 | --- | --- | --- |
-| 0. Núcleo | 24 territorios, 3 mapas, combate, maniobra y guardado | Completada en el prototipo actual. |
-| 1. Base económica | Producción por territorio y mayoría regional, dinero persistente y compra de 3 refuerzos por $10 | El cobro ocurre una vez al iniciar el turno; jugador e IA pueden gastar; una partida guardada se conserva. |
-| 2. Cartas tácticas | Retirar canje clásico. Mano de 3, descarte al robar la cuarta; Espía, Sabotaje, Bloqueo, Movilización y Contrainteligencia | Completada: cada carta tiene coste, objetivo, duración, respuesta de la IA, interfaz y los bloqueos afectan combate y maniobra. |
-| 3. Mercado | 3 o 4 ofertas, rotación cada 3 rondas y compras solo en Reclutamiento | Completada: 3-4 ofertas dinámicas por ciclo de 3 rondas, compras persistentes en Reclutamiento, IA compradora y soporte en v6. |
-| 4. Influencia y victoria | Fórmula del §8, objetivos como fuente de puntos y victoria por 150 puntos o al finalizar la ronda 40 | Completada: fórmula de Influencia con tope de tropas, catálogo de 6 objetivos, victorias A, B y C verificadas con causas en interfaz y resumen final. |
-| 5. Comandantes y frentes | Seis doctrinas y estados Estable, Tenso, Conflicto y Guerra | Completada: 6 doctrinas asimétricas activas, frentes dinámicos entre jugadores fronterizos, IA con arquetipos, selector e indicadores visuales y soporte en v8. |
-| 6. Información imperfecta | Datos completos, parciales y ocultos; Espía revela información temporalmente | Completada y auditada: 3 niveles de visibilidad sin filtrar propietario ni totales lejanos, Espía con revelado temporal, dificultad basada en decisiones y soporte de guardado v10. |
-| 7. Eventos | Avisos con una ronda de anticipación, terremoto, tsunami y cambios temporales de conexiones | Completada: catálogo de eventos dinámicos (terremoto, tsunami, temporal), aviso con 1 ronda de anticipación, bajas con mínimo 1 tropa, rutas bloqueadas temporales, reacción IA según dificultad y reflejo visual en banner, mapa y conexiones. |
-| 8. Balance | Simulación de duración, remontadas, precios, umbral de Influencia, doctrinas y Modo Terreno | Completada: simulación empírica de 100 partidas (duración media 8.8 rondas, 0 sobrepasos de R40), reequilibrio de las 6 doctrinas con victorias activas en todas (Conquistador 21%, Guardián 49%, Estratega 11%, Industrial 9%, Espía 6%, Diplomático 4%), bono de Resistencia Nacional para remontadas, Modo Terreno validado y precios del Mercado calibrados. |
-| 9. Multijugador | Autoridad de servidor sobre turnos y estado | Se abordará después de estabilizar el juego individual. |
+| 0. Núcleo | Completada | 24 territorios, tres mapas, combate, maniobra, guardado y migraciones. |
+| 1. Economía | Completada | Producción, tesoro, compra básica y Mercado rotatorio. |
+| 2. Cartas tácticas | Completada | Mano máxima de tres, descarte y cinco cartas con coste, objetivo y contrajuego. |
+| 3. Influencia y objetivos | Influencia v2 completada | Presencia limitada a 17 puntos, producción/tropas sin puntuación, diez objetivos en siete rutas, elección entre tres opciones y Hegemonía a 70. |
+| 4. Comandantes y Frentes | Completada | Seis doctrinas y tensión Estable, Tenso, Conflicto y Guerra. |
+| 5. Información imperfecta | Completada | Visión completa, parcial y oculta; Espía revela temporalmente. |
+| 6. Eventos | Completada | Terremoto, tsunami y temporal, únicamente en Modo terreno. |
+| 7. Experiencia y accesibilidad | Completada | Tutorial, modales estratégicos, interfaz responsive, controles táctiles y foco accesible. |
+| 8. Medición y pruebas | Completada | Telemetría local, suite separada de motor/interfaz y simulación reproducible. |
+| 9. Balance | En curso | Reducir la correlación territorio/victoria de 0,80 a ≤0,60 y elevar remontadas de 10,8% a ≥25%. |
+| 10. Modularización | En curso | Persistencia, rutas, combate, controles, modales, accesibilidad y telemetría ya extraídos; quedan renderizadores grandes de `app.mjs`. |
+| 11. Multijugador | Futuro | Requiere servidor autoritativo; no forma parte del juego individual actual. |
 
-La parte 1 se adelanta como dependencia técnica de la parte 2: Sabotaje, Bloqueo y Movilización necesitan dinero para tener el coste previsto en el documento. Los valores de balance del documento son iniciales y podrán cambiar en la parte 8.
+## Próxima iteración recomendada
+
+1. Ajustar economía regional y refuerzos para reducir la ventaja operativa del líder sin alterar Influencia v2.
+2. Priorizar misiones de recuperación cuando un jugador quede rezagado y medir su tasa real de elección y cumplimiento.
+3. Repetir la matriz factorial de 600 campañas hasta alcanzar al menos 25% de remontadas y correlación territorial ≤0,60.
+4. Extraer de `app.mjs` el tutorial y los renderizadores del panel de órdenes y del mapa cuando se toque funcionalmente cada área.
+5. Mantener README, GDD, planes y pruebas sincronizados con cada cambio de reglas.
+
+## Criterios de entrega
+
+- Ningún cambio de reglas se considera completo sin prueba del motor, actualización documental y migración si afecta al guardado.
+- Ningún cambio visual se considera completo sin comprobar 1366×768, 390×844 y navegación por teclado.
+- La telemetría seguirá siendo local, exportable y borrable; no se añadirá transmisión remota sin una decisión explícita de privacidad.
+- El multijugador no debe iniciarse hasta cerrar el ajuste de balance del juego individual.
