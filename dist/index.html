@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=14">
+  <link rel="stylesheet" href="./theme.css?v=15">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -79,16 +79,6 @@
       <!-- Columna Central: Tablero de Mapa Cinemático -->
       <section class="map-wrap" aria-label="Mapa del juego">
         <header class="map-floating-header">
-          <div class="map-title-block">
-            <span class="map-crest-icon">✦</span>
-            <div>
-              <div class="map-title-row">
-                <h2 id="mapName">Fronteras de Acero</h2>
-                <span class="mode-badge" id="modeBadge">CLÁSICO</span>
-              </div>
-              <p class="map-subtitle" id="mapSubtitle">24 territorios continentales · Rutas estratégicas</p>
-            </div>
-          </div>
           <div class="reinforcements-pill" id="reinforceBox">
             <span class="reinf-icon">🏰</span>
             <div class="reinf-meta">
@@ -113,8 +103,8 @@
             <span><i class="dot friendly"></i>Tu territorio</span>
             <span><i class="dot hostile"></i>Territorio enemigo</span>
             <span><i class="dot neutral"></i>Territorio neutral</span>
-            <span class="legend-line-item"><i class="line solid"></i>Ruta de conexión</span>
-            <span class="legend-line-item"><i class="line dashed"></i>Ruta marítima</span>
+            <span class="legend-line-item"><i class="line solid"></i>Ruta interna</span>
+            <span class="legend-line-item" title="Su color indica si la frontera está estable, tensa, en conflicto o en guerra"><i class="line dashed"></i>Frontera regional</span>
           </div>
           <div class="map-zoom-bar" role="group" aria-label="Nivel de zoom del mapa">
             <button class="zoom-btn" data-zoom="50">50%</button>
@@ -476,6 +466,6 @@
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-  <script type="module" src="./app.mjs?v=17"></script>
+  <script type="module" src="./app.mjs?v=19"></script>
 </body>
 </html>

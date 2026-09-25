@@ -3191,3 +3191,41 @@ body:has(#startModal:not(.hidden)) {
   .map-floating-footer .map-legend { gap: 7px; padding: 5px 8px; font-size: .64rem; }
   .map-floating-footer { left: 10px; right: 10px; }
 }
+
+/* Las rutas SVG nunca deben cerrar su trazado ni pintar un área interior. */
+.connection,
+.attack-route {
+  fill: none !important;
+}
+
+/* Una conexión entre regiones se representa como frontera geopolítica. */
+.connection.cross {
+  stroke: var(--front-color, #64ae8b) !important;
+  stroke-dasharray: 11 8 !important;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--front-color, #64ae8b) 68%, transparent)) !important;
+}
+
+.connection.cross[data-front-state="tense"] { stroke-dasharray: 9 7 !important; }
+.connection.cross[data-front-state="conflict"] { stroke-dasharray: 7 6 !important; }
+.connection.cross[data-front-state="war"] {
+  stroke-dasharray: 5 5 !important;
+  filter: drop-shadow(0 0 5px var(--front-color, #e74c3c)) !important;
+}
+
+.connection.blocked,
+.connection.blocked-event {
+  fill: none !important;
+}
+
+.connection.cross.blocked { stroke: #e74c3c !important; stroke-dasharray: 4 4 !important; }
+.connection.cross.blocked-event { stroke: #ff5e57 !important; stroke-dasharray: 7 4 !important; }
+
+/* El nombre del mapa ya está presente en la cabecera general. */
+.map-floating-header {
+  justify-content: flex-end !important;
+}
+
+.map-legend .line.dashed {
+  border-top-color: #64ae8b;
+}
