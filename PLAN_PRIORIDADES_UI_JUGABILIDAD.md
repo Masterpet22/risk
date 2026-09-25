@@ -179,6 +179,8 @@ Criterio de cierre: un jugador nuevo completa un turno entero sin depender del d
 
 ## P3 — Responsive, accesibilidad y controles táctiles
 
+**Estado: completado.** La interfaz fue validada en las cinco resoluciones objetivo y en equivalentes de zoom de navegador al 125% y 150%, sin desbordamiento horizontal. El panel de órdenes pasa a hoja inferior hasta 1200 px, mantiene visible su acceso y devuelve el foco al cerrarse. Los controles principales alcanzan al menos 44 px, los estados activos exponen `aria-pressed`, los valores dinámicos se anuncian sin repetición y el foco es visible y se restaura en modales.
+
 - Revisar 1920×1080, 1366×768, 1024×768, 768×1024 y 390×844.
 - Garantizar objetivos táctiles de al menos 44 px para `+`, `−`, dados y botones principales.
 - Añadir estados de foco visibles y etiquetas accesibles con valores actuales.

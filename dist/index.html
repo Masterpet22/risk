@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=20">
+  <link rel="stylesheet" href="./theme.css?v=24">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -114,10 +114,10 @@
             <span class="legend-line-item" title="Su color indica si la frontera está estable, tensa, en conflicto o en guerra"><i class="line dashed"></i>Frontera regional</span>
           </div>
           <div class="map-zoom-bar" role="group" aria-label="Nivel de zoom del mapa">
-            <button class="zoom-btn" data-zoom="50">50%</button>
-            <button class="zoom-btn" data-zoom="75">75%</button>
-            <button class="zoom-btn active" data-zoom="100">100%</button>
-            <button class="zoom-btn" data-zoom="125">125%</button>
+            <button class="zoom-btn" data-zoom="50" aria-label="Zoom del mapa 50 por ciento">50%</button>
+            <button class="zoom-btn" data-zoom="75" aria-label="Zoom del mapa 75 por ciento">75%</button>
+            <button class="zoom-btn active" data-zoom="100" aria-label="Zoom del mapa 100 por ciento" aria-pressed="true">100%</button>
+            <button class="zoom-btn" data-zoom="125" aria-label="Zoom del mapa 125 por ciento">125%</button>
           </div>
         </footer>
 
@@ -488,7 +488,8 @@
 
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="gameAnnouncements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-  <script type="module" src="./app.mjs?v=23"></script>
+    <script type="module" src="./app.mjs?v=27"></script>
 </body>
 </html>
