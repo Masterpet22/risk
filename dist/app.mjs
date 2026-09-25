@@ -1,7 +1,7 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=12';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=13';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner')};
-let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
+let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
 let objectivesModalHtml='',marketModalHtml='',eventModalData=null;
 const SAVE='fronteras-acero-save-v3';
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
@@ -691,6 +691,12 @@ function renderPanel(){
     els.turnStatus.innerHTML = '<strong>Objetivo:</strong> coloca todas las tropas; después comienza el combate.';
     els.phaseBtn.textContent = state.pendingReinforcements > 0 ? 'Coloca todos tus refuerzos' : 'Comenzar combate →';
     els.phaseBtn.disabled = state.pendingReinforcements > 0;
+    const undoCount=state.reinforcementHistory?.length||0;
+    if(undoCount){
+      const last=state.reinforcementHistory.at(-1),lastName=tById(last.id)?.name||'territorio';
+      els.controls.innerHTML=`<button class="secondary-btn undo-reinforcement-btn" id="undoReinforcementBtn">↶ Deshacer ${last.amount>1?`${last.amount} tropas`:'última tropa'} · ${lastName}</button><small class="undo-hint">${undoCount} ${undoCount===1?'colocación reversible':'colocaciones reversibles'}</small>`;
+      $('#undoReinforcementBtn').onclick=()=>{const undone=undoReinforcement(state);if(undone){showToast(`${undone.amount} ${undone.amount===1?'tropa devuelta':'tropas devueltas'} a la reserva`);render()}};
+    }
   }
   else if (state.phase === 'attack') {
     if (badgeEl) badgeEl.textContent = 'Combate';
@@ -757,8 +763,22 @@ function renderPanel(){
     }
   }
 }
-function renderAttackControls(){const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1);selectedDice=Math.min(selectedDice,max);els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} · ${state.rulesMode==='terrain'?UNIT_TYPES[a.unitType].name:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${d.troops} · ${state.rulesMode==='terrain'?UNIT_TYPES[d.unitType].name:''}</strong></div>`;els.controls.innerHTML=`<label>Dados del atacante (máximo ${max})</label><div class="dice-choice">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}">${n} dado${n>1?'s':''}</button>`).join('')}</div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn">🎲 Lanzar una ronda</button><button class="secondary-btn" id="blitzBtn">Ataque rápido</button>`;document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel()});$('#rollBtn').onclick=()=>doAttack(false);$('#blitzBtn').onclick=()=>doAttack(true)}
-function renderFortifyControls(){const max=state.territories[selectedFrom].troops-1;if(max<1)return;els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${state.territories[selectedTo].troops}</strong></div>`;els.controls.innerHTML=`<label>Tropas a mover: <strong id="moveVal">1</strong><input id="moveRange" type="range" min="1" max="${max}" value="1"></label><button class="primary-btn" id="moveBtn">Confirmar movimiento → cierre</button>`;$('#moveRange').oninput=e=>$('#moveVal').textContent=e.target.value;$('#moveBtn').onclick=()=>{if(fortify(state,selectedFrom,selectedTo,+$('#moveRange').value)){selectedFrom=selectedTo=null;render();closeMobileOrders()}else showToast('No existe una ruta propia continua')}}
+function renderAttackControls(){const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1);selectedDice=Math.min(selectedDice,max);els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} ${a.troops===1?'tropa':'tropas'}${state.rulesMode==='terrain'?` · ${UNIT_TYPES[a.unitType].name}`:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${d.troops} ${d.troops===1?'tropa':'tropas'}${state.rulesMode==='terrain'?` · ${UNIT_TYPES[d.unitType].name}`:''}</strong></div>`;els.controls.innerHTML=`<label>Soldados desplegados en esta ronda (máximo ${max})</label><div class="dice-choice soldier-choice">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}" aria-label="Desplegar ${n} ${n===1?'soldado y lanzar 1 dado':`soldados y lanzar ${n} dados`}"><span class="soldier-pips">${'♟'.repeat(n)}</span><strong>${n} ${n===1?'soldado':'soldados'}</strong><small>${n} ${n===1?'dado':'dados'}</small></button>`).join('')}</div><div class="deployment-preview" aria-live="polite"><span>⚔ Despliegue de esta ronda</span><strong>${selectedDice} ${selectedDice===1?'soldado':'soldados'} · ${selectedDice} ${selectedDice===1?'dado':'dados'}</strong><small>El territorio de origen conservará al menos una tropa.</small></div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn">🎲 Lanzar una ronda con ${selectedDice}</button><button class="secondary-btn" id="blitzBtn">Ataque rápido · máximo automático</button>`;document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel()});$('#rollBtn').onclick=()=>doAttack(false);$('#blitzBtn').onclick=()=>doAttack(true)}
+function renderFortifyControls(){
+  const origin=state.territories[selectedFrom],destination=state.territories[selectedTo],max=origin.troops-1;
+  if(max<1)return;
+  selectedMove=Math.max(1,Math.min(max,selectedMove));
+  els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${destination.troops} ${destination.troops===1?'tropa':'tropas'}</strong></div>`;
+  els.controls.innerHTML=`<div class="move-picker"><label for="moveAmount">Tropas a mover</label><div class="move-stepper"><button type="button" data-move-delta="-1" aria-label="Mover una tropa menos">−</button><input id="moveAmount" type="number" inputmode="numeric" min="1" max="${max}" value="${selectedMove}" aria-label="Cantidad de tropas a mover"><button type="button" data-move-delta="1" aria-label="Mover una tropa más">+</button></div><div class="move-presets"><button type="button" data-move-value="1">1</button><button type="button" data-move-value="${Math.max(1,Math.ceil(max/2))}">Mitad</button><button type="button" data-move-value="${max}">Máximo</button></div><div class="move-preview" id="movePreview" aria-live="polite"></div></div><button class="primary-btn" id="moveBtn">Confirmar movimiento → ${state.extraFortifies>0?'otra maniobra':'cierre'}</button>`;
+  const input=$('#moveAmount'),moveBtn=$('#moveBtn'),preview=$('#movePreview');
+  const paintPreview=()=>{preview.innerHTML=`<div><span>${tById(selectedFrom).name}</span><strong>${origin.troops} → ${origin.troops-selectedMove}</strong></div><i>→</i><div><span>${tById(selectedTo).name}</span><strong>${destination.troops} → ${destination.troops+selectedMove}</strong></div>`};
+  const setAmount=value=>{const parsed=Number.parseInt(value,10);if(!Number.isInteger(parsed)){moveBtn.disabled=true;return}selectedMove=Math.max(1,Math.min(max,parsed));input.value=selectedMove;moveBtn.disabled=false;paintPreview()};
+  document.querySelectorAll('[data-move-delta]').forEach(button=>button.onclick=()=>setAmount(selectedMove+(+button.dataset.moveDelta)));
+  document.querySelectorAll('[data-move-value]').forEach(button=>button.onclick=()=>setAmount(+button.dataset.moveValue));
+  input.oninput=()=>setAmount(input.value);
+  setAmount(selectedMove);
+  moveBtn.onclick=()=>{if(fortify(state,selectedFrom,selectedTo,selectedMove)){selectedFrom=selectedTo=null;selectedMove=1;render();closeMobileOrders()}else showToast('No existe una ruta propia continua')};
+}
 
 function territoryClick(id,shift=false){
   if(!state||aiBusy||rolling||state.winner!==null||!state.players[state.current].human)return;
@@ -821,9 +841,9 @@ function territoryClick(id,shift=false){
     showToast(selectedFrom?'El objetivo debe estar unido por una ruta iluminada':'Primero elige el origen');
   }else if(state.phase==='fortify'){
     if(d.owner!==state.current)return showToast('Solo puedes maniobrar entre territorios propios');
-    if(!selectedFrom){if(d.troops<2)return showToast('El origen necesita 2 tropas');selectedFrom=id}
-    else if(id===selectedFrom){selectedFrom=null;selectedTo=null}
-    else selectedTo=id;
+    if(!selectedFrom){if(d.troops<2)return showToast('El origen necesita 2 tropas');selectedFrom=id;selectedMove=1}
+    else if(id===selectedFrom){selectedFrom=null;selectedTo=null;selectedMove=1}
+    else{selectedTo=id;selectedMove=1}
     render();
     if(selectedTo)openMobileOrders();
   }
@@ -871,7 +891,8 @@ function comparisonMarkup(r){
 
   return rows + bonusExplain;
 }
-async function playAttackApproach(from,to){
+function soldierFigures(count){const layouts={1:[[0,-2]],2:[[-9,1],[9,1]],3:[[-14,3],[0,-4],[14,3]]},points=layouts[Math.max(1,Math.min(3,count))]||layouts[1];return points.map(([x,y])=>`<g transform="translate(${x} ${y})"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g>`).join('')}
+async function playAttackApproach(from,to,attackerCount=3,defenderCount=2){
   const origin=tById(from),target=tById(to);
   if(!origin||!target)return;
   const route=routeGeometry(origin,target,ts()),start=route.point(0),end=route.point(1),mid=route.point(.5);
@@ -880,9 +901,8 @@ async function playAttackApproach(from,to){
   const svgNS='http://www.w3.org/2000/svg',layer=document.createElementNS(svgNS,'g');
   layer.classList.add('attack-march');layer.setAttribute('aria-hidden','true');
   layer.innerHTML=`<path class="attack-route" d="${route.d}"/><circle class="clash-ring" cx="${midX}" cy="${midY}" r="8"/><g class="marchers attacker"/><g class="marchers defender"/>`;
-  const figures=`<g transform="translate(-14 2)"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g><g transform="translate(0 -4)"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g><g transform="translate(14 2)"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g>`;
   const attacker=layer.querySelector('.attacker'),defender=layer.querySelector('.defender');
-  attacker.innerHTML=figures;defender.innerHTML=figures;
+  attacker.innerHTML=soldierFigures(attackerCount);defender.innerHTML=soldierFigures(defenderCount);
   attacker.style.setProperty('--march-color',state.players[state.territories[from].owner].color);
   defender.style.setProperty('--march-color',state.players[state.territories[to].owner].color);
   els.map.append(layer);
@@ -932,6 +952,8 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
     title.textContent=`${label} · dados en juego`;
     comparison.innerHTML='';
     const attackerCount=round.rawAttackerDice.length,defenderCount=round.rawDefenderDice.length;
+    $('#attackerForceLabel').textContent=`ATACANTE · ${attackerCount} ${attackerCount===1?'SOLDADO':'SOLDADOS'}`;
+    $('#defenderForceLabel').textContent=`DEFENSOR · ${defenderCount} ${defenderCount===1?'SOLDADO':'SOLDADOS'}`;
     const draw=()=>{
       $('#attackerDice').innerHTML=Array.from({length:attackerCount},()=>`<i class="big-die rolling">${1+Math.floor(Math.random()*6)}</i>`).join('');
       $('#defenderDice').innerHTML=Array.from({length:defenderCount},()=>`<i class="big-die rolling">${1+Math.floor(Math.random()*6)}</i>`).join('');
@@ -944,7 +966,7 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
     $('#defenderDice').innerHTML=diceMarkup(round.defenderDice,round.rawDefenderDice);
     title.textContent=label;
     setBattleTone(roundTone(round,defending));
-    comparison.innerHTML=`${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.conquered?' Territorio conquistado.':''}</div>`;
+    comparison.innerHTML=`<div class="deployed-summary"><span>⚔ Desplegados</span><strong>${attackerCount} ${attackerCount===1?'soldado atacante':'soldados atacantes'} · ${defenderCount} ${defenderCount===1?'defensor':'defensores'}</strong></div>${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.conquered?` Territorio conquistado: ${round.movedTroops} ${round.movedTroops===1?'soldado avanzó':'soldados avanzaron'}.`:''}</div>`;
     if(i<rounds.length-1)await pause(1100);
   }
   const totalA=rounds.reduce((sum,round)=>sum+round.attackerLosses,0);
@@ -953,7 +975,8 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
   const finalTone=defending?(conquered?'defeat':'victory'):(conquered?'victory':fast?'defeat':roundTone(rounds.at(-1),false));
   setBattleTone(finalTone);
   title.textContent=defending?(conquered?'Perdiste el territorio':'Tu territorio resistió'):(conquered?'¡Territorio conquistado!':fast?'Ataque detenido':'Resultado de la tirada');
-  comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${fast?`${rounds.length} ${rounds.length===1?'tirada':'tiradas'} · `:''}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.</div>`);
+  const moved=rounds.at(-1).movedTroops||0;
+  comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${fast?`${rounds.length} ${rounds.length===1?'tirada':'tiradas'} · `:''}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.${conquered?` <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b>`:''}</div>`);
   close.classList.add('visible');
   if(defending)skip.classList.remove('hidden-control');
   close.focus();
@@ -1055,7 +1078,9 @@ async function doAttack(fast){
   const attackerColor=state.players[state.territories[from].owner].color;
   const defenderColor=state.players[state.territories[to].owner].color;
   try{
-    await playAttackApproach(from,to);
+    const deployed=fast?Math.min(3,state.territories[from].troops-1):selectedDice;
+    const defenders=Math.min(2,state.territories[to].troops);
+    await playAttackApproach(from,to,deployed,defenders);
     const result=fast?blitz(state,from,to):attackRound(state,from,to,selectedDice);
     const rounds=fast?result.rounds:result.ok?[result]:[];
     if(!result.ok||!rounds.length)return;
@@ -1073,7 +1098,8 @@ async function showDefenseAttack(battle){
   state=battle.beforeState;render(false);
   const attackerColor=state.players[state.current].color;
   const defenderColor=state.players[battle.defenderId].color;
-  await playAttackApproach(battle.fromId,battle.toId);
+  const firstRound=battle.roundResults?.[0];
+  await playAttackApproach(battle.fromId,battle.toId,firstRound?.rawAttackerDice?.length||3,firstRound?.rawDefenderDice?.length||2);
   state=battle.afterState;
   await presentDiceRounds(battle.roundResults,{from:battle.from,to:battle.to,defending:true,fast:true,attackerColor,defenderColor});
   render(false);
@@ -1112,7 +1138,11 @@ els.phaseBtn.onclick=()=>{
   if(!state||rolling)return;
   if(!state.players[state.current].human){skipAiRequested=true;render();showToast('Turnos enemigos en avance rápido');return}
   if(state.phase==='gameover'){openStart();return}
-  if(state.phase==='attack'){
+  if(state.phase==='reinforce'){
+    if(!finishReinforcement(state))return showToast('Primero coloca todos tus refuerzos');
+    selectedFrom=selectedTo=cardTargeting=null;
+    render();
+  }else if(state.phase==='attack'){
     if(!setPhase(state,'fortify'))return showToast('Debes combatir al menos una vez');
     selectedFrom=selectedTo=cardTargeting=null;
     render();
@@ -1137,7 +1167,7 @@ els.phaseBtn.onclick=()=>{
 async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiRequested;elapsed+=50)await pause(50)}
 async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
-function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;selectedFrom=selectedTo=inspectedTerritory=null;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();showToast('Paso 1: coloca tus refuerzos')}
+function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();showToast('Paso 1: coloca tus refuerzos')}
 const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!localStorage.getItem(SAVE)}
 document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){initMap(state.mapId);els.startModal.classList.add('hidden');render();if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=()=>els.helpModal.classList.remove('hidden');$('#closeHelp').onclick=$('#gotItBtn').onclick=()=>els.helpModal.classList.add('hidden');window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
 document.querySelectorAll('.color-choice input').forEach(input=>input.onchange=()=>document.querySelectorAll('.color-choice').forEach(label=>label.classList.toggle('active',label.querySelector('input').checked)));

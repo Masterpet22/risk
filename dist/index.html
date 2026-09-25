@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=15">
+  <link rel="stylesheet" href="./theme.css?v=17">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -386,11 +386,11 @@
       <button class="close-btn" id="closeHelp" aria-label="Cerrar">×</button>
       <p class="eyebrow">MANUAL DE CAMPAÑA</p><h2 id="rulesTitle">Cómo conquistar el mapa</h2>
       <ol>
-        <li><b>Reclutamiento y Resistencia Nacional.</b> Cada territorio produce $1; la mayoría de su región añade $1 y el control total añade otros $2. Recibes mínimo 3 tropas más bonos regionales (más 1 tropa de emergencia de Resistencia Nacional si controlas 3 o menos territorios). Puedes comprar 3 refuerzos por $10.</li>
+        <li><b>Reclutamiento y Resistencia Nacional.</b> Cada territorio produce $1; la mayoría de su región añade $1 y el control total añade otros $2. Recibes mínimo 3 tropas más bonos regionales (más 1 tropa de emergencia de Resistencia Nacional si controlas 3 o menos territorios). Puedes comprar 3 refuerzos por $10 y deshacer tus colocaciones antes de confirmar el despliegue.</li>
         <li><b>Mercado Táctico.</b> Cada 3 rondas rota una oferta de 3–4 artículos (tropas de refuerzo, cartas tácticas y defensa temporal +1). Se adquieren durante Reclutamiento con fondos de tu tesoro (límite de 1 compra por oferta cada 3 rondas).</li>
         <li><b>Combate obligatorio.</b> Elige un origen con 2+ tropas y un vecino enemigo. Debes resolver al menos una tirada si existe un ataque posible.</li>
-        <li><b>Dados.</b> El atacante elige 1–3 dados y deja una tropa atrás. El defensor usa hasta 2. Se comparan de mayor a menor y los empates favorecen al defensor.</li>
-        <li><b>Maniobra.</b> Mueve tropas una sola vez entre territorios propios conectados, o pasa.</li>
+        <li><b>Dados y soldados.</b> Cada dado atacante representa un soldado desplegado en esa ronda: puedes elegir entre 1 y 3, dejando siempre una tropa atrás. El defensor usa hasta 2. Se comparan de mayor a menor y los empates favorecen al defensor.</li>
+        <li><b>Maniobra.</b> Mueve tropas una sola vez entre territorios propios conectados, o pasa. Ajusta la cantidad con −/+, escribe un valor o usa 1, Mitad y Máximo; la vista previa muestra el resultado antes de confirmar.</li>
         <li><b>Cierre y Cartas Tácticas.</b> Si conquistaste al menos un territorio, robas una carta táctica (Espía, Sabotaje, Bloqueo, Movilización o Contrainteligencia). Mano máxima de 3 cartas (descarte al robar la cuarta). Los bloqueos cierran rutas durante 2 rondas impidiendo combate y maniobra; el sabotaje reduce a la mitad la producción; la contrainteligencia neutraliza ataques de espionaje o sabotaje.</li>
         <li><b>Mapas.</b> Cada mapa conserva 24 territorios, pero cambia las rutas, los pasos estratégicos y el ritmo de conquista.</li>
         <li><b>Modo terreno.</b> Infantería vence a Artillería, Artillería a Caballería y Caballería a Infantería. La ventaja suma +1 al dado mayor. El defensor también obtiene +1 cuando su unidad coincide con el terreno.</li>
@@ -411,9 +411,9 @@
       <h2 id="diceTitle">Los dados están rodando…</h2>
       <p class="battle-route" id="battleRoute"></p>
       <div class="dice-arena">
-        <div><span>ATACANTE</span><div class="big-dice" id="attackerDice"></div></div>
+        <div><span id="attackerForceLabel">ATACANTE</span><div class="big-dice" id="attackerDice"></div></div>
         <b class="versus">VS</b>
-        <div><span>DEFENSOR</span><div class="big-dice defender" id="defenderDice"></div></div>
+        <div><span id="defenderForceLabel">DEFENSOR</span><div class="big-dice defender" id="defenderDice"></div></div>
       </div>
       <div class="comparison" id="comparison" aria-live="assertive"></div>
       <div class="modal-action-row">
@@ -466,6 +466,6 @@
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-  <script type="module" src="./app.mjs?v=19"></script>
+  <script type="module" src="./app.mjs?v=20"></script>
 </body>
 </html>

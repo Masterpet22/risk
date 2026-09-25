@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -28,12 +28,13 @@ console.log(`OK: 60 partidas completas, ${TERRITORIES.length} territorios, máxi
 // Flujo humano: no puede saltarse el combate cuando existe un ataque legal.
 const manual=createGame({players:2,seed:2026,human:true});
 while(manual.pendingReinforcements)placeTroops(manual,ownedIds(manual,0)[0],1);
+if(!finishReinforcement(manual))throw new Error('No se pudo confirmar el Reclutamiento completo');
 if(setPhase(manual,'fortify'))throw new Error('Se permitió saltar el combate obligatorio');
 const origin=ownedIds(manual,0).find(id=>manual.territories[id].troops>1&&enemiesOf(manual,id).length);
 if(!origin)throw new Error('La prueba no produjo un ataque legal');
 const target=enemiesOf(manual,origin)[0];
 const roll=attackRound(manual,origin,target,1);
-if(!roll.ok||!manual.attackMadeThisTurn)throw new Error('La tirada obligatoria no quedó registrada');
+if(!roll.ok||!manual.attackMadeThisTurn||roll.deployedTroops!==1||roll.rawAttackerDice.length!==1)throw new Error('La tirada obligatoria no registró el soldado desplegado');
 if(manual.winner===null&&!setPhase(manual,'fortify'))throw new Error('No se permitió avanzar después de combatir');
 if(manual.winner===null&&!setPhase(manual,'close'))throw new Error('No se mostró el cierre del turno');
 
@@ -73,6 +74,7 @@ if(attackRound(blockGame,bFrom,bTo,1).ok)throw new Error('Se permitió atacar a 
 const mobGame=createGame({players:2,seed:101,human:true});
 mobGame.players[0].money=20;mobGame.players[0].cards=['mobilize'];
 while(mobGame.pendingReinforcements)placeTroops(mobGame,ownedIds(mobGame,0)[0],1);
+finishReinforcement(mobGame);
 setPhase(mobGame,'fortify');
 playTacticalCard(mobGame,'mobilize',null,0);
 if(mobGame.extraFortifies!==1)throw new Error('Movilización no otorgó maniobra adicional');
@@ -86,6 +88,7 @@ if(!playTacticalCard(mobAfter,'mobilize',null,0).ok||mobAfter.phase!=='fortify'|
 
 const reward=createGame({players:2,seed:991,human:true});
 while(reward.pendingReinforcements)placeTroops(reward,ownedIds(reward,0)[0],1);
+finishReinforcement(reward);
 const strong=ownedIds(reward,0).find(id=>enemiesOf(reward,id).length);
 const victim=enemiesOf(reward,strong)[0];reward.territories[strong].troops=30;reward.territories[victim].troops=1;
 while(reward.territories[victim].owner!==0)attackRound(reward,strong,victim,3);
@@ -95,15 +98,30 @@ if(reward.campaign.players[0].conquests!==1||reward.campaign.conquests.length!==
 if(reward.campaign.players[0].lost+reward.campaign.players[1].lost<1)throw new Error('El resumen de campaña no registró bajas');
 console.log('OK: combate obligatorio, selección de dados y cartas tácticas verificados.');
 
+// Reclutamiento reversible: varias colocaciones, unidad anterior y confirmación explícita.
+const undoGame=createGame({players:2,seed:2040,human:true,rulesMode:'terrain'});
+const undoTerritory=ownedIds(undoGame,0)[0],undoBefore=undoGame.territories[undoTerritory].troops,undoPending=undoGame.pendingReinforcements,undoUnit=undoGame.territories[undoTerritory].unitType;
+if(!placeTroops(undoGame,undoTerritory,1,'artillery')||!placeTroops(undoGame,undoTerritory,2,'cavalry'))throw new Error('No se registraron colocaciones reversibles');
+const undoTwo=undoReinforcement(undoGame);
+if(!undoTwo||undoTwo.amount!==2||undoGame.territories[undoTerritory].troops!==undoBefore+1||undoGame.territories[undoTerritory].unitType!=='artillery')throw new Error('Deshacer no restauró la colocación y unidad anteriores');
+const undoOne=undoReinforcement(undoGame);
+if(!undoOne||undoGame.territories[undoTerritory].troops!==undoBefore||undoGame.territories[undoTerritory].unitType!==undoUnit||undoGame.pendingReinforcements!==undoPending)throw new Error('Deshacer no restauró el inicio de Reclutamiento');
+if(undoReinforcement(undoGame)!==false||finishReinforcement(undoGame)!==false)throw new Error('Se permitió deshacer o terminar Reclutamiento en un estado inválido');
+while(undoGame.pendingReinforcements)placeTroops(undoGame,undoTerritory,1,'infantry');
+if(undoGame.phase!=='reinforce'||!finishReinforcement(undoGame)||undoGame.phase!=='attack'||undoGame.reinforcementHistory.length)throw new Error('La confirmación explícita de Reclutamiento falló');
+console.log('OK: Reclutamiento reversible y confirmación explícita verificados.');
+
 // Ventaja circular en modo terreno y ausencia de modificadores en clásico.
 const terrain=createGame({players:2,seed:505,human:true,mapId:'archipelago',rulesMode:'terrain',playerCommander:'industrial'});
 while(terrain.pendingReinforcements)placeTroops(terrain,ownedIds(terrain,0)[0],1,'infantry');
+finishReinforcement(terrain);
 const tFrom=ownedIds(terrain,0).find(id=>terrain.territories[id].troops>1&&enemiesOf(terrain,id).length),tTo=enemiesOf(terrain,tFrom)[0];
 terrain.territories[tFrom].unitType='infantry';terrain.territories[tTo].unitType='artillery';
 const terrainRoll=attackRound(terrain,tFrom,tTo,1);
 if(terrainRoll.bonus.attacker!==1||terrainRoll.attackerDice[0]!==terrainRoll.rawAttackerDice[0]+1)throw new Error('El bono circular +1 no se aplicó');
 const classic=createGame({players:2,seed:506,human:true,mapId:'rift',rulesMode:'classic',playerCommander:'industrial'});
 while(classic.pendingReinforcements)placeTroops(classic,ownedIds(classic,0)[0],1);
+finishReinforcement(classic);
 const cFrom=ownedIds(classic,0).find(id=>classic.territories[id].troops>1&&enemiesOf(classic,id).length),cTo=enemiesOf(classic,cFrom)[0];
 const classicRoll=attackRound(classic,cFrom,cTo,1);
 if(classicRoll.bonus.attacker||classicRoll.bonus.defender)throw new Error('El modo clásico aplicó modificadores');

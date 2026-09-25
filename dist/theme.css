@@ -3229,3 +3229,119 @@ body:has(#startModal:not(.hidden)) {
 .map-legend .line.dashed {
   border-top-color: #64ae8b;
 }
+
+/* P0: selección explícita de soldados y maniobra sin barra deslizante. */
+.soldier-choice {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.soldier-choice button {
+  min-width: 0;
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 7px 4px !important;
+}
+
+.soldier-choice button strong { font-size: .68rem; }
+.soldier-choice button small { color: #86a6bb; font-size: .59rem; }
+.soldier-choice button.active small { color: #f5d77f; }
+.soldier-pips { min-height: 18px; color: var(--gold); font-size: .83rem; letter-spacing: -2px; }
+
+.deployment-preview,
+.deployed-summary {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #31546d;
+  border-radius: 9px;
+  background: linear-gradient(145deg, rgba(19,45,67,.9), rgba(7,24,39,.9));
+  color: #a9c4d5;
+  font-size: .68rem;
+}
+
+.deployment-preview strong,
+.deployed-summary strong { color: #f4d06f; font-size: .78rem; }
+.deployment-preview small { color: #7899ae; }
+
+.undo-reinforcement-btn { min-height: 44px; margin-top: 2px; }
+.undo-hint { display: block; text-align: center; color: #7899ae; font-size: .64rem; }
+
+.move-picker {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #31546d;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #102b41, #081b2b);
+}
+
+.move-picker > label {
+  color: #d9ebf4 !important;
+  font-size: .74rem !important;
+  font-weight: 800;
+  text-align: center;
+}
+
+.move-stepper {
+  display: grid;
+  grid-template-columns: 48px minmax(68px, 1fr) 48px;
+  gap: 7px;
+}
+
+.move-stepper button,
+.move-presets button {
+  border: 1px solid #426986;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #21435c, #102b40);
+  box-shadow: inset 0 1px rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.24);
+  color: #e7f4fa;
+  font-weight: 800;
+}
+
+.move-stepper button { min-height: 46px; font-size: 1.45rem; }
+.move-stepper button:hover,
+.move-presets button:hover { border-color: #e8bd4b; color: #f7d76f; }
+
+#moveAmount {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #e8bd4b;
+  border-radius: 9px;
+  background: #061522;
+  color: #ffe28a;
+  font: 800 1.2rem 'DM Sans', sans-serif;
+  text-align: center;
+  outline: none;
+}
+
+#moveAmount:focus { box-shadow: 0 0 0 3px rgba(232,189,75,.2); }
+
+.move-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.move-presets button { min-height: 42px; padding: 5px 3px; font-size: .65rem; }
+
+.move-preview {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: center;
+  gap: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(81,117,141,.35);
+}
+
+.move-preview div { min-width: 0; text-align: center; }
+.move-preview span { display: block; overflow: hidden; color: #86a6bb; font-size: .61rem; text-overflow: ellipsis; white-space: nowrap; }
+.move-preview strong { display: block; margin-top: 2px; color: #f5d77f; font-size: .82rem; }
+.move-preview i { color: #54d9d2; font-style: normal; }
+
+@media (max-width: 480px) {
+  .move-stepper { grid-template-columns: 52px minmax(72px,1fr) 52px; }
+  .move-stepper button { min-height: 48px; }
+}
