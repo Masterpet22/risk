@@ -106,6 +106,8 @@ Criterios de aceptación:
 
 Después de corregir los controles, la siguiente prioridad es que el mapa explique mejor el estado de la partida.
 
+**Estado: completado.** Se incorporaron el desglose calculado de Influencia, la Crónica filtrable, el resumen de Frentes de Guerra y una separación explícita entre compra básica y ofertas rotatorias. También se corrigió el recorte vertical del área de ataque para que su contenido determine la altura del panel.
+
 ### P1.1 Mejorar la visibilidad de los Frentes de Guerra
 
 - Incorporar una leyenda compacta para los estados de frontera: Estable, Tenso, Conflicto y Guerra.
@@ -151,6 +153,8 @@ Criterio de cierre: cualquier cambio importante del estado puede rastrearse desd
 Criterio de cierre: en una prueba sin explicación previa, el jugador distingue dónde comprar refuerzos estándar y dónde adquirir ofertas tácticas.
 
 ## P2 — Jerarquía del panel de órdenes
+
+**Estado: completado.** `Orden actual` conserva una altura de referencia común en escritorio y solo crece cuando el contenido lo exige; las acciones principales permanecen visibles a 1366×768. La primera campaña incorpora una guía contextual no bloqueante, persistente en almacenamiento local, con opciones para omitirla y reiniciarla desde Ayuda.
 
 ### P2.1 Estabilizar el panel de órdenes
 

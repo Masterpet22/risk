@@ -337,7 +337,7 @@ export function buyMarketItem(state,offerId,pid=state.current){
   if(offer.type==='troops'){
     state.reinforcementHistory=[];
     state.pendingReinforcements+=offer.value;
-    addLog(state,`${p.name} compró ${offer.name} en el Mercado (+$${offer.cost}).`,pid);
+    addLog(state,`${p.name} adquirió ${offer.name} en el Mercado por $${actualCost}: +${offer.value} a la reserva.`,pid);
   }else if(offer.type==='card'){
     p.cards.push(offer.cardId);
     if(state.campaign)state.campaign.players[pid].cards++;
@@ -355,7 +355,7 @@ export function buyReinforcements(state,pid=state.current){
   if(state.phase!=='reinforce'||state.current!==pid||!player?.alive||player.money<10||player.reinforcementsBoughtRound===state.turn)return false;
   player.money-=10;state.reinforcementHistory=[];state.pendingReinforcements+=3;
   player.reinforcementsBoughtRound=state.turn;
-  addLog(state,`${player.name} compró 3 refuerzos por $10.`,pid);
+  addLog(state,`${player.name} realizó la compra básica: +3 refuerzos por $10.`,pid);
   return true;
 }
 export const OBJECTIVES_CATALOG=[
@@ -385,8 +385,12 @@ export function rotateTemporaryObjectives(state,cycle=Math.floor((state.turn-1)/
 }
 
 export function calculateInfluence(state,pid){
+  return influenceBreakdown(state,pid).total;
+}
+
+export function influenceBreakdown(state,pid){
   const p=state?.players?.[pid];
-  if(!p||!p.alive)return 0;
+  if(!p||!p.alive)return{territories:{count:0,points:0},regions:{count:0,points:0},production:{value:0,points:0},troops:{count:0,capped:0,cap:30,points:0},objectives:{count:0,basePoints:0,multiplier:1,bonusPoints:0,points:0},total:0,target:150,remaining:150};
   const terrs=ownedIds(state,pid).length;
   let fullRegions=0;
   for(const[key]of Object.entries(REGIONS)){
@@ -396,16 +400,23 @@ export function calculateInfluence(state,pid){
   const prod=productionTotal(state,pid);
   const totalTroops=ownedIds(state,pid).reduce((s,id)=>s+state.territories[id].troops,0);
   const troopsValue=Math.min(totalTroops,30)*0.3;
-  let objectivesValue=(p.completedObjectives||[]).reduce((sum,objId)=>{
+  const completedObjectives=p.completedObjectives||[];
+  const objectivesBase=completedObjectives.reduce((sum,objId)=>{
     const obj=OBJECTIVES_CATALOG.find(o=>o.id===objId);
     return sum+(obj?obj.value:0);
   },0);
-  if(p.commander==='diplomat'){
-    objectivesValue=Math.round(objectivesValue*1.4*10)/10;
-  }
-
-  const raw=(terrs*2)+(fullRegions*8)+(prod*1)+troopsValue+objectivesValue;
-  return Math.round(raw*10)/10;
+  const objectiveMultiplier=p.commander==='diplomat'?1.4:1;
+  const objectivesValue=Math.round(objectivesBase*objectiveMultiplier*10)/10;
+  const objectiveBonus=Math.round((objectivesValue-objectivesBase)*10)/10;
+  const total=Math.round(((terrs*2)+(fullRegions*8)+prod+troopsValue+objectivesValue)*10)/10;
+  return{
+    territories:{count:terrs,points:terrs*2},
+    regions:{count:fullRegions,points:fullRegions*8},
+    production:{value:prod,points:prod},
+    troops:{count:totalTroops,capped:Math.min(totalTroops,30),cap:30,points:Math.round(troopsValue*10)/10},
+    objectives:{count:completedObjectives.length,basePoints:objectivesBase,multiplier:objectiveMultiplier,bonusPoints:objectiveBonus,points:objectivesValue},
+    total,target:150,remaining:Math.max(0,Math.round((150-total)*10)/10)
+  };
 }
 
 export function checkObjectives(state,pid){

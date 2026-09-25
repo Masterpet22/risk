@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=17">
+  <link rel="stylesheet" href="./theme.css?v=20">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -55,6 +55,9 @@
 
           <!-- El tesoro pertenece al comandante activo; se mantiene junto a su información. -->
           <div id="economyBox" class="economy-box commander-economy"></div>
+          <button id="chronicleBtn" class="commander-utility-btn" type="button" aria-label="Abrir Crónica de la campaña">
+            <span aria-hidden="true">▤</span> Crónica de campaña <small id="chronicleCount">0</small>
+          </button>
         </section>
 
         <section class="panel-section territory-card-section" id="selectedTerritoryCard">
@@ -93,6 +96,10 @@
           <button id="objectivesMapBtn" class="map-corner-btn objectives-map-btn hidden" type="button" aria-label="Ver objetivos">
             <span aria-hidden="true">🚩</span>
             <small id="objectivesMapBadge">2</small>
+          </button>
+          <button id="frontsMapBtn" class="map-corner-btn fronts-map-btn hidden" type="button" aria-label="Ver Frentes de Guerra">
+            <span aria-hidden="true">⚔</span>
+            <small id="frontsMapBadge">0</small>
           </button>
         </div>
 
@@ -165,6 +172,18 @@
         <div class="terrain-panel hidden" id="terrainPanel"></div>
       </aside>
     </main>
+    <aside id="tutorialCoach" class="tutorial-coach hidden" role="status" aria-live="polite">
+      <div class="tutorial-coach-head">
+        <span id="tutorialStepLabel">GUÍA DE CAMPAÑA</span>
+        <button id="skipTutorialBtn" type="button">Omitir</button>
+      </div>
+      <strong id="tutorialTitle"></strong>
+      <p id="tutorialText"></p>
+      <div class="tutorial-coach-actions">
+        <small id="tutorialProgress"></small>
+        <button id="nextTutorialBtn" type="button">Entendido →</button>
+      </div>
+    </aside>
     <button class="mobile-orders-button" id="mobileOrdersBtn" aria-controls="orderCard" aria-expanded="false"><span>Órdenes</span><strong id="mobileOrdersLabel">Abrir acciones</strong></button>
     <div class="mobile-sheet-backdrop" id="mobileSheetBackdrop"></div>
   </div>
@@ -401,6 +420,10 @@
         <li><b>Información Imperfecta y Niebla de Guerra.</b> No dispones de certeza total sobre territorios remotos: <b>Completa</b> en tus tierras, vecinos directos (distancia 1) y objetivos espiados (guarnición, unidad y producción exactas); <b>Parcial</b> a distancia 2 (rango aproximado de tropas como 1-2, 3-5, 6-9 o 10+, con unidad oculta); y <b>Oculta</b> en tierras lejanas (guarnición desconocida con ? tropas). Jugar la carta de <b>Espía</b> levanta la niebla y revela datos completos de cualquier territorio durante 1 ronda. La dificultad de la IA ajusta su nivel de percepción sin alterar las tiradas de dados.</li>
         <li><b>Eventos Dinámicos del Mapa (solo modo terreno).</b> El continente sufre fuerzas impredecibles: <b>Terremotos</b> en fallas continentales, <b>Tsunamis</b> en costas e islas, y <b>Temporales</b> en estrechos marítimos y pasos montañosos. Se anuncian con 1 ronda de anticipación para permitir evacuaciones o repliegues; al activarse, causan bajas en la guarnición (respetando un mínimo de 1 tropa) y bloquean temporalmente rutas durante 2 rondas. En dificultad difícil, la IA tiene en cuenta las alertas tempranas para no reforzar zonas en riesgo.</li>
       </ol>
+      <div class="tutorial-help-box">
+        <div><b>Tutorial contextual</b><small>Vuelve a mostrar la guía paso a paso durante la partida.</small></div>
+        <button class="secondary-btn" id="restartTutorialBtn" type="button">Reiniciar tutorial</button>
+      </div>
       <button class="primary-btn" id="gotItBtn">Entendido</button>
     </section>
   </div>
@@ -466,6 +489,6 @@
   <div class="commander-popover hidden" id="commanderPopover" role="tooltip" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-  <script type="module" src="./app.mjs?v=20"></script>
+  <script type="module" src="./app.mjs?v=23"></script>
 </body>
 </html>

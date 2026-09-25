@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,rotateTemporaryObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -546,6 +546,11 @@ if (stratGame.players[0].money !== 5) {
 const dipGame = createGame({players:2, seed:704, human:true, playerCommander:'diplomat'});
 dipGame.players[0].completedObjectives = ['territories_8'];
 const dipInf = calculateInfluence(dipGame, 0);
+const dipBreakdown = influenceBreakdown(dipGame, 0);
+const dipRowsTotal = dipBreakdown.territories.points + dipBreakdown.regions.points + dipBreakdown.production.points + dipBreakdown.troops.points + dipBreakdown.objectives.basePoints + dipBreakdown.objectives.bonusPoints;
+if (dipRowsTotal !== dipBreakdown.total || dipBreakdown.total !== dipInf || dipBreakdown.objectives.multiplier !== 1.4 || dipBreakdown.objectives.bonusPoints !== 4) {
+  throw new Error('El desglose visible de Influencia no coincide con calculateInfluence');
+}
 const nonDipGame = createGame({players:2, seed:704, human:true, playerCommander:'conqueror'});
 nonDipGame.players[0].completedObjectives = ['territories_8'];
 const nonDipInf = calculateInfluence(nonDipGame, 0);

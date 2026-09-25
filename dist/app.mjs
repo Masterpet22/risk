@@ -1,9 +1,53 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=13';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=14';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
-let objectivesModalHtml='',marketModalHtml='',eventModalData=null;
+let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
+let lastRenderedPhase=null;
 const SAVE='fronteras-acero-save-v3';
+const TUTORIAL_KEY='fronteras-acero-tutorial-v1';
+let tutorialActive=false,tutorialCurrent=null;
+const tutorialSteps=[
+  {id:'recruit',title:'Recluta y corrige',text:'Pulsa un territorio propio para colocar tropas. Si te equivocas, usa “Deshacer” antes de comenzar el combate.',target:'#orderCard',when:()=>state?.phase==='reinforce'},
+  {id:'influence',title:'Entiende tu Influencia',text:'Pulsa tu total de Influencia para ver cuánto aporta cada fuente y cuánto falta para ganar.',target:'.metric-influence-btn',when:()=>state?.phase==='reinforce'},
+  {id:'objectives',title:'Consulta tus objetivos',text:'La bandera abre tus objetivos y su progreso sin ocupar espacio permanente en el tablero.',target:'#objectivesMapBtn',when:()=>state?.phase==='reinforce'},
+  {id:'fronts',title:'Lee los Frentes de Guerra',text:'Las líneas discontinuas unen regiones. Su color cambia de Estable a Guerra según las hostilidades.',target:'#frontsMapBtn',when:()=>state?.phase==='reinforce'},
+  {id:'market',title:'Compra con intención',text:'Tesoro contiene la compra básica de +3 tropas. El Mercado reúne ofertas rotatorias, cartas y efectos.',target:'#marketModalBtn',when:()=>state?.phase==='reinforce'},
+  {id:'attack-origin',title:'Elige quién ataca',text:'Selecciona un territorio propio con al menos 2 tropas. Sus objetivos válidos quedarán destacados.',target:'#map',when:()=>state?.phase==='attack'&&!selectedFrom},
+  {id:'attack-target',title:'Elige un vecino enemigo',text:'Ahora selecciona un territorio enemigo conectado. Las rutas visibles corresponden al origen elegido.',target:'#map',when:()=>state?.phase==='attack'&&!!selectedFrom&&!selectedTo},
+  {id:'attack-dice',title:'Cada dado es un soldado',text:'1, 2 o 3 dados despliegan exactamente 1, 2 o 3 soldados. El origen siempre conserva al menos uno.',target:'#actionControls',when:()=>state?.phase==='attack'&&!!selectedTo},
+  {id:'fortify',title:'Maniobra con vista previa',text:'Elige origen y destino propios; ajusta con −/+, escribe una cantidad o usa 1, Mitad y Máximo.',target:'#orderCard',when:()=>state?.phase==='fortify'},
+  {id:'cards',title:'Cartas tácticas',text:'Las cartas se ganan conquistando. Sus iconos muestran la mano y el detalle aparece al pasar o enfocar.',target:'#cardsSection',when:()=>state?.phase==='close'},
+  {id:'terrain-events',title:'Eventos del terreno',text:'En Modo terreno, este acceso anuncia terremotos, tsunamis o temporales antes de que se activen.',target:'#eventBanner',terrainOnly:true,when:()=>state?.rulesMode==='terrain'&&!!(state?.announcedEvent||state?.activeEvent)}
+];
+function tutorialStatus(){try{return{version:1,seen:[],dismissed:false,completed:false,...JSON.parse(localStorage.getItem(TUTORIAL_KEY)||'{}')}}catch{return{version:1,seen:[],dismissed:false,completed:false}}}
+function saveTutorialStatus(status){localStorage.setItem(TUTORIAL_KEY,JSON.stringify(status))}
+function clearTutorialFocus(){document.querySelectorAll('.tutorial-focus').forEach(element=>element.classList.remove('tutorial-focus'))}
+function positionTutorialCoach(target){
+  const coach=$('#tutorialCoach');if(!coach||!target)return;
+  const place=()=>{const rect=target.getBoundingClientRect(),box=coach.getBoundingClientRect(),pad=10;if(window.innerWidth<=760){coach.style.left='12px';coach.style.right='12px';coach.style.top='auto';coach.style.bottom='76px';return}let left=rect.right+12,top=rect.top;if(target.id==='map'){left=rect.right-box.width-14;top=rect.bottom-box.height-58}else if(left+box.width>window.innerWidth-pad)left=rect.left-box.width-12;left=Math.max(pad,Math.min(left,window.innerWidth-box.width-pad));top=Math.max(pad,Math.min(top,window.innerHeight-box.height-pad));coach.style.left=`${left}px`;coach.style.right='auto';coach.style.top=`${top}px`;coach.style.bottom='auto'};
+  requestAnimationFrame(place);
+}
+function renderTutorial(){
+  const coach=$('#tutorialCoach');if(!coach)return;clearTutorialFocus();
+  const status=tutorialStatus();tutorialActive=tutorialActive||(!status.dismissed&&!status.completed);
+  if(!tutorialActive||!state||!state.players[state.current]?.human){coach.classList.add('hidden');return}
+  if(tutorialCurrent&&!tutorialSteps.find(step=>step.id===tutorialCurrent)?.when())tutorialCurrent=null;
+  const available=tutorialSteps.filter(step=>(!step.terrainOnly||state.rulesMode==='terrain')&&!status.seen.includes(step.id)&&step.when());
+  const step=available.find(item=>item.id===tutorialCurrent)||available[0];
+  if(!step){coach.classList.add('hidden');return}
+  const target=$(step.target);if(!target||target.classList.contains('hidden')){coach.classList.add('hidden');return}
+  const changed=tutorialCurrent!==step.id;tutorialCurrent=step.id;target.classList.add('tutorial-focus');
+  $('#tutorialTitle').textContent=step.title;$('#tutorialText').textContent=step.text;
+  const relevant=tutorialSteps.filter(item=>!item.terrainOnly||state.rulesMode==='terrain');
+  $('#tutorialProgress').textContent=`${Math.min(relevant.length,status.seen.length+1)} de ${relevant.length}`;
+  coach.classList.remove('hidden');
+  if(changed&&['market','cards'].includes(step.id))target.scrollIntoView({block:'nearest',behavior:'smooth'});
+  positionTutorialCoach(target);
+}
+function advanceTutorial(){const status=tutorialStatus();if(tutorialCurrent&&!status.seen.includes(tutorialCurrent))status.seen.push(tutorialCurrent);const required=tutorialSteps.filter(step=>!step.terrainOnly||state?.rulesMode==='terrain');status.completed=required.every(step=>status.seen.includes(step.id));saveTutorialStatus(status);tutorialCurrent=null;if(status.completed)tutorialActive=false;renderTutorial()}
+function skipTutorial(){const status=tutorialStatus();status.dismissed=true;saveTutorialStatus(status);tutorialActive=false;tutorialCurrent=null;clearTutorialFocus();$('#tutorialCoach')?.classList.add('hidden');showToast('Tutorial omitido. Puedes reiniciarlo desde Ayuda.')}
+function restartTutorial(){saveTutorialStatus({version:1,seen:[],dismissed:false,completed:false});tutorialActive=true;tutorialCurrent=null;els.helpModal.classList.add('hidden');renderTutorial();showToast('Tutorial contextual reiniciado')}
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
 const regionShort=(map,key)=>getRegion(map,key).short||getRegion(map,key).name.toUpperCase();
 function save(){if(state)localStorage.setItem(SAVE,JSON.stringify({state:pendingAiState||state,difficulty}))}
@@ -70,7 +114,7 @@ function updateConnections(){
   els.routesBtn.setAttribute('aria-pressed',String(routesAll));
 }
 
-function render(persist=true){if(!state)return;const p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'flex':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;renderFlow();renderPlayers();renderRegions();renderEventBanner();renderMap();renderGuide();renderPanel();renderLog();updateMobileOrders();if(persist)save()}
+function render(persist=true){if(!state)return;const phaseChanged=lastRenderedPhase!==state.phase,p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'flex':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;renderFlow();renderPlayers();renderRegions();renderEventBanner();renderMap();renderFronts();renderGuide();renderPanel();renderLog();updateMobileOrders();renderTutorial();lastRenderedPhase=state.phase;if(phaseChanged)requestAnimationFrame(()=>{const panel=document.querySelector('.right-panel');if(panel)panel.scrollTop=0});if(persist)save()}
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
 function renderEventBanner(){
   if(!els.eventBanner)return;
@@ -118,6 +162,66 @@ function openStrategicModal(options){
 }
 function openEventModal(){if(eventModalData)openStrategicModal(eventModalData)}
 function openObjectivesModal(){if(objectivesModalHtml)openStrategicModal({title:'🚩 Objetivos',html:objectivesModalHtml})}
+const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+function openInfluenceModal(pid=0){
+  const p=state?.players?.[pid];
+  if(!p?.human)return;
+  const b=influenceBreakdown(state,pid),pct=Math.min(100,(b.total/b.target)*100);
+  const diplomat=b.objectives.multiplier>1?`<div class="influence-row influence-bonus"><span>Bonificación de El Diplomático <small>+40% sobre objetivos</small></span><strong>+${b.objectives.bonusPoints}</strong></div>`:'';
+  openStrategicModal({title:'✦ Desglose de Influencia',width:520,html:`<div class="influence-breakdown">
+    <div class="influence-total"><div><small>${escapeHtml(p.name)}</small><strong>${b.total} / ${b.target}</strong></div><span>Faltan ${b.remaining} para la victoria</span></div>
+    <div class="influence-progress"><i style="width:${pct}%"></i></div>
+    <div class="influence-row"><span>Territorios <small>${b.territories.count} × 2</small></span><strong>+${b.territories.points}</strong></div>
+    <div class="influence-row"><span>Regiones completas <small>${b.regions.count} × 8</small></span><strong>+${b.regions.points}</strong></div>
+    <div class="influence-row"><span>Producción actual <small>$${b.production.value} × 1</small></span><strong>+${b.production.points}</strong></div>
+    <div class="influence-row"><span>Tropas <small>${b.troops.count}; cuentan ${b.troops.capped}/${b.troops.cap} × 0.3</small></span><strong>+${b.troops.points}</strong></div>
+    <div class="influence-row"><span>Objetivos completados <small>${b.objectives.count} objetivos</small></span><strong>+${b.objectives.basePoints}</strong></div>
+    ${diplomat}
+    <div class="influence-row influence-final"><span>Total calculado ahora</span><strong>${b.total}</strong></div>
+    <p class="influence-hint">Puedes aumentarla controlando territorios y regiones, mejorando tu producción, conservando tropas o completando objetivos.</p>
+  </div>`});
+}
+function chronicleCategory(text){
+  const value=String(text).toLowerCase();
+  if(/conquist|atac|combate|baja|elimin|defend|frente|guerra/.test(value))return'combat';
+  if(/compr|mercado|producci|\$|tesoro|refuerzo|subsidio/.test(value))return'economy';
+  if(/evento|terremoto|tsunami|temporal|alerta|geol|desastre|rutas cortadas/.test(value))return'events';
+  return'campaign';
+}
+function openChronicleModal(){
+  if(!chronicleModalHtml)return;
+  openStrategicModal({title:'▤ Crónica de campaña',width:680,html:chronicleModalHtml,didOpen:popup=>{
+    const entries=[...popup.querySelectorAll('.chronicle-entry')];
+    popup.querySelectorAll('[data-chronicle-filter]').forEach(btn=>btn.onclick=()=>{
+      const filter=btn.dataset.chronicleFilter;
+      popup.querySelectorAll('[data-chronicle-filter]').forEach(item=>item.classList.toggle('active',item===btn));
+      entries.forEach(entry=>entry.hidden=filter!=='all'&&!entry.classList.contains(`category-${filter}`));
+      popup.querySelectorAll('.chronicle-round').forEach(round=>{const next=[];let node=round.nextElementSibling;while(node&&!node.classList.contains('chronicle-round')){if(node.classList.contains('chronicle-entry'))next.push(node);node=node.nextElementSibling}round.hidden=!next.some(entry=>!entry.hidden)});
+    });
+  }});
+}
+function frontPairData(a,b){const key=a<b?`${a}-${b}`:`${b}-${a}`;return state.fronts?.[key]||{state:'stable',lastHostilityTurn:0,battlesThisTurn:0}}
+function renderFronts(){
+  const button=$('#frontsMapBtn');
+  if(!button||!state)return;
+  const human=state.players.find(p=>p.human)||state.players[0];
+  const severity={war:3,conflict:2,tense:1,stable:0};
+  const rows=state.players.filter(p=>p.alive&&p.id!==human.id).map(rival=>{
+    const data=frontPairData(human.id,rival.id),label=FRONT_STATE_LABELS[data.state]||FRONT_STATE_LABELS.stable;
+    return{rival,data,label};
+  }).sort((a,b)=>severity[b.data.state]-severity[a.data.state]);
+  const active=rows.filter(row=>row.data.state!=='stable').length;
+  frontsModalHtml=`<div class="fronts-modal"><div class="front-legend">
+    ${FRONT_STATES.map(key=>{const item=FRONT_STATE_LABELS[key];return`<span class="front-legend-item front-${key}"><i style="--front:${item.color}"></i>${item.name}</span>`}).join('')}
+  </div><p class="front-explainer">Las fronteras entre regiones son discontinuas. Su color muestra la tensión entre los comandantes que controlan ambos extremos; una ruta bloqueada usa una marca adicional.</p>
+  <div class="front-list">${rows.map(({rival,data,label})=>`<div class="front-summary front-${data.state}"><span class="front-rival-dot" style="--rival:${rival.color}"></span><div><strong>${escapeHtml(human.name)} ↔ ${escapeHtml(rival.name)}</strong><small>${data.lastHostilityTurn?`Última hostilidad: ronda ${data.lastHostilityTurn}`:'Sin hostilidades registradas'}${data.battlesThisTurn?` · ${data.battlesThisTurn} combate${data.battlesThisTurn===1?'':'s'} este turno`:''}</small></div><b style="--front:${label.color}">${label.icon} ${label.name}</b></div>`).join('')}</div>
+  <p class="front-cooling">Atacar eleva la tensión; si pasa una ronda sin hostilidades, el frente se enfría un nivel.</p></div>`;
+  button.classList.remove('hidden');
+  button.classList.toggle('has-active-fronts',active>0);
+  button.setAttribute('aria-label',`Ver Frentes de Guerra; ${active} activos`);
+  const badge=$('#frontsMapBadge');if(badge)badge.textContent=String(active);
+}
+function openFrontsModal(){if(frontsModalHtml)openStrategicModal({title:'⚔ Frentes de Guerra',width:650,html:frontsModalHtml})}
 function renderPlayers(){
   const aliveCount = state.players.filter(p => p.alive).length;
   const aliveBadge = $('#alivePlayersCount');
@@ -154,7 +258,7 @@ function renderPlayers(){
         '<div class="metric-col"><strong>' + terrStr + '</strong><small>territorios</small></div>' +
         '<div class="metric-col"><strong class="' + (hasHidden || hasPartial ? 'approx-stat' : '') + '">' + troopsStr + '</strong><small>tropas</small></div>' +
         '<div class="metric-col"><strong>' + cardCount + '</strong><small>cartas</small></div>' +
-        '<div class="metric-col"><strong class="inf-val">' + (p.influence || 0) + '</strong><small>influencia</small></div>' +
+        (isHuman?'<button class="metric-col metric-influence-btn" data-influence-player="'+p.id+'" type="button" aria-label="Ver desglose de Influencia"><strong class="inf-val">'+calculateInfluence(state,p.id)+'</strong><small>influencia · ver</small></button>':'<div class="metric-col"><strong class="inf-val">'+(p.influence||0)+'</strong><small>influencia</small></div>') +
       '</div>' +
     '</div>';
   }).join('');
@@ -180,6 +284,7 @@ function renderPlayers(){
       }
     };
   });
+  els.players.querySelectorAll('.metric-influence-btn').forEach(button=>button.onclick=e=>{e.stopPropagation();openInfluenceModal(+button.dataset.influencePlayer)});
 }
 
 function showCommanderPopover(pid, anchorEl) {
@@ -203,12 +308,11 @@ function showCommanderPopover(pid, anchorEl) {
   const isActive = state.current === p.id && p.alive;
   const statusText = !p.alive ? 'Derrotado' : isActive ? 'EN TURNO' : 'Esperando';
 
-  let frontDetail = '';
-  if (!isHuman && state.players[0]) {
-    const frontState = getFrontState(state, 0, p.id);
-    const label = FRONT_STATE_LABELS[frontState] || frontState;
-    frontDetail = '<div class="popover-front-row"><span>Frente con ' + state.players[0].name + ':</span><strong class="front-tag-' + frontState + '">' + label + '</strong></div>';
-  }
+  const frontPeers=state.players.filter(other=>other.alive&&other.id!==p.id).map(other=>({other,state:getFrontState(state,p.id,other.id)}));
+  const frontDetail = '<div class="popover-fronts"><span class="popover-section-label">Frentes de Guerra</span>' + frontPeers.map(({other,state:frontState})=>{
+    const label=FRONT_STATE_LABELS[frontState]||FRONT_STATE_LABELS.stable;
+    return '<div class="popover-front-row"><span>con '+escapeHtml(other.name)+'</span><strong class="front-tag-'+frontState+'">'+label.icon+' '+label.name+'</strong></div>';
+  }).join('') + '</div>';
 
   popover.innerHTML = '<div class="popover-card" style="--cmd-color:' + p.color + ';">' +
     '<div class="popover-hero">' +
@@ -230,7 +334,7 @@ function showCommanderPopover(pid, anchorEl) {
       '<div class="popover-stat-cell"><span>Tropas</span><strong>' + troopsStr + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Tesoro</span><strong class="gold-val">$' + (p.money || 0) + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Cartas</span><strong>' + (p.cards?.length || 0) + ' / 3</strong></div>' +
-      '<div class="popover-stat-cell"><span>Influencia</span><strong class="gold-val">' + (p.influence || 0) + ' pts</strong></div>' +
+      '<div class="popover-stat-cell"><span>Influencia</span><strong class="gold-val">' + (isHuman?calculateInfluence(state,p.id):(p.influence||0)) + ' pts</strong></div>' +
       '<div class="popover-stat-cell"><span>Objetivos</span><strong>' + (p.completedObjectives || []).length + ' hechos</strong></div>' +
     '</div>' +
     frontDetail +
@@ -335,7 +439,14 @@ function renderMap(){
   }
   updateConnections();
 }
-function renderLog(){els.log.innerHTML=state.log.slice(0,8).map(l=>`<div class="log-item" style="--lc:${l.p===null?'#788896':state.players[l.p]?.color||'#788896'}"><i class="log-dot"></i><span>${l.text}</span></div>`).join('')}
+function renderLog(){
+  const entries=Array.isArray(state.log)?state.log.slice(0,60):[];
+  els.log.innerHTML=entries.slice(0,8).map(l=>`<div class="log-item" style="--lc:${l.p===null?'#788896':state.players[l.p]?.color||'#788896'}"><i class="log-dot"></i><span>${escapeHtml(l.text)}</span></div>`).join('');
+  let lastRound=null;
+  const list=entries.map(item=>{const round=Number(item.turn)||1,heading=round!==lastRound?`<div class="chronicle-round">Ronda ${round}</div>`:'';lastRound=round;const player=item.p===null||item.p===undefined?null:state.players[item.p],category=chronicleCategory(item.text);return`${heading}<div class="chronicle-entry category-${category}" style="--chronicle-color:${player?.color||'#788896'}"><i></i><div><small>${player?escapeHtml(player.name):'Campaña'} · R${round}</small><p>${escapeHtml(item.text)}</p></div></div>`}).join('');
+  chronicleModalHtml=`<div class="chronicle-modal"><div class="chronicle-filters"><button class="active" data-chronicle-filter="all">Todos</button><button data-chronicle-filter="combat">Combate</button><button data-chronicle-filter="economy">Economía</button><button data-chronicle-filter="events">Eventos</button></div><div class="chronicle-list">${list||'<p class="chronicle-empty">La campaña todavía no tiene acontecimientos.</p>'}</div></div>`;
+  const count=$('#chronicleCount');if(count)count.textContent=String(entries.length);
+}
 function setGuide(step,title,text){els.mapGuide.innerHTML=`<span>${step}</span><strong>${title}</strong><small>${text}</small>`}
 function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado',`Ganador: ${state.players[state.winner].name}. Abre el resumen final cuando quieras.`);return}if(!state.players[state.current].human){setGuide('…',`${state.players[state.current].name} está jugando`,'Al terminar verás un informe de sus combates.');return}if(state.phase==='reinforce')setGuide('1','Pulsa tus territorios luminosos',`Coloca las ${state.pendingReinforcements} tropas restantes.`);else if(state.phase==='attack'&&!selectedFrom)setGuide('1','Elige el territorio atacante','Al pasar el cursor solo se iluminan sus rutas reales.');else if(state.phase==='attack'&&!selectedTo)setGuide('2','Elige un vecino enemigo','Los objetivos válidos tienen borde rojo.');else if(state.phase==='attack')setGuide('3','Configura y lanza los dados',state.rulesMode==='terrain'?'La ventaja de unidad o terreno suma +1 al dado mayor.':'El modo clásico no aplica modificadores.');else if(state.phase==='fortify'&&!selectedFrom)setGuide('1','Elige el origen de la maniobra','Debe tener al menos 2 tropas. También puedes pasar.');else if(state.phase==='fortify'&&!selectedTo)setGuide('2','Elige el destino propio','Puede conectarse por una ruta continua propia.');else if(state.phase==='fortify')setGuide('3','Confirma cuántas tropas mover','Siempre quedará al menos una en el origen.');else setGuide('4','Revisa el cierre',state.conqueredThisTurn?'Recibes una carta táctica.':'No conquistaste: no recibes carta.')}
 
@@ -449,6 +560,14 @@ function renderTerritoryInspect(id) {
   const unitRow = terrainMode
     ? '<div class="territory-spec-row"><span class="spec-lbl">Unidad</span><span class="spec-val">' + unitText + '</span></div>'
     : '';
+  const regionalFronts=(t.n||[]).map(tById).filter(neighbor=>neighbor&&neighbor.region!==t.region).map(neighbor=>{
+    const neighborData=state.territories[neighbor.id],neighborIntel=getTerritoryIntel(state,neighbor.id,0,difficulty);
+    if(neighborIntel.visibility==='hidden')return`<div class="territory-front-row"><span>${escapeHtml(neighbor.name)}</span><strong class="front-tag-unknown">? Sin confirmar</strong></div>`;
+    const frontState=getFrontState(state,d.owner,neighborData.owner),label=FRONT_STATE_LABELS[frontState]||FRONT_STATE_LABELS.stable;
+    const relation=d.owner===neighborData.owner?'Frontera propia':`${label.icon} ${label.name}`;
+    return`<div class="territory-front-row"><span>${escapeHtml(neighbor.name)}</span><strong class="front-tag-${frontState}">${relation}</strong></div>`;
+  }).join('');
+  const frontsBlock=regionalFronts?`<div class="territory-fronts"><span class="spec-lbl">Fronteras regionales</span>${regionalFronts}</div>`:'';
 
   container.innerHTML = '<div class="territory-active-preview">' +
     '<div class="territory-header-row">' +
@@ -468,6 +587,7 @@ function renderTerritoryInspect(id) {
       '<div class="territory-spec-row"><span class="spec-lbl">Conexiones</span><span class="spec-val">' + (t.n?.length || 0) + ' rutas directas</span></div>' +
       '<div class="territory-spec-row intel-row"><span class="spec-lbl">Inteligencia</span><span class="spec-val">' + intelText + '</span></div>' +
       (alertText ? '<div class="territory-spec-row alert-row"><span class="spec-lbl">Alerta</span><span class="spec-val">' + alertText + '</span></div>' : '') +
+      frontsBlock +
     '</div>' +
   '</div>';
 }
@@ -523,18 +643,18 @@ function renderEconomy(){
     '<span class="section-title"><span class="sec-icon">💰</span> TESORO</span>' +
     '<strong style="color: #ffd45f; font-size: 1.35rem; font-family: \'Marcellus\', serif;">$' + p.money + '</strong>' +
   '</div>' +
-  '<small style="color: #92b0c5; font-size: 0.72rem;">Producción actual: <strong>+$' + income + '</strong> al inicio del turno.</small>' +
+  '<small class="economy-production">Producción actual: <strong>+$' + income + '</strong> al inicio del turno.</small>' +
   (p.human && state.phase === 'reinforce' ? (
-    '<button id="buyTroopsBtn" class="secondary-btn" style="margin-top: 6px; padding: 6px 10px; font-size: 0.75rem;" ' + (canBuy ? '' : 'disabled') + '>' +
-      (alreadyBought ? 'Compra de emergencia usada' : '+3 refuerzos · $10') +
-    '</button>'
+    '<div class="basic-purchase"><span class="basic-purchase-label">COMPRA BÁSICA · 1 POR RONDA</span><small>Reserva inmediata; no depende del Mercado.</small><button id="buyTroopsBtn" class="basic-buy-btn" ' + (canBuy ? '' : 'disabled') + '>' +
+      (alreadyBought ? '✓ Compra básica utilizada' : '🏰 +3 refuerzos · $10') +
+    '</button></div>'
   ) : '');
 
   const button = $('#buyTroopsBtn');
   if (button) button.onclick = () => {
     if (buyReinforcements(state)) {
       render();
-      showToast('Compraste 3 refuerzos por $10');
+      showToast('Compra básica: +3 refuerzos por $10');
     }
   };
   renderObjectives();
@@ -551,7 +671,8 @@ function renderMarket(){
 
   const offersHtml=state.market.offers.map(offer=>{
     const alreadyBought=offer.boughtBy?.includes(p.id);
-    const canAfford=p.money>=offer.cost;
+    const actualCost=Math.max(5,offer.cost-(p.commander==='strategist'?5:0));
+    const canAfford=p.money>=actualCost;
     const isFullCards=offer.type==='card'&&p.cards.length>=3;
     const canBuy=p.human&&state.phase==='reinforce'&&!alreadyBought&&canAfford&&!isFullCards;
 
@@ -559,17 +680,18 @@ function renderMarket(){
     if(alreadyBought){
       buttonOrBadge=`<span class="market-badge bought">Adquirido</span>`;
     }else if(p.human&&state.phase==='reinforce'){
-      const reasonDisabled=!canAfford?`Requiere $${offer.cost}`:isFullCards?'Mano llena (máx 3)':`Comprar ${offer.name}`;
-      buttonOrBadge=`<button class="secondary-btn market-buy-btn" data-offer="${offer.id}" ${canBuy?'':'disabled'} title="${reasonDisabled}">Comprar · $${offer.cost}</button>`;
+      const reasonDisabled=!canAfford?`Requiere $${actualCost}`:isFullCards?'Mano llena (máx 3)':`Comprar ${offer.name}`;
+      buttonOrBadge=`<button class="secondary-btn market-buy-btn" data-offer="${offer.id}" ${canBuy?'':'disabled'} title="${reasonDisabled}">Comprar · $${actualCost}</button>`;
     }else{
-      buttonOrBadge=`<span class="market-price-tag">$${offer.cost}</span>`;
+      buttonOrBadge=`<span class="market-price-tag">$${actualCost}</span>`;
     }
 
+    const typeMeta=offer.type==='troops'?['RESERVA','market-type-reserve']:offer.type==='card'?['CARTA','market-type-card']:['EFECTO','market-type-effect'];
     return `<div class="market-offer ${alreadyBought?'offer-bought':''}">
       <div class="market-offer-info">
         <span class="market-offer-icon">${offer.icon||'📦'}</span>
         <div>
-          <div class="market-offer-title"><b>${offer.name}</b></div>
+          <div class="market-offer-title"><b>${offer.name}</b><span class="market-type-badge ${typeMeta[1]}">${typeMeta[0]}</span></div>
           <small class="market-offer-desc">${offer.desc}</small>
         </div>
       </div>
@@ -583,10 +705,11 @@ function renderMarket(){
     <div class="market-box modal-market-box">
     <div class="market-head">
       <div class="market-head-title">
-        <span>MERCADO TÁCTICO</span>
+        <span>OFERTAS ROTATORIAS</span>
         </div>
       ${hasTempDef?`<span class="temp-def-active-pill">🛡 Defensa +1 activa</span>`:''}
     </div>
+    <p class="market-separation-note">El Mercado ofrece cartas y ventajas especiales. La compra básica de +3 refuerzos está en Tesoro.</p>
     <div class="market-offers-list">${offersHtml}</div>
     <p class="market-rotation-note">Rota en la ronda ${nextRotationRound} · ${roundsLeft} ${roundsLeft===1?'ronda':'rondas'} restantes</p>
     </div>`;
@@ -1125,6 +1248,8 @@ $('#closeDice').onclick=closeDiceResult;
 $('#skipAiDice').onclick=()=>requestAiSkip(closeDiceResult);
 els.routesBtn.onclick=()=>{routesAll=!routesAll;updateConnections()};
 $('#objectivesMapBtn').onclick=openObjectivesModal;
+$('#frontsMapBtn').onclick=openFrontsModal;
+$('#chronicleBtn').onclick=openChronicleModal;
 $('#marketModalBtn').onclick=openMarketModal;
 $('#mobileOrdersBtn').onclick=()=>{if(state?.winner!==null&&state)showEndSummary();else openMobileOrders()};
 $('#closeOrderSheet').onclick=closeMobileOrders;
@@ -1133,7 +1258,7 @@ $('#panLeft').onclick=()=>document.querySelector('.map-wrap').scrollBy({left:-30
 $('#panRight').onclick=()=>document.querySelector('.map-wrap').scrollBy({left:300,behavior:'smooth'});
 $('#mapOverviewBtn').onclick=()=>{const wrap=document.querySelector('.map-wrap'),overview=wrap.classList.toggle('overview');$('#mapOverviewBtn').setAttribute('aria-pressed',String(overview));$('#mapOverviewBtn').textContent=overview?'⊕':'⌕';if(overview)wrap.scrollTo({left:0,behavior:'smooth'});updateMobileMapOverlay()};
 document.querySelector('.map-wrap').addEventListener('scroll',updateMobileMapOverlay,{passive:true});
-window.addEventListener('resize',()=>{if(!mobileLayout())closeMobileOrders();updateMobileMapOverlay()});
+window.addEventListener('resize',()=>{if(!mobileLayout())closeMobileOrders();updateMobileMapOverlay();renderTutorial()});
 els.phaseBtn.onclick=()=>{
   if(!state||rolling)return;
   if(!state.players[state.current].human){skipAiRequested=true;render();showToast('Turnos enemigos en avance rápido');return}
@@ -1169,7 +1294,7 @@ async function runAiTurns(){if(!state||state.winner!==null||state.players[state.
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
 function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();showToast('Paso 1: coloca tus refuerzos')}
 const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!localStorage.getItem(SAVE)}
-document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){initMap(state.mapId);els.startModal.classList.add('hidden');render();if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=()=>els.helpModal.classList.remove('hidden');$('#closeHelp').onclick=$('#gotItBtn').onclick=()=>els.helpModal.classList.add('hidden');window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
+document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){initMap(state.mapId);els.startModal.classList.add('hidden');render();if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=()=>els.helpModal.classList.remove('hidden');$('#closeHelp').onclick=$('#gotItBtn').onclick=()=>els.helpModal.classList.add('hidden');$('#nextTutorialBtn').onclick=advanceTutorial;$('#skipTutorialBtn').onclick=skipTutorial;$('#restartTutorialBtn').onclick=restartTutorial;window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
 document.querySelectorAll('.color-choice input').forEach(input=>input.onchange=()=>document.querySelectorAll('.color-choice').forEach(label=>label.classList.toggle('active',label.querySelector('input').checked)));
 
 function registerWebMCP(){const c=document.modelContext;if(!c?.registerTool)return;try{c.registerTool({name:'get_campaign_state',title:'Consultar campaña',description:'Devuelve mapa, reglas, turno, fase y jugadores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>state?{map:getMap(state).name,mode:state.rulesMode,turn:state.turn,phase:state.phase,currentPlayer:state.players[state.current].name,winner:state.winner===null?null:state.players[state.winner].name}:{status:'no_game'}})}catch(e){console.warn('WebMCP no disponible',e)}}
