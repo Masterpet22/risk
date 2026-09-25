@@ -192,6 +192,8 @@ Criterio de cierre: un jugador nuevo completa un turno entero sin depender del d
 
 ### P4.1 Telemetría local de uso
 
+**Estado: completado.** El esquema local v1 registra campañas, cartas, descartes, ofertas y comandante sin información personal ni solicitudes de red. Ayuda permite consultar un resumen, exportarlo como JSON y borrarlo.
+
 - Registrar únicamente en el dispositivo, sin enviar información a servidores:
   - cartas jugadas y descartadas;
   - ofertas compradas o ignoradas;
@@ -206,6 +208,8 @@ Criterio de cierre: todas las métricas permanecen en almacenamiento local, pued
 
 ### P4.2 Revisar la bola de nieve territorial y la Influencia alternativa
 
+**Estado: diagnóstico completado; ajuste numérico pendiente.** La simulación reproducible de 120 campañas y sus umbrales están documentados en `INFORME_BALANCE_P4.md`. La ventaja territorial de ronda 8 predijo el 89,2% de las victorias, por lo que no se aplicó al juego principal un ajuste superficial que no modificó los resultados.
+
 - Medir la correlación entre ventaja territorial temprana y victoria final.
 - Comparar producción, refuerzos, control regional e Influencia obtenidos por el líder frente al resto.
 - Revisar si conquistar territorios proporciona simultáneamente demasiada economía, seguridad e Influencia.
@@ -216,6 +220,8 @@ Criterio de cierre: todas las métricas permanecen en almacenamiento local, pued
 Criterio de cierre: el informe de simulación demuestra que una ventaja temprana no vuelve trivialmente inevitable la victoria y que existen rutas competitivas no basadas solo en expansión territorial.
 
 ### P4.3 Pruebas visuales, funcionales y de interacción
+
+**Estado: completado.** Se añadieron pruebas independientes para telemetría, reglas de interacción y contratos DOM/CSS, además de conservar la simulación integral del motor.
 
 - Añadir pruebas para la equivalencia `dados seleccionados = soldados desplegados`.
 - Verificar límites del nuevo selector de maniobra.

@@ -1,4 +1,5 @@
 import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,validateState,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,upgradeGame,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=14';
+import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
 let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
@@ -125,7 +126,7 @@ function updateConnections(){
   els.routesBtn.setAttribute('aria-pressed',String(routesAll));
 }
 
-function render(persist=true){if(!state)return;const phaseChanged=lastRenderedPhase!==state.phase,p=state.players[state.current];els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'flex':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;renderFlow();renderPlayers();renderRegions();renderEventBanner();renderMap();renderFronts();renderGuide();renderPanel();renderLog();updateMobileOrders();updateControlAccessibility();renderTutorial();lastRenderedPhase=state.phase;if(phaseChanged)requestAnimationFrame(()=>{const panel=document.querySelector('.right-panel');if(panel)panel.scrollTop=0});if(persist)save()}
+function render(persist=true){if(!state)return;const phaseChanged=lastRenderedPhase!==state.phase,p=state.players[state.current];observeTelemetryState(state);els.round.textContent=state.turn;els.reinforcements.textContent=state.pendingReinforcements;els.reinforceBox.style.display=state.phase==='reinforce'?'flex':'none';els.summaryBtn.classList.toggle('hidden',state.winner===null);els.turnLabel.textContent=state.winner!==null?'CAMPAÑA TERMINADA':p.human?'TU TURNO':`TURNO DE ${p.name.toUpperCase()}`;renderFlow();renderPlayers();renderRegions();renderEventBanner();renderMap();renderFronts();renderGuide();renderPanel();renderLog();updateMobileOrders();updateControlAccessibility();renderTutorial();lastRenderedPhase=state.phase;if(phaseChanged)requestAnimationFrame(()=>{const panel=document.querySelector('.right-panel');if(panel)panel.scrollTop=0});if(persist)save()}
 function renderFlow(){const order=['reinforce','attack','fortify','close'],idx=state.phase==='gameover'?4:Math.max(0,order.indexOf(state.phase));document.querySelectorAll('.flow-step').forEach((el,i)=>{el.classList.toggle('active',i===idx);el.classList.toggle('done',i<idx)})}
 function renderEventBanner(){
   if(!els.eventBanner)return;
@@ -490,6 +491,7 @@ function renderCards(){
   if($('#cancelTargetingBtn'))$('#cancelTargetingBtn').onclick=()=>{cardTargeting=null;render()};
   document.querySelectorAll('.discard-btn').forEach(btn=>{
     btn.onclick=()=>{
+      recordCardDiscarded(btn.dataset.discard);
       resolvePendingCardDraw(state,btn.dataset.discard);
       render();
       showToast('Carta descartada. Mano actualizada.');
@@ -500,7 +502,7 @@ function renderCards(){
       const cId=btn.dataset.card;
       if(cId==='mobilize'){
         const res=playTacticalCard(state,'mobilize',null,state.current);
-        if(res.ok){showToast('Movilización activada: maniobra adicional disponible');render()}else showToast(res.reason);
+        if(res.ok){recordCardPlayed(cId);showToast('Movilización activada: maniobra adicional disponible');render()}else showToast(res.reason);
       }else if(cId==='blockade'){
         cardTargeting={cardId:'blockade',from:null};
         showToast('Pulsa el primer territorio de la conexión a bloquear');
@@ -742,6 +744,7 @@ function openMarketModal(){
       btn.onclick=()=>{
         const res=buyMarketItem(state,btn.dataset.offer,state.current);
         if(!res.ok){showToast(res.reason||'No se pudo realizar la compra');return}
+        recordOfferBought(res.offer.id);
         window.Swal.close();
         showToast(`Adquiriste: ${res.offer.name}`);
         render();
@@ -930,6 +933,7 @@ function territoryClick(id,shift=false){
       const cardName=TACTICAL_CARDS[cardTargeting.cardId].name;
       const res=playTacticalCard(state,cardTargeting.cardId,id,state.current);
       if(res.ok){
+        recordCardPlayed(cardTargeting.cardId);
         if(res.countered)showToast(res.message);
         else showToast(`${cardName} ejecutado sobre ${tById(id).name}`);
         cardTargeting=null;
@@ -954,6 +958,7 @@ function territoryClick(id,shift=false){
       if(!tById(cardTargeting.from).n.includes(id))return showToast('Deben ser territorios conectados');
       const res=playTacticalCard(state,'blockade',[cardTargeting.from,id],state.current);
       if(res.ok){
+        recordCardPlayed('blockade');
         showToast('Ruta bloqueada por 2 rondas.');
         cardTargeting=null;
         render();
@@ -1186,6 +1191,7 @@ function summaryHtml(){
 }
 function showEndSummary(){
   if(!state||state.winner===null)return;
+  finishTelemetryCampaign(state);
   endReturnFocus=document.activeElement;
   const won=state.players[state.winner].human,winner=state.players[state.winner];
   els.endModal.querySelector('.end-card').classList.toggle('end-win',won);
@@ -1312,13 +1318,17 @@ els.phaseBtn.onclick=()=>{
   }
 };
 async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiRequested;elapsed+=50)await pause(50)}
-async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary()}}
+async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const humanCards=[...(state.players[0]?.cards||[])];const report=aiTurn(state,state.current,difficulty);const remaining=[...(state.players[0]?.cards||[])];for(const cardId of humanCards){const index=remaining.indexOf(cardId);if(index>=0)remaining.splice(index,1);else if(cardId==='counter')recordCardPlayed(cardId)}pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
-function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
+function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
 const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!localStorage.getItem(SAVE);restoreFocus($('#startBtn'))}
-function openHelp(){helpReturnFocus=document.activeElement;els.helpModal.classList.remove('hidden');$('#closeHelp').focus()}
+function telemetryList(values,labels={}){const entries=Object.entries(values||{}).sort((a,b)=>b[1]-a[1]);return entries.length?entries.slice(0,4).map(([key,value])=>`<span><b>${labels[key]||key}</b> ${value}</span>`).join(''):'<span>Sin datos todavía</span>'}
+function renderTelemetryHelp(){const box=$('#telemetrySummary');if(!box)return;const summary=telemetrySummary(),cardLabels=Object.fromEntries(Object.entries(TACTICAL_CARDS).map(([id,card])=>[id,card.name])),offerLabels=Object.fromEntries(MARKET_CATALOG.map(offer=>[offer.id,offer.name])),commanderLabels=Object.fromEntries(Object.entries(COMMANDERS).map(([id,commander])=>[id,commander.name]));box.innerHTML=`<div class="telemetry-kpis"><div><strong>${summary.completed}</strong><span>campañas</span></div><div><strong>${summary.victories}</strong><span>victorias</span></div><div><strong>${Object.values(summary.cardsPlayed).reduce((a,b)=>a+b,0)}</strong><span>cartas jugadas</span></div></div><div class="telemetry-groups"><div><small>Comandantes elegidos</small>${telemetryList(summary.commanders,commanderLabels)}</div><div><small>Cartas utilizadas</small>${telemetryList(summary.cardsPlayed,cardLabels)}</div><div><small>Ofertas compradas</small>${telemetryList(summary.offersBought,offerLabels)}</div><div><small>Ofertas ignoradas</small>${telemetryList(summary.offersIgnored,offerLabels)}</div></div>`}
+function downloadTelemetry(){const blob=new Blob([exportTelemetry()],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='fronteras-acero-telemetria.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),0);showToast('Telemetría exportada como JSON')}
+function deleteTelemetry(){clearTelemetry();if(state&&state.winner===null)ensureTelemetryCampaign(state,difficulty);renderTelemetryHelp();showToast('Telemetría local eliminada')}
+function openHelp(){helpReturnFocus=document.activeElement;renderTelemetryHelp();els.helpModal.classList.remove('hidden');$('#closeHelp').focus()}
 function closeHelp(){els.helpModal.classList.add('hidden');restoreFocus(helpReturnFocus,'#helpBtn');helpReturnFocus=null}
-document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){initMap(state.mapId);els.startModal.classList.add('hidden');render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=openHelp;$('#closeHelp').onclick=$('#gotItBtn').onclick=closeHelp;$('#nextTutorialBtn').onclick=advanceTutorial;$('#skipTutorialBtn').onclick=skipTutorial;$('#restartTutorialBtn').onclick=restartTutorial;window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
+document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){if(state.winner===null)ensureTelemetryCampaign(state,difficulty);initMap(state.mapId);els.startModal.classList.add('hidden');render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=openHelp;$('#closeHelp').onclick=$('#gotItBtn').onclick=closeHelp;$('#nextTutorialBtn').onclick=advanceTutorial;$('#skipTutorialBtn').onclick=skipTutorial;$('#restartTutorialBtn').onclick=restartTutorial;$('#exportTelemetryBtn').onclick=downloadTelemetry;$('#clearTelemetryBtn').onclick=deleteTelemetry;window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
 document.querySelectorAll('.color-choice input').forEach(input=>input.onchange=()=>document.querySelectorAll('.color-choice').forEach(label=>label.classList.toggle('active',label.querySelector('input').checked)));
 
 function registerWebMCP(){const c=document.modelContext;if(!c?.registerTool)return;try{c.registerTool({name:'get_campaign_state',title:'Consultar campaña',description:'Devuelve mapa, reglas, turno, fase y jugadores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>state?{map:getMap(state).name,mode:state.rulesMode,turn:state.turn,phase:state.phase,currentPlayer:state.players[state.current].name,winner:state.winner===null?null:state.players[state.winner].name}:{status:'no_game'}})}catch(e){console.warn('WebMCP no disponible',e)}}

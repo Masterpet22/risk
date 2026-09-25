@@ -2892,6 +2892,16 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
   }
 }
 
+/* P4 · estadísticas locales */
+.telemetry-help-box{margin:14px 0;padding:14px;border:1px solid #2b536d;border-radius:12px;background:#071b2a}
+.telemetry-help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.telemetry-help-head>div{display:grid;gap:3px}.telemetry-help-head small{color:#91aec0;line-height:1.35}.telemetry-help-head>span{flex:none;padding:4px 7px;border:1px solid #238ba0;border-radius:999px;color:#64e0e8;font-size:.68rem;font-weight:800;letter-spacing:.08em}
+.telemetry-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.telemetry-kpis>div{display:grid;place-items:center;padding:9px;border:1px solid #24475e;border-radius:9px;background:#0b2335}.telemetry-kpis strong{color:#ffd45f;font-size:1.2rem}.telemetry-kpis span{color:#9bb7c8;font-size:.72rem}
+.telemetry-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.telemetry-groups>div{display:flex;flex-wrap:wrap;gap:5px;padding:9px;border-radius:8px;background:#0a2031}.telemetry-groups small{width:100%;color:#83a7bc;text-transform:uppercase;letter-spacing:.06em}.telemetry-groups span{padding:3px 6px;border-radius:6px;background:#102d42;color:#cde2ee;font-size:.72rem}.telemetry-groups span b{color:#fff}
+.telemetry-actions{display:flex;gap:8px;margin-top:10px}.telemetry-actions button{flex:1}.danger-btn{border-color:#a84d59!important;color:#ff9da7!important}
+@media(max-width:600px){.telemetry-groups{grid-template-columns:1fr}.telemetry-actions{flex-direction:column}}
+
 /* ==========================================================================
    Controles con relieve, cartas legibles, dados por ejército y mercado modal
    ========================================================================== */
