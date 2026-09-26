@@ -3787,11 +3787,11 @@ body:has(#startModal:not(.hidden)) {
   background:linear-gradient(135deg,#173e5b,#0a2941) !important;
   color:#d9edf8 !important;
 }
-.combat-blitz-btn>span { color:#edf8ff; font-size:1.3rem; font-weight:900; letter-spacing:-.18em; }
-.combat-action-copy { min-width:0; }
-.combat-blitz-btn strong { display:inline; }
-.combat-blitz-btn small { color:#9fbdcf; font-size:.62rem; }
-.combat-blitz-btn small::before { content:' · '; }
+.combat-blitz-btn > .combat-blitz-icon,
+.combat-blitz-btn > span[aria-hidden="true"] { color:#edf8ff; font-size:1.3rem; font-weight:900; letter-spacing:-.18em; display:inline-block; text-align:center; }
+.combat-action-copy { min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; letter-spacing:normal; }
+.combat-blitz-btn strong { display:block; font-size:.84rem; font-weight:700; color:#edf8ff; letter-spacing:normal; text-align:center; }
+.combat-blitz-btn small { display:block; color:#9fbdcf; font-size:.62rem; letter-spacing:normal; text-align:center; }
 .combat-retain-note { color:#708fa3; font-size:.57rem; text-align:center; }
 
 .context-action-panel.combat-ready .context-phase-btn {
