@@ -3823,3 +3823,170 @@ body:has(#startModal:not(.hidden)) {
   .combat-action-row small { display:block; }
   .combat-action-row small::before { content:''; }
 }
+
+/* ==========================================================================
+   GAME JUICE & VISUAL FEEDBACK (Números flotantes, ondas y rutas vivas)
+   ========================================================================== */
+
+.map-fx-layer {
+  pointer-events: none;
+  isolation: isolate;
+}
+
+@keyframes mapFloatUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.65);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.18);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-18px) scale(1);
+  }
+  80% {
+    opacity: 0.85;
+    transform: translateY(-30px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-46px) scale(0.9);
+  }
+}
+
+.map-floating-text {
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  paint-order: stroke fill;
+  stroke: #04090e;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  animation: mapFloatUpFade 1.15s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  will-change: transform, opacity;
+}
+
+.map-floating-text.float-income {
+  fill: #ffd166;
+  font-size: 16px;
+  filter: drop-shadow(0 2px 7px rgba(255, 209, 102, 0.65));
+}
+
+.map-floating-text.float-reinforce {
+  fill: #4ecdc4;
+  font-size: 16px;
+  filter: drop-shadow(0 2px 7px rgba(78, 205, 196, 0.65));
+}
+
+.map-floating-text.float-casualty {
+  fill: #ff6b6b;
+  font-size: 18px;
+  filter: drop-shadow(0 2px 7px rgba(255, 107, 107, 0.75));
+}
+
+.map-floating-text.float-conquest {
+  fill: #ffe066;
+  font-size: 15px;
+  letter-spacing: 1px;
+  filter: drop-shadow(0 2px 8px rgba(255, 224, 102, 0.85));
+}
+
+/* Onda de choque al conquistar */
+@keyframes shockwavePulse {
+  0% {
+    r: 20px;
+    opacity: 0.95;
+    stroke-width: 8px;
+  }
+  45% {
+    opacity: 0.7;
+    stroke-width: 4.5px;
+  }
+  100% {
+    r: 96px;
+    opacity: 0;
+    stroke-width: 1px;
+  }
+}
+
+.conquest-shockwave {
+  fill: none !important;
+  stroke: var(--shock-color, #4ecdc4);
+  pointer-events: none;
+  animation: shockwavePulse 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes territoryConqueredFlash {
+  0% {
+    filter: brightness(2.6) drop-shadow(0 0 22px var(--owner));
+  }
+  35% {
+    filter: brightness(1.7) drop-shadow(0 0 14px var(--owner));
+  }
+  100% {
+    filter: none;
+  }
+}
+
+.territory.conquered-flash .territory-shape {
+  animation: territoryConqueredFlash 0.65s ease-out;
+}
+
+@keyframes discPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.army-disc.pulsing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: discPulse 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+/* Flujo animado en rutas de ataque y maniobra */
+@keyframes routeFlowAttack {
+  to { stroke-dashoffset: -28; }
+}
+
+@keyframes routeFlowManeuver {
+  to { stroke-dashoffset: -24; }
+}
+
+.connection.route-flow-attack {
+  fill: none !important;
+  stroke: #ff6b6b !important;
+  stroke-width: 5px !important;
+  stroke-dasharray: 8 6 !important;
+  animation: routeFlowAttack 0.6s linear infinite !important;
+  filter: drop-shadow(0 0 6px rgba(255, 107, 107, 0.8)) !important;
+  opacity: 1 !important;
+}
+
+.connection.route-flow-maneuver {
+  fill: none !important;
+  stroke: #4ecdc4 !important;
+  stroke-width: 5px !important;
+  stroke-dasharray: 6 6 !important;
+  animation: routeFlowManeuver 0.7s linear infinite !important;
+  filter: drop-shadow(0 0 6px rgba(78, 205, 196, 0.8)) !important;
+  opacity: 1 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-floating-text,
+  .conquest-shockwave,
+  .territory.conquered-flash .territory-shape,
+  .army-disc.pulsing {
+    animation-duration: 0.05s !important;
+  }
+  .connection.route-flow-attack,
+  .connection.route-flow-maneuver {
+    animation: none !important;
+  }
+}
+

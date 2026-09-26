@@ -75,11 +75,86 @@ function updateControlAccessibility(){
 }
 function updateMobileMapOverlay(){const head=document.querySelector('.map-head')||document.querySelector('.map-floating-header'),toolbar=document.querySelector('.map-toolbar')||document.querySelector('.map-floating-footer');if(head&&head.style){head.style.left='';head.style.right='';head.style.width=''}if(toolbar&&toolbar.style){toolbar.style.left=''}}
 
+function getFxLayer(){
+  if(!els.map)return null;
+  let layer=els.map.querySelector('#mapFxLayer');
+  if(!layer){
+    layer=document.createElementNS('http://www.w3.org/2000/svg','g');
+    layer.id='mapFxLayer';
+    layer.setAttribute('class','map-fx-layer');
+    layer.setAttribute('pointer-events','none');
+    els.map.appendChild(layer);
+  }
+  return layer;
+}
+function spawnFloatingText(x,y,text,type='float-income'){
+  const layer=getFxLayer();
+  if(!layer)return;
+  const el=document.createElementNS('http://www.w3.org/2000/svg','text');
+  el.setAttribute('class',`map-floating-text ${type}`);
+  el.setAttribute('x',x);
+  el.setAttribute('y',y);
+  el.textContent=text;
+  layer.appendChild(el);
+  const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?100:1200;
+  setTimeout(()=>el.remove(),duration);
+}
+function spawnTerritoryFloat(tid,text,type='float-income',offsetY=-10){
+  const t=tById(tid);
+  if(!t)return;
+  const x=t.x*10,y=t.y*8+offsetY;
+  spawnFloatingText(x,y,text,type);
+}
+function pulseTerritoryArmy(tid){
+  const disc=$(`#terr-${tid} .army-disc`);
+  if(!disc)return;
+  disc.classList.remove('pulsing');
+  void disc.offsetWidth;
+  disc.classList.add('pulsing');
+  setTimeout(()=>disc.classList.remove('pulsing'),350);
+}
+function triggerConquestShockwave(tid,color='#ffd166'){
+  const t=tById(tid);
+  if(!t)return;
+  const x=t.x*10,y=t.y*8;
+  const layer=getFxLayer();
+  if(layer){
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('class','conquest-shockwave');
+    circle.setAttribute('cx',x);
+    circle.setAttribute('cy',y);
+    circle.style.setProperty('--shock-color',color);
+    layer.appendChild(circle);
+    setTimeout(()=>circle.remove(),800);
+  }
+  const g=$(`#terr-${tid}`);
+  if(g){
+    g.classList.remove('conquered-flash');
+    void g.offsetWidth;
+    g.classList.add('conquered-flash');
+    setTimeout(()=>g.classList.remove('conquered-flash'),700);
+  }
+  spawnFloatingText(x,y-28,'¡CONQUISTADO!','float-conquest');
+}
+function triggerIncomeFloat(pid=state?.current){
+  if(!state)return;
+  const myTerrs=ownedIds(state,pid);
+  myTerrs.forEach((id,idx)=>{
+    const prod=territoryProduction(state,id);
+    if(prod>0){
+      setTimeout(()=>{
+        spawnTerritoryFloat(id,`+$${prod}`,'float-income',-15);
+      },idx*65);
+    }
+  });
+}
+
 function initMap(mapId='frontier'){
   const map=MAPS[mapId]||MAPS.frontier,T=map.territories;els.map.innerHTML=`<image class="map-art" href="./map-${map.id}.webp" x="0" y="0" width="1000" height="760" preserveAspectRatio="xMidYMid slice"/><rect class="map-art-shade" x="0" y="0" width="1000" height="760"/>`;
   const wrap=document.querySelector('.map-wrap');wrap.scrollLeft=0;wrap.classList.remove('overview');$('#mapOverviewBtn').setAttribute('aria-pressed','false');$('#mapOverviewBtn').textContent='⌕';
   const drawn=new Set();for(const t of T)for(const n of t.n){const k=[t.id,n].sort().join('-');if(drawn.has(k))continue;drawn.add(k);const b=T.find(x=>x.id===n),cross=t.region!==b.region?' cross':'',route=routeGeometry(t,b,T);els.map.insertAdjacentHTML('beforeend',`<path class="connection${cross}" data-a="${t.id}" data-b="${n}" data-routed="${route.curved}" d="${route.d}"/>`)}
   for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(map,t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="troop-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
+  els.map.insertAdjacentHTML('beforeend','<g id="mapFxLayer" class="map-fx-layer" pointer-events="none"></g>');
   els.map.onclick=e=>{const g=e.target.closest('.territory');if(g)territoryClick(g.dataset.id,e.shiftKey)};els.map.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.territory')){e.preventDefault();territoryClick(e.target.closest('.territory').dataset.id)}};els.map.onpointerover=e=>{const g=e.target.closest('.territory');if(g&&hoverId!==g.dataset.id){hoverId=g.dataset.id;updateHover(g.dataset.id)}};els.map.onpointerout=e=>{if(e.target.closest('.territory')&&!e.relatedTarget?.closest?.('.territory')){hoverId=null;renderMap()}};updateConnections();updateMobileMapOverlay();
 }
 function updateHover(id){
@@ -103,6 +178,10 @@ function updateConnections(){
     const related=selectedFrom&&(a===selectedFrom||b===selectedFrom),hovered=hoverId&&(a===hoverId||b===hoverId);
     l.classList.toggle('visible',!!(related||hovered||isBlocked));
     l.classList.toggle('show-all',routesAll);
+    const isAttackRoute=state?.phase==='attack'&&!!selectedFrom&&!isBlocked&&((a===selectedFrom&&enemiesOf(state,selectedFrom).includes(b))||(b===selectedFrom&&enemiesOf(state,selectedFrom).includes(a)));
+    const isManeuverRoute=state?.phase==='fortify'&&!!selectedFrom&&!isBlocked&&((a===selectedFrom&&state.territories[b]?.owner===state.current)||(b===selectedFrom&&state.territories[a]?.owner===state.current));
+    l.classList.toggle('route-flow-attack',!!isAttackRoute);
+    l.classList.toggle('route-flow-maneuver',!!isManeuverRoute);
   });
   els.routesBtn.textContent=routesAll?'Rutas: todas':'Rutas: al seleccionar';
   els.routesBtn.setAttribute('aria-pressed',String(routesAll));
@@ -907,6 +986,8 @@ function territoryClick(id,shift=false){
   if(state.phase==='reinforce'){
     if(d.owner!==state.current)return showToast('Elige uno de tus territorios luminosos');
     const amount=Math.min(shift?5:1,state.pendingReinforcements);placeTroops(state,id,amount);
+    spawnTerritoryFloat(id,`+${amount} 🎖`,'float-reinforce',-20);
+    pulseTerritoryArmy(id);
     render();
     announce(`${amount} ${amount===1?'tropa colocada':'tropas colocadas'} en ${tById(id).name}. Quedan ${state.pendingReinforcements} refuerzos.`);
     return;
@@ -1121,9 +1202,15 @@ async function doAttack(fast){
     const result=fast?blitz(state,from,to):attackRound(state,from,to,selectedDice);
     const rounds=fast?result.rounds:result.ok?[result]:[];
     if(!result.ok||!rounds.length)return;
-    if(rounds.at(-1).conquered){selectedFrom=to;selectedTo=null}
+    const isConquered=rounds.at(-1).conquered;
+    if(isConquered){selectedFrom=to;selectedTo=null}
     else if(state.territories[from].troops<2){selectedFrom=selectedTo=null}
     await presentDiceRounds(rounds,{from:tById(from).name,to:tById(to).name,fast,attackerColor,defenderColor});
+    const totalA=rounds.reduce((sum,round)=>sum+round.attackerLosses,0);
+    const totalD=rounds.reduce((sum,round)=>sum+round.defenderLosses,0);
+    if(totalA>0)spawnTerritoryFloat(from,`-${totalA}`,'float-casualty',-15);
+    if(totalD>0)spawnTerritoryFloat(to,`-${totalD}`,'float-casualty',-15);
+    if(isConquered)triggerConquestShockwave(to,attackerColor);
     render();
     if(state.winner!==null)showEndSummary();
   }finally{rolling=false}
@@ -1138,6 +1225,9 @@ async function doProbe(){
     const result=probeTerritory(state,from,to);
     if(!result.ok){showToast(result.reason||'No se pudo realizar el Sondeo');return}
     await presentDiceRounds([result],{from:tById(from).name,to:tById(to).name,attackerColor,defenderColor});
+    if(result.attackerLosses>0)spawnTerritoryFloat(from,`-${result.attackerLosses}`,'float-casualty',-15);
+    if(result.defenderLosses>0)spawnTerritoryFloat(to,`-${result.defenderLosses}`,'float-casualty',-15);
+    spawnTerritoryFloat(to,`👁 ${result.revealedTroops}`,'float-income',-25);
     if(state.territories[from].troops<2)selectedFrom=selectedTo=null;
     render();showToast(`Sondeo completado: ${tById(to).name} tiene ${result.revealedTroops} tropa${result.revealedTroops===1?'':'s'}`);
   }finally{rolling=false}
@@ -1177,6 +1267,9 @@ async function showDefenseAttack(battle){
   if(skipAiRequested)return;
   const remaining=state.territories[battle.toId].troops;
   const lost=battle.conquered;
+  if(battle.attackerLosses>0)spawnTerritoryFloat(battle.fromId,`-${battle.attackerLosses}`,'float-casualty',-15);
+  if(battle.defenderLosses>0)spawnTerritoryFloat(battle.toId,`-${battle.defenderLosses}`,'float-casualty',-15);
+  if(lost)triggerConquestShockwave(battle.toId,attackerColor);
   els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-defeat',lost);
   els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-victory',!lost);
   $('#defenseTitle').textContent=lost?'Has perdido un territorio':'Tu territorio resistió el ataque';
@@ -1242,10 +1335,10 @@ els.phaseBtn.onclick=()=>{
   }
 };
 async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiRequested;elapsed+=50)await pause(50)}
-async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary();else await promptPendingCounterReactions()}}
+async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary();else{if(state.players[state.current].human)setTimeout(()=>triggerIncomeFloat(state.current),250);await promptPendingCounterReactions()}}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
 function renderDifficultySummary(){const select=$('#difficulty'),summary=$('#difficultySummary');if(!select||!summary)return;const profile=difficultyProfile(select.value);summary.innerHTML=`<strong>${profile.name}.</strong> ${profile.summary}`}
-function startNew(){difficulty=$('#difficulty').value;state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),difficulty,playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
+function startNew(){difficulty=$('#difficulty').value;state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),difficulty,playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos');setTimeout(()=>triggerIncomeFloat(0),350)}
 const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!hasSavedCampaign();restoreFocus($('#startBtn'))}
 function telemetryList(values,labels={}){const entries=Object.entries(values||{}).sort((a,b)=>b[1]-a[1]);return entries.length?entries.slice(0,4).map(([key,value])=>`<span><b>${labels[key]||key}</b> ${value}</span>`).join(''):'<span>Sin datos todavía</span>'}
 function renderTelemetryHelp(){const box=$('#telemetrySummary');if(!box)return;const summary=telemetrySummary(),cardLabels=Object.fromEntries(Object.entries(TACTICAL_CARDS).map(([id,card])=>[id,card.name])),offerLabels=Object.fromEntries(MARKET_CATALOG.map(offer=>[offer.id,offer.name])),commanderLabels=Object.fromEntries(Object.entries(COMMANDERS).map(([id,commander])=>[id,commander.name]));box.innerHTML=`<div class="telemetry-kpis"><div><strong>${summary.completed}</strong><span>campañas</span></div><div><strong>${summary.victories}</strong><span>victorias</span></div><div><strong>${Object.values(summary.cardsPlayed).reduce((a,b)=>a+b,0)}</strong><span>cartas jugadas</span></div></div><div class="telemetry-groups"><div><small>Comandantes elegidos</small>${telemetryList(summary.commanders,commanderLabels)}</div><div><small>Cartas utilizadas</small>${telemetryList(summary.cardsPlayed,cardLabels)}</div><div><small>Ofertas compradas</small>${telemetryList(summary.offersBought,offerLabels)}</div><div><small>Ofertas ignoradas</small>${telemetryList(summary.offersIgnored,offerLabels)}</div></div>`}
