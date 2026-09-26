@@ -1099,7 +1099,8 @@ async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fas
     $('#defenderDice').innerHTML=diceMarkup(round.defenderDice,round.rawDefenderDice);
     title.textContent=label;
     setBattleTone(roundTone(round,defending));
-    comparison.innerHTML=`${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.probe?` Guarnición revelada: <b>${round.revealedTroops} tropa${round.revealedTroops===1?'':'s'}</b>. El Sondeo nunca conquista.`:round.conquered?` Territorio conquistado: ${round.movedTroops} ${round.movedTroops===1?'soldado avanzó':'soldados avanzaron'}.`:''}</div>`;
+    const showIntermediate=rounds.length>1&&i<rounds.length-1;
+    comparison.innerHTML=`${comparisonMarkup(round)}${showIntermediate?`<div class="battle-summary">Tirada ${i+1} de ${rounds.length}: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor</div>`:''}`;
     if(round.attackerLosses>0)spawnTerritoryFloat(fromId,`-${round.attackerLosses}`,'float-casualty',-18-(i%2)*10);
     if(round.defenderLosses>0)spawnTerritoryFloat(toId,`-${round.defenderLosses}`,'float-casualty',-18-(i%2)*10);
     if(round.probe&&Number.isFinite(round.revealedTroops))spawnTerritoryFloat(toId,`👁 ${round.revealedTroops}`,'float-intel',-34);
@@ -1114,7 +1115,9 @@ async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fas
   const isProbe=!!rounds[0]?.probe;
   title.textContent=isProbe?'Sondeo completado':defending?(conquered?'Perdiste el territorio':'Tu territorio resistió'):(conquered?'¡Territorio conquistado!':fast?'Ataque detenido':'Resultado de la tirada');
   const moved=rounds.at(-1).movedTroops||0;
-  comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${fast?`${rounds.length} ${rounds.length===1?'tirada':'tiradas'} · `:''}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.${conquered?` <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b>`:''}</div>`);
+  const probeInfo=isProbe?` Guarnición revelada: <b>${rounds[0]?.revealedTroops} tropa${rounds[0]?.revealedTroops===1?'':'s'}</b>. El Sondeo nunca conquista.`:'' ;
+  const roundsPrefix=rounds.length>1?`${rounds.length} tiradas · `:'' ;
+  comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${roundsPrefix}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.${probeInfo}${conquered?` <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b>`:''}</div>`);
   close.classList.add('visible');
   if(defending)skip.classList.remove('hidden-control');
   close.focus();
