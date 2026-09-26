@@ -10,6 +10,9 @@ assert.match(css,/\.connection,[\s\S]*?fill:\s*none\s*!important/,'Las rutas SVG
 assert.match(css,/\.connection\.cross\s*\{[\s\S]*?stroke-dasharray:/,'Las fronteras regionales deben ser discontinuas');
 assert.match(app,/l\.style\.setProperty\('--front-color',frontColor\)/,'El color de frontera debe depender de su estado');
 assert.match(app,/data-dice="\$\{n\}"[\s\S]*?\$\{n\} \$\{n===1\?'soldado':'soldados'\}[\s\S]*?\$\{n\} \$\{n===1\?'dado':'dados'\}/,'Dados y soldados deben exponer la misma cantidad');
+assert.match(app,/class="combat-matchup"[\s\S]*?combatant-card attacker[\s\S]*?combatant-card defender/,'El asalto preparado debe enfrentar visualmente atacante y defensor');
+assert.match(app,/class="dice-choice soldier-choice combat-dice-choice"/,'El selector de dados debe usar las tarjetas visuales de combate');
+assert.match(app,/class="primary-btn combat-roll-btn"[\s\S]*?class="secondary-btn combat-blitz-btn"/,'Las acciones de tirada y ataque rápido deben conservar jerarquías distintas');
 assert.match(app,/Math\.min\(3,state\.territories\[from\]\.troops-1\)/,'El ataque rápido debe recalcular su máximo');
 assert.match(controls,/Math\.max\(1,Math\.min\(max,parsed\)\)/,'El selector de maniobra debe limitar la cantidad');
 assert.match(controls,/\$\{originTroops\} → \$\{originTroops-amount\}/,'La maniobra debe mostrar la vista previa de origen');
@@ -18,4 +21,5 @@ assert.match(html,/id="gameAnnouncements"[^>]*aria-live="polite"/,'Debe existir 
 assert.match(html,/id="telemetrySummary"/);assert.match(html,/id="exportTelemetryBtn"/);assert.match(html,/id="clearTelemetryBtn"/);
 assert.match(css,/min-height:\s*44px/,'Los controles principales deben conservar objetivos táctiles de 44 px');
 assert.match(css,/@media \(max-width: 1200px\)[\s\S]*?#orderCard[\s\S]*?position:fixed/,'El panel móvil debe ser una hoja inferior');
+assert.match(css,/\.context-action-panel\.combat-ready[\s\S]*?\.combat-matchup[\s\S]*?\.combat-dice-choice/,'El tema debe incluir el estado visual completo del asalto preparado');
 console.log('OK: invariantes DOM/CSS de rutas, combate, maniobra, modales y controles táctiles verificadas.');
