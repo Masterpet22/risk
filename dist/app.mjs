@@ -7,11 +7,11 @@ import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1'
 import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=1';
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 
-const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
-let state=null,pendingAiState=null,difficulty='diplomatico',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
+const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
+let state=null,pendingAiState=null,difficulty='diplomatico',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
 let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
 let lastRenderedPhase=null;
-let helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,defenseReturnFocus=null,endReturnFocus=null;
+let helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,endReturnFocus=null;
 const TUTORIAL_KEY='fronteras-acero-tutorial-v1';
 let tutorialActive=false,tutorialCurrent=null;
 const tutorialSteps=[
@@ -87,7 +87,9 @@ function getFxLayer(){
   }
   return layer;
 }
+const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function spawnFloatingText(x,y,text,type='float-income'){
+  if(text===null||text===undefined||text==='')return;
   const layer=getFxLayer();
   if(!layer)return;
   const el=document.createElementNS('http://www.w3.org/2000/svg','text');
@@ -96,7 +98,7 @@ function spawnFloatingText(x,y,text,type='float-income'){
   el.setAttribute('y',y);
   el.textContent=text;
   layer.appendChild(el);
-  const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?100:1200;
+  const duration=reducedMotion()?950:type==='float-conquest'?1550:1300;
   setTimeout(()=>el.remove(),duration);
 }
 function spawnTerritoryFloat(tid,text,type='float-income',offsetY=-10){
@@ -106,6 +108,7 @@ function spawnTerritoryFloat(tid,text,type='float-income',offsetY=-10){
   spawnFloatingText(x,y,text,type);
 }
 function pulseTerritoryArmy(tid){
+  if(reducedMotion())return;
   const disc=$(`#terr-${tid} .army-disc`);
   if(!disc)return;
   disc.classList.remove('pulsing');
@@ -118,7 +121,7 @@ function triggerConquestShockwave(tid,color='#ffd166'){
   if(!t)return;
   const x=t.x*10,y=t.y*8;
   const layer=getFxLayer();
-  if(layer){
+  if(layer&&!reducedMotion()){
     const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
     circle.setAttribute('class','conquest-shockwave');
     circle.setAttribute('cx',x);
@@ -129,6 +132,7 @@ function triggerConquestShockwave(tid,color='#ffd166'){
   }
   const g=$(`#terr-${tid}`);
   if(g){
+    g.style.setProperty('--impact-color',color);
     g.classList.remove('conquered-flash');
     void g.offsetWidth;
     g.classList.add('conquered-flash');
@@ -138,15 +142,8 @@ function triggerConquestShockwave(tid,color='#ffd166'){
 }
 function triggerIncomeFloat(pid=state?.current){
   if(!state)return;
-  const myTerrs=ownedIds(state,pid);
-  myTerrs.forEach((id,idx)=>{
-    const prod=territoryProduction(state,id);
-    if(prod>0){
-      setTimeout(()=>{
-        spawnTerritoryFloat(id,`+$${prod}`,'float-income',-15);
-      },idx*65);
-    }
-  });
+  const incomes=ownedIds(state,pid).map(id=>({id,value:territoryProduction(state,id)})).filter(item=>item.value>0);
+  incomes.forEach(({id,value},idx)=>setTimeout(()=>spawnTerritoryFloat(id,`+$${value}`,'float-income',-15),reducedMotion()?0:idx*85));
 }
 
 function initMap(mapId='frontier'){
@@ -164,6 +161,18 @@ function updateHover(id){
   renderMap();
 }
 function updateConnections(){
+  const maneuverDepth=new Map();
+  if(state?.phase==='fortify'&&selectedFrom){
+    maneuverDepth.set(selectedFrom,0);
+    const queue=[selectedFrom];
+    while(queue.length){
+      const current=queue.shift(),depth=maneuverDepth.get(current);
+      for(const next of tById(current)?.n||[]){
+        if(maneuverDepth.has(next)||state.territories[next]?.owner!==state.current||isConnectionBlocked(state,current,next))continue;
+        maneuverDepth.set(next,depth+1);queue.push(next);
+      }
+    }
+  }
   document.querySelectorAll('.connection').forEach(l=>{
     const a=l.dataset.a,b=l.dataset.b;
     const ownerA=state?.territories?.[a]?.owner,ownerB=state?.territories?.[b]?.owner;
@@ -179,9 +188,12 @@ function updateConnections(){
     l.classList.toggle('visible',!!(related||hovered||isBlocked));
     l.classList.toggle('show-all',routesAll);
     const isAttackRoute=state?.phase==='attack'&&!!selectedFrom&&!isBlocked&&((a===selectedFrom&&enemiesOf(state,selectedFrom).includes(b))||(b===selectedFrom&&enemiesOf(state,selectedFrom).includes(a)));
-    const isManeuverRoute=state?.phase==='fortify'&&!!selectedFrom&&!isBlocked&&((a===selectedFrom&&state.territories[b]?.owner===state.current)||(b===selectedFrom&&state.territories[a]?.owner===state.current));
+    const isManeuverRoute=state?.phase==='fortify'&&!!selectedFrom&&!isBlocked&&maneuverDepth.has(a)&&maneuverDepth.has(b);
     l.classList.toggle('route-flow-attack',!!isAttackRoute);
     l.classList.toggle('route-flow-maneuver',!!isManeuverRoute);
+    const reverseAttack=isAttackRoute&&b===selectedFrom;
+    const reverseManeuver=isManeuverRoute&&maneuverDepth.get(a)>maneuverDepth.get(b);
+    l.classList.toggle('route-flow-reverse',!!(reverseAttack||reverseManeuver));
   });
   els.routesBtn.textContent=routesAll?'Rutas: todas':'Rutas: al seleccionar';
   els.routesBtn.setAttribute('aria-pressed',String(routesAll));
@@ -985,7 +997,8 @@ function territoryClick(id,shift=false){
   }
   if(state.phase==='reinforce'){
     if(d.owner!==state.current)return showToast('Elige uno de tus territorios luminosos');
-    const amount=Math.min(shift?5:1,state.pendingReinforcements);placeTroops(state,id,amount);
+    const amount=Math.min(shift?5:1,state.pendingReinforcements);
+    if(amount<1||!placeTroops(state,id,amount))return showToast('No quedan refuerzos por colocar');
     spawnTerritoryFloat(id,`+${amount} 🎖`,'float-reinforce',-20);
     pulseTerritoryArmy(id);
     render();
@@ -1016,7 +1029,7 @@ async function playAttackApproach(from,to,attackerCount=3,defenderCount=2){
   if(!origin||!target)return;
   const route=routeGeometry(origin,target,ts()),start=route.point(0),end=route.point(1),mid=route.point(.5);
   const x1=start.x,y1=start.y,x2=end.x,y2=end.y,midX=mid.x,midY=mid.y;
-  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced=reducedMotion();
   const svgNS='http://www.w3.org/2000/svg',layer=document.createElementNS(svgNS,'g');
   layer.classList.add('attack-march');layer.setAttribute('aria-hidden','true');
   layer.innerHTML=`<path class="attack-route" d="${route.d}"/><circle class="clash-ring" cx="${midX}" cy="${midY}" r="8"/><g class="marchers attacker"/><g class="marchers defender"/>`;
@@ -1025,7 +1038,12 @@ async function playAttackApproach(from,to,attackerCount=3,defenderCount=2){
   attacker.style.setProperty('--march-color',state.players[state.territories[from].owner].color);
   defender.style.setProperty('--march-color',state.players[state.territories[to].owner].color);
   els.map.append(layer);
-  const duration=reduced?100:850;
+  if(reduced){
+    attacker.setAttribute('transform',`translate(${midX-10} ${midY})`);
+    defender.setAttribute('transform',`translate(${midX+10} ${midY})`);
+    await pause(180);layer.remove();return;
+  }
+  const duration=850;
   await new Promise(resolve=>{
     let start;
     function frame(now){
@@ -1050,7 +1068,7 @@ function setBattleTone(tone){
   card.classList.remove('outcome-victory','outcome-defeat','outcome-neutral');
   card.classList.add(`outcome-${tone}`);
 }
-async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,attackerColor='#4ecdc4',defenderColor='#ff6b6b'}){
+async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fast=false,attackerColor='#4ecdc4',defenderColor='#ff6b6b'}){
   if(!rounds.length)return;
   diceReturnFocus=document.activeElement;
   const title=$('#diceTitle'),comparison=$('#comparison'),close=$('#closeDice'),skip=$('#skipAiDice');
@@ -1059,7 +1077,7 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
   $('#battleRoute').textContent=rounds[0]?.probe?`${from} sondea ${to}`:`${from} ataca ${to}`;
   close.classList.remove('visible');
   skip.classList.add('hidden-control');
-  close.textContent=defending?'Ver resultado de la defensa':'Ver el mapa y continuar';
+  close.textContent=defending?'Continuar turno enemigo':'Continuar';
   els.diceModal.classList.remove('hidden');
   for(let i=0;i<rounds.length;i++){
     const round=rounds[i],label=`Tirada ${i+1} de ${rounds.length}`;
@@ -1082,6 +1100,10 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
     title.textContent=label;
     setBattleTone(roundTone(round,defending));
     comparison.innerHTML=`<div class="deployed-summary"><span>${round.probe?'🔭 Sondeo':'⚔ Desplegados'}</span><strong>${attackerCount} ${attackerCount===1?'soldado atacante':'soldados atacantes'} · ${defenderCount} ${defenderCount===1?'defensor':'defensores'}</strong></div>${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.probe?` Guarnición revelada: <b>${round.revealedTroops} tropa${round.revealedTroops===1?'':'s'}</b>. El Sondeo nunca conquista.`:round.conquered?` Territorio conquistado: ${round.movedTroops} ${round.movedTroops===1?'soldado avanzó':'soldados avanzaron'}.`:''}</div>`;
+    if(round.attackerLosses>0)spawnTerritoryFloat(fromId,`-${round.attackerLosses}`,'float-casualty',-18-(i%2)*10);
+    if(round.defenderLosses>0)spawnTerritoryFloat(toId,`-${round.defenderLosses}`,'float-casualty',-18-(i%2)*10);
+    if(round.probe&&Number.isFinite(round.revealedTroops))spawnTerritoryFloat(toId,`👁 ${round.revealedTroops}`,'float-intel',-34);
+    if(round.conquered)triggerConquestShockwave(toId,attackerColor);
     if(i<rounds.length-1)await pause(1100);
   }
   const totalA=rounds.reduce((sum,round)=>sum+round.attackerLosses,0);
@@ -1205,12 +1227,8 @@ async function doAttack(fast){
     const isConquered=rounds.at(-1).conquered;
     if(isConquered){selectedFrom=to;selectedTo=null}
     else if(state.territories[from].troops<2){selectedFrom=selectedTo=null}
-    await presentDiceRounds(rounds,{from:tById(from).name,to:tById(to).name,fast,attackerColor,defenderColor});
-    const totalA=rounds.reduce((sum,round)=>sum+round.attackerLosses,0);
-    const totalD=rounds.reduce((sum,round)=>sum+round.defenderLosses,0);
-    if(totalA>0)spawnTerritoryFloat(from,`-${totalA}`,'float-casualty',-15);
-    if(totalD>0)spawnTerritoryFloat(to,`-${totalD}`,'float-casualty',-15);
-    if(isConquered)triggerConquestShockwave(to,attackerColor);
+    render(false);
+    await presentDiceRounds(rounds,{from:tById(from).name,to:tById(to).name,fromId:from,toId:to,fast,attackerColor,defenderColor});
     render();
     if(state.winner!==null)showEndSummary();
   }finally{rolling=false}
@@ -1224,10 +1242,8 @@ async function doProbe(){
     await playAttackApproach(from,to,1,1);
     const result=probeTerritory(state,from,to);
     if(!result.ok){showToast(result.reason||'No se pudo realizar el Sondeo');return}
-    await presentDiceRounds([result],{from:tById(from).name,to:tById(to).name,attackerColor,defenderColor});
-    if(result.attackerLosses>0)spawnTerritoryFloat(from,`-${result.attackerLosses}`,'float-casualty',-15);
-    if(result.defenderLosses>0)spawnTerritoryFloat(to,`-${result.defenderLosses}`,'float-casualty',-15);
-    spawnTerritoryFloat(to,`👁 ${result.revealedTroops}`,'float-income',-25);
+    render(false);
+    await presentDiceRounds([result],{from:tById(from).name,to:tById(to).name,fromId:from,toId:to,attackerColor,defenderColor});
     if(state.territories[from].troops<2)selectedFrom=selectedTo=null;
     render();showToast(`Sondeo completado: ${tById(to).name} tiene ${result.revealedTroops} tropa${result.revealedTroops===1?'':'s'}`);
   }finally{rolling=false}
@@ -1262,27 +1278,13 @@ async function showDefenseAttack(battle){
   const firstRound=battle.roundResults?.[0];
   await playAttackApproach(battle.fromId,battle.toId,firstRound?.rawAttackerDice?.length||3,firstRound?.rawDefenderDice?.length||2);
   state=battle.afterState;
-  await presentDiceRounds(battle.roundResults,{from:battle.from,to:battle.to,defending:true,fast:true,attackerColor,defenderColor});
+  render(false);
+  await presentDiceRounds(battle.roundResults,{from:battle.from,to:battle.to,fromId:battle.fromId,toId:battle.toId,defending:true,fast:true,attackerColor,defenderColor});
   render(false);
   if(skipAiRequested)return;
-  const remaining=state.territories[battle.toId].troops;
-  const lost=battle.conquered;
-  if(battle.attackerLosses>0)spawnTerritoryFloat(battle.fromId,`-${battle.attackerLosses}`,'float-casualty',-15);
-  if(battle.defenderLosses>0)spawnTerritoryFloat(battle.toId,`-${battle.defenderLosses}`,'float-casualty',-15);
-  if(lost)triggerConquestShockwave(battle.toId,attackerColor);
-  els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-defeat',lost);
-  els.defenseModal.querySelector('.defense-card').classList.toggle('outcome-victory',!lost);
-  $('#defenseTitle').textContent=lost?'Has perdido un territorio':'Tu territorio resistió el ataque';
-  $('#defenseRoute').textContent=`${battle.from} → ${battle.to}`;
-  $('#defenseOutcome').innerHTML=`<strong>${battle.to}</strong><span>${lost?'Conquistado por el enemigo':`${remaining} tropa${remaining===1?'':'s'} restante${remaining===1?'':'s'}`}</span><small>Tu defensa perdió ${battle.defenderLosses} tropa${battle.defenderLosses===1?'':'s'}; el atacante perdió ${battle.attackerLosses}.</small>`;
-  defenseReturnFocus=document.activeElement;els.defenseModal.classList.remove('hidden');$('#continueDefense').focus();
-  await new Promise(resolve=>{defenseResolve=resolve});
 }
-function closeDefense(){els.defenseModal.classList.add('hidden');restoreFocus(defenseReturnFocus,'#mobileOrdersBtn');defenseReturnFocus=null;if(defenseResolve){const resolve=defenseResolve;defenseResolve=null;resolve()}}
 function closeDiceResult(){els.diceModal.classList.add('hidden');restoreFocus(diceReturnFocus,'#mobileOrdersBtn');diceReturnFocus=null;if(diceResolve){const resolve=diceResolve;diceResolve=null;resolve()}}
 function requestAiSkip(close){skipAiRequested=true;close();showToast('Turnos enemigos en avance rápido')}
-$('#continueDefense').onclick=closeDefense;
-$('#skipAiDefense').onclick=()=>requestAiSkip(closeDefense);
 $('#closeAi').onclick=closeAiSummary;
 $('#skipAiSummary').onclick=()=>requestAiSkip(closeAiSummary);
 $('#closeDice').onclick=closeDiceResult;

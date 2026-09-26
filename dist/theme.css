@@ -3833,28 +3833,11 @@ body:has(#startModal:not(.hidden)) {
   isolation: isolate;
 }
 
-@keyframes mapFloatUpFade {
-  0% {
-    opacity: 0;
-    transform: translateY(4px) scale(0.65);
-  }
-  20% {
-    opacity: 1;
-    transform: translateY(-8px) scale(1.18);
-  }
-  45% {
-    opacity: 1;
-    transform: translateY(-18px) scale(1);
-  }
-  80% {
-    opacity: 0.85;
-    transform: translateY(-30px) scale(0.95);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-46px) scale(0.9);
-  }
-}
+@keyframes incomeRise {0%{opacity:0;transform:translateY(7px) scale(.82)}18%{opacity:1;transform:translateY(0) scale(1.06)}72%{opacity:1;transform:translateY(-24px) scale(1)}100%{opacity:0;transform:translateY(-38px) scale(.96)}}
+@keyframes reinforcementPop {0%{opacity:0;transform:scale(.35)}35%{opacity:1;transform:scale(1.3)}55%{transform:scale(.88)}72%{transform:scale(1.06)}100%{opacity:0;transform:translateY(-26px) scale(1)}}
+@keyframes casualtyHit {0%{opacity:0;transform:translateY(-8px) scale(1.5)}16%{opacity:1;transform:translateY(2px) scale(.94)}68%{opacity:1;transform:translateY(-19px) scale(1)}100%{opacity:0;transform:translateY(-35px) scale(.92)}}
+@keyframes intelReveal {0%{opacity:0;transform:scale(.7)}28%,70%{opacity:1;transform:scale(1.08)}100%{opacity:0;transform:translateY(-18px) scale(1)}}
+@keyframes conquestClaim {0%{opacity:0;transform:translateY(8px) scale(.75)}25%,72%{opacity:1;transform:translateY(-4px) scale(1.08)}100%{opacity:0;transform:translateY(-28px) scale(1)}}
 
 .map-floating-text {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
@@ -3866,7 +3849,9 @@ body:has(#startModal:not(.hidden)) {
   stroke: #04090e;
   stroke-width: 4px;
   stroke-linejoin: round;
-  animation: mapFloatUpFade 1.15s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: incomeRise 1.25s cubic-bezier(.2,.75,.25,1) forwards;
   will-change: transform, opacity;
 }
 
@@ -3880,12 +3865,21 @@ body:has(#startModal:not(.hidden)) {
   fill: #4ecdc4;
   font-size: 16px;
   filter: drop-shadow(0 2px 7px rgba(78, 205, 196, 0.65));
+  animation-name: reinforcementPop;
 }
 
 .map-floating-text.float-casualty {
   fill: #ff6b6b;
   font-size: 18px;
   filter: drop-shadow(0 2px 7px rgba(255, 107, 107, 0.75));
+  animation-name: casualtyHit;
+}
+
+.map-floating-text.float-intel {
+  fill: #9be7ff;
+  font-size: 16px;
+  filter: drop-shadow(0 2px 8px rgba(96, 210, 255, .8));
+  animation-name: intelReveal;
 }
 
 .map-floating-text.float-conquest {
@@ -3893,6 +3887,8 @@ body:has(#startModal:not(.hidden)) {
   font-size: 15px;
   letter-spacing: 1px;
   filter: drop-shadow(0 2px 8px rgba(255, 224, 102, 0.85));
+  animation-name: conquestClaim;
+  animation-duration: 1.5s;
 }
 
 /* Onda de choque al conquistar */
@@ -3922,10 +3918,10 @@ body:has(#startModal:not(.hidden)) {
 
 @keyframes territoryConqueredFlash {
   0% {
-    filter: brightness(2.6) drop-shadow(0 0 22px var(--owner));
+    filter: brightness(2.6) drop-shadow(0 0 22px var(--impact-color,var(--owner)));
   }
   35% {
-    filter: brightness(1.7) drop-shadow(0 0 14px var(--owner));
+    filter: brightness(1.7) drop-shadow(0 0 14px var(--impact-color,var(--owner)));
   }
   100% {
     filter: none;
@@ -3977,16 +3973,57 @@ body:has(#startModal:not(.hidden)) {
   opacity: 1 !important;
 }
 
+.connection.route-flow-reverse { animation-direction:reverse !important; }
+
+/* El combate se presenta como HUD táctico: el mapa y sus efectos siguen visibles. */
+.combat-hud {
+  position:fixed;
+  z-index:24;
+  left:50%;
+  bottom:max(16px,env(safe-area-inset-bottom));
+  width:min(720px,calc(100vw - 32px));
+  transform:translateX(-50%);
+  pointer-events:none;
+  animation:combatHudIn .24s ease-out both;
+}
+.combat-hud .dice-card {
+  width:100%;
+  max-height:min(56dvh,530px);
+  overflow:auto;
+  padding:18px 20px;
+  border:1px solid #547289;
+  border-radius:15px;
+  background:linear-gradient(145deg,rgba(17,42,62,.97),rgba(5,19,31,.97));
+  box-shadow:0 18px 55px #000c,0 0 0 1px #ffffff0d inset;
+  text-align:center;
+  pointer-events:auto;
+  backdrop-filter:blur(12px);
+}
+.combat-hud .eyebrow{margin:0}.combat-hud .dice-card h2{font-size:1.35rem;margin:4px 0}.combat-hud .battle-route{margin:3px 0 10px}.combat-hud .dice-arena{padding:10px 14px}.combat-hud .big-die{width:44px;height:44px;font-size:1.2rem}.combat-hud .big-dice{min-height:46px}.combat-hud .comparison{margin-top:9px;gap:5px}.combat-hud .battle-summary,.combat-hud .battle-total{padding:8px;margin-top:5px;font-size:.82rem}.combat-hud .modal-action-row{margin-top:8px}
+@keyframes combatHudIn{from{opacity:0;transform:translate(-50%,18px) scale(.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+
+@media(max-width:1200px){
+  .combat-hud{bottom:max(8px,env(safe-area-inset-bottom));width:calc(100vw - 16px)}
+  .combat-hud .dice-card{max-height:42dvh;padding:11px 12px}
+  .combat-hud .dice-arena{gap:7px;padding:8px}
+  .combat-hud .big-die{width:37px;height:37px;font-size:1rem}
+  .combat-hud .big-dice{gap:4px;min-height:39px}
+  .combat-hud .deployed-summary,.combat-hud .compare-row,.combat-hud .combat-bonuses-detail{display:none}
+  .combat-hud .comparison>.battle-summary{display:none}
+}
+
 @media (prefers-reduced-motion: reduce) {
   .map-floating-text,
   .conquest-shockwave,
   .territory.conquered-flash .territory-shape,
   .army-disc.pulsing {
-    animation-duration: 0.05s !important;
+    animation: none !important;
   }
+  .map-floating-text{opacity:1!important}
+  .territory.conquered-flash .territory-shape{filter:brightness(1.35) drop-shadow(0 0 9px var(--impact-color,var(--owner)))}
+  .combat-hud{animation:none!important}
   .connection.route-flow-attack,
   .connection.route-flow-maneuver {
     animation: none !important;
   }
 }
-
