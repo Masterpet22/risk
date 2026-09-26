@@ -30,7 +30,9 @@ Después abre <http://localhost:8000>.
 
 ## Controles y comportamiento
 
-El turno se divide en Reclutamiento, Combate, Maniobra y Cierre. Durante Reclutamiento se pueden deshacer colocaciones y comprar refuerzos básicos o artículos del Mercado. Cada dado atacante representa un soldado desplegado. La Maniobra utiliza botones −/+, entrada numérica y accesos 1, Mitad y Máximo con vista previa de origen y destino.
+El turno se divide en Reclutamiento, Combate, Maniobra y Cierre. Durante Reclutamiento se pueden deshacer colocaciones y comprar refuerzos básicos o artículos del Mercado. El Combate es opcional: una vez por turno se puede realizar un Sondeo de 1 dado contra 1 para revelar una guarnición sin posibilidad de conquistar, o comprometer tropas en un ataque normal. Cada dado atacante representa un soldado desplegado. La Maniobra utiliza botones −/+, entrada numérica y accesos 1, Mitad y Máximo con vista previa de origen y destino.
+
+Los Frentes de Guerra se registran por pareja de comandantes y por región. Sondeo, Espía y Sabotaje elevan la tensión regional; los combates y conquistas la escalan. Contrainteligencia no se consume automáticamente: el defensor elige si descartar la carta para anular Espía o Sabotaje, o conservarla y aceptar el efecto.
 
 La Influencia v2 separa capacidad y victoria: producción y tropas permiten actuar, pero no puntúan. La presencia aporta un máximo de 17 puntos y el resto procede principalmente de objetivos. El jugador elige un objetivo principal entre tres opciones y una misión por cada ciclo de tres rondas, con rutas de posición, táctica, logística, economía, inteligencia, defensa y recuperación. La Hegemonía requiere 70 puntos al cierre de una ronda.
 
@@ -53,7 +55,7 @@ node tests/balance-analysis.mjs
 
 ## Balance conocido
 
-La matriz P4 de 600 campañas muestra que Influencia v2 corrigió la puntuación redundante: producción y tropas aportan 0 puntos, los objetivos son la fuente principal, la mediana subió de 8 a 13 rondas y ninguna condición de victoria supera el 80%. La bola de nieve operativa aún no está cerrada: el líder territorial de ronda 8 gana el 79,7% y las remontadas alcanzan 20,3%. El siguiente ajuste debe actuar sobre economía y refuerzos, no volver a cargar la Influencia territorial.
+La matriz P4 de 600 campañas, repetida tras introducir combate opcional y Sondeo, confirma que producción y tropas aportan 0 puntos y los objetivos son la fuente principal. La mediana es de 12 rondas y ninguna condición de victoria supera el 80%. La bola de nieve operativa aún no está cerrada: el líder territorial de ronda 8 gana el 84,5% y las remontadas alcanzan 15,5%. El siguiente ajuste debe actuar sobre economía y refuerzos, no volver a cargar la Influencia territorial.
 
 ## Publicación
 

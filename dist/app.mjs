@@ -1,4 +1,4 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG} from './engine.mjs?v=15';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=17';
 import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
 import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=1';
 import {routeGeometry} from './map-routes.mjs?v=1';
@@ -8,7 +8,7 @@ import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-vie
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
-let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false;
+let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
 let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
 let lastRenderedPhase=null;
 let helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,defenseReturnFocus=null,endReturnFocus=null;
@@ -18,11 +18,11 @@ const tutorialSteps=[
   {id:'recruit',title:'Recluta y corrige',text:'Pulsa un territorio propio para colocar tropas. Si te equivocas, usa “Deshacer” antes de comenzar el combate.',target:'#orderCard',when:()=>state?.phase==='reinforce'},
   {id:'influence',title:'Entiende tu Influencia',text:'Pulsa tu total de Influencia para ver cuánto aporta cada fuente y cuánto falta para ganar.',target:'.metric-influence-btn',when:()=>state?.phase==='reinforce'},
   {id:'objectives',title:'Consulta tus objetivos',text:'La bandera abre tus objetivos y su progreso sin ocupar espacio permanente en el tablero.',target:'#objectivesMapBtn',when:()=>state?.phase==='reinforce'},
-  {id:'fronts',title:'Lee los Frentes de Guerra',text:'Las líneas discontinuas unen regiones. Su color cambia de Estable a Guerra según las hostilidades.',target:'#frontsMapBtn',when:()=>state?.phase==='reinforce'},
+  {id:'fronts',title:'Lee los Frentes regionales',text:'Cada región registra su propia tensión. Una guerra en el norte no convierte automáticamente los demás límites en guerra.',target:'#frontsMapBtn',when:()=>state?.phase==='reinforce'},
   {id:'market',title:'Compra con intención',text:'Tesoro contiene la compra básica de +3 tropas. El Mercado reúne ofertas rotatorias, cartas y efectos.',target:'#marketModalBtn',when:()=>state?.phase==='reinforce'},
   {id:'attack-origin',title:'Elige quién ataca',text:'Selecciona un territorio propio con al menos 2 tropas. Sus objetivos válidos quedarán destacados.',target:'#map',when:()=>state?.phase==='attack'&&!selectedFrom},
   {id:'attack-target',title:'Elige un vecino enemigo',text:'Ahora selecciona un territorio enemigo conectado. Las rutas visibles corresponden al origen elegido.',target:'#map',when:()=>state?.phase==='attack'&&!!selectedFrom&&!selectedTo},
-  {id:'attack-dice',title:'Cada dado es un soldado',text:'1, 2 o 3 dados despliegan exactamente 1, 2 o 3 soldados. El origen siempre conserva al menos uno.',target:'#actionControls',when:()=>state?.phase==='attack'&&!!selectedTo},
+  {id:'attack-dice',title:'Sondea o compromete tropas',text:'Sondeo revela la guarnición con 1 dado y nunca conquista. Atacar es opcional; puedes pasar a Maniobra.',target:'#actionControls',when:()=>state?.phase==='attack'&&!!selectedTo},
   {id:'fortify',title:'Maniobra con vista previa',text:'Elige origen y destino propios; ajusta con −/+, escribe una cantidad o usa 1, Mitad y Máximo.',target:'#orderCard',when:()=>state?.phase==='fortify'},
   {id:'cards',title:'Cartas tácticas',text:'Las cartas se ganan conquistando. Sus iconos muestran la mano y el detalle aparece al pasar o enfocar.',target:'#cardsSection',when:()=>state?.phase==='close'},
   {id:'terrain-events',title:'Eventos del terreno',text:'En Modo terreno, este acceso anuncia terremotos, tsunamis o temporales antes de que se activen.',target:'#eventBanner',terrainOnly:true,when:()=>state?.rulesMode==='terrain'&&!!(state?.announcedEvent||state?.activeEvent)}
@@ -92,7 +92,9 @@ function updateConnections(){
   document.querySelectorAll('.connection').forEach(l=>{
     const a=l.dataset.a,b=l.dataset.b;
     const ownerA=state?.territories?.[a]?.owner,ownerB=state?.territories?.[b]?.owner;
-    const frontState=ownerA===undefined||ownerB===undefined?'stable':getFrontState(state,ownerA,ownerB);
+    const regions=[...new Set([tById(a)?.region,tById(b)?.region].filter(Boolean))];
+    const severity={war:3,conflict:2,tense:1,stable:0};
+    const frontState=ownerA===undefined||ownerB===undefined||ownerA===ownerB?'stable':regions.map(region=>getFrontState(state,ownerA,ownerB,region)).sort((x,y)=>severity[y]-severity[x])[0]||'stable';
     const frontColor=FRONT_STATE_LABELS[frontState]?.color||FRONT_STATE_LABELS.stable.color;
     l.dataset.frontState=frontState;
     l.style.setProperty('--front-color',frontColor);
@@ -178,22 +180,25 @@ function openChronicleModal(){
     });
   }});
 }
-function frontPairData(a,b){const key=a<b?`${a}-${b}`:`${b}-${a}`;return state.fronts?.[key]||{state:'stable',lastHostilityTurn:0,battlesThisTurn:0}}
+function regionalFrontData(a,b,region){return state.fronts?.[frontKey(a,b,region)]||{state:'stable',lastHostilityTurn:0,battlesThisTurn:0}}
 function renderFronts(){
   const button=$('#frontsMapBtn');
   if(!button||!state)return;
   const human=state.players.find(p=>p.human)||state.players[0];
   const severity={war:3,conflict:2,tense:1,stable:0};
-  const rows=state.players.filter(p=>p.alive&&p.id!==human.id).map(rival=>{
-    const data=frontPairData(human.id,rival.id),label=FRONT_STATE_LABELS[data.state]||FRONT_STATE_LABELS.stable;
-    return{rival,data,label};
-  }).sort((a,b)=>severity[b.data.state]-severity[a.data.state]);
+  const rows=[];
+  for(const rival of state.players.filter(p=>p.alive&&p.id!==human.id))for(const region of Object.keys(REGIONS)){
+    const data=regionalFrontData(human.id,rival.id,region),label=FRONT_STATE_LABELS[data.state]||FRONT_STATE_LABELS.stable;
+    const touches=getTerritories(state).some(t=>t.region===region&&[human.id,rival.id].includes(state.territories[t.id].owner)&&t.n.some(n=>[human.id,rival.id].includes(state.territories[n].owner)&&state.territories[n].owner!==state.territories[t.id].owner));
+    if(data.state!=='stable'||touches)rows.push({rival,region,data,label});
+  }
+  rows.sort((a,b)=>severity[b.data.state]-severity[a.data.state]||getRegion(state,a.region).name.localeCompare(getRegion(state,b.region).name));
   const active=rows.filter(row=>row.data.state!=='stable').length;
   frontsModalHtml=`<div class="fronts-modal"><div class="front-legend">
     ${FRONT_STATES.map(key=>{const item=FRONT_STATE_LABELS[key];return`<span class="front-legend-item front-${key}"><i style="--front:${item.color}"></i>${item.name}</span>`}).join('')}
-  </div><p class="front-explainer">Las fronteras entre regiones son discontinuas. Su color muestra la tensión entre los comandantes que controlan ambos extremos; una ruta bloqueada usa una marca adicional.</p>
-  <div class="front-list">${rows.map(({rival,data,label})=>`<div class="front-summary front-${data.state}"><span class="front-rival-dot" style="--rival:${rival.color}"></span><div><strong>${escapeHtml(human.name)} ↔ ${escapeHtml(rival.name)}</strong><small>${data.lastHostilityTurn?`Última hostilidad: ronda ${data.lastHostilityTurn}`:'Sin hostilidades registradas'}${data.battlesThisTurn?` · ${data.battlesThisTurn} combate${data.battlesThisTurn===1?'':'s'} este turno`:''}</small></div><b style="--front:${label.color}">${label.icon} ${label.name}</b></div>`).join('')}</div>
-  <p class="front-cooling">Atacar eleva la tensión; si pasa una ronda sin hostilidades, el frente se enfría un nivel.</p></div>`;
+  </div><p class="front-explainer">Cada región mantiene una tensión independiente entre comandantes. Las rutas toman el nivel más alto de las regiones que conectan; una ruta bloqueada conserva una marca adicional.</p>
+  <div class="front-list">${rows.map(({rival,region,data,label})=>`<div class="front-summary front-${data.state}"><span class="front-rival-dot" style="--rival:${rival.color}"></span><div><strong>${escapeHtml(getRegion(state,region).name)} · ${escapeHtml(human.name)} ↔ ${escapeHtml(rival.name)}</strong><small>${data.lastHostilityTurn?`Última hostilidad: ronda ${data.lastHostilityTurn}`:'Contacto estable'}${data.battlesThisTurn?` · ${data.battlesThisTurn} combate${data.battlesThisTurn===1?'':'s'} este turno`:''}</small></div><b style="--front:${label.color}">${label.icon} ${label.name}</b></div>`).join('')||'<p class="chronicle-empty">No hay contacto regional con rivales.</p>'}</div>
+  <p class="front-cooling">Sondear o usar operaciones encubiertas tensa una región; combatir y conquistar la escala. Sin hostilidades, se enfría un nivel por ronda.</p></div>`;
   button.classList.remove('hidden');
   button.classList.toggle('has-active-fronts',active>0);
   button.setAttribute('aria-label',`Ver Frentes de Guerra; ${active} activos`);
@@ -426,7 +431,7 @@ function renderLog(){
   const count=$('#chronicleCount');if(count)count.textContent=String(entries.length);
 }
 function setGuide(step,title,text){els.mapGuide.innerHTML=`<span>${step}</span><strong>${title}</strong><small>${text}</small>`}
-function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado',`Ganador: ${state.players[state.winner].name}. Abre el resumen final cuando quieras.`);return}if(!state.players[state.current].human){setGuide('…',`${state.players[state.current].name} está jugando`,'Al terminar verás un informe de sus combates.');return}if(state.phase==='reinforce')setGuide('1','Pulsa tus territorios luminosos',`Coloca las ${state.pendingReinforcements} tropas restantes.`);else if(state.phase==='attack'&&!selectedFrom)setGuide('1','Elige el territorio atacante','Al pasar el cursor solo se iluminan sus rutas reales.');else if(state.phase==='attack'&&!selectedTo)setGuide('2','Elige un vecino enemigo','Los objetivos válidos tienen borde rojo.');else if(state.phase==='attack')setGuide('3','Configura y lanza los dados',state.rulesMode==='terrain'?'La ventaja de unidad o terreno suma +1 al dado mayor.':'El modo clásico no aplica modificadores.');else if(state.phase==='fortify'&&!selectedFrom)setGuide('1','Elige el origen de la maniobra','Debe tener al menos 2 tropas. También puedes pasar.');else if(state.phase==='fortify'&&!selectedTo)setGuide('2','Elige el destino propio','Puede conectarse por una ruta continua propia.');else if(state.phase==='fortify')setGuide('3','Confirma cuántas tropas mover','Siempre quedará al menos una en el origen.');else setGuide('4','Revisa el cierre',state.conqueredThisTurn?'Recibes una carta táctica.':'No conquistaste: no recibes carta.')}
+function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado',`Ganador: ${state.players[state.winner].name}. Abre el resumen final cuando quieras.`);return}if(!state.players[state.current].human){setGuide('…',`${state.players[state.current].name} está jugando`,'Al terminar verás un informe de sus combates.');return}if(state.phase==='reinforce')setGuide('1','Pulsa tus territorios luminosos',`Coloca las ${state.pendingReinforcements} tropas restantes.`);else if(state.phase==='attack'&&!selectedFrom)setGuide('1','Combate opcional','Elige un atacante o pasa directamente a Maniobra.');else if(state.phase==='attack'&&!selectedTo)setGuide('2','Elige un vecino enemigo','Podrás sondearlo antes de comprometer un ataque.');else if(state.phase==='attack')setGuide('3','Sondea o ataca',state.probeUsedThisTurn?'Ya usaste tu Sondeo; aún puedes atacar o pasar.':'Sondeo revela la guarnición, pero nunca conquista.');else if(state.phase==='fortify'&&!selectedFrom)setGuide('1','Elige el origen de la maniobra','Debe tener al menos 2 tropas. También puedes pasar.');else if(state.phase==='fortify'&&!selectedTo)setGuide('2','Elige el destino propio','Puede conectarse por una ruta continua propia.');else if(state.phase==='fortify')setGuide('3','Confirma cuántas tropas mover','Siempre quedará al menos una en el origen.');else setGuide('4','Revisa el cierre',state.conqueredThisTurn?'Recibes una carta táctica.':'No conquistaste: no recibes carta.')}
 
 function renderCards(){
   const p=state.players[state.current];
@@ -445,8 +450,8 @@ function renderCards(){
     discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (3 cartas)</strong><p>Has robado <b>${drawn.icon} ${drawn.name}</b>. Elige qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la nueva (${drawn.name})</button></div></div>`;
   }
   const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo 3). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
-    const c=TACTICAL_CARDS[cId],cost=tacticalCardCost(state,cId,p.id),canAfford=p.money>=cost,isReactive=c.type==='reaction',costStr=cost===0?(isReactive?'Reactiva':'Gratis'):`$${cost}`,isSelected=cardTargeting?.cardId===cId;
-    return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Automática</span>':`<button class="play-card-btn" data-card="${cId}" ${canAfford?'':'disabled'} aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
+    const c=TACTICAL_CARDS[cId],cost=tacticalCardCost(state,cId,p.id),canAfford=p.money>=cost,isReactive=c.type==='reaction',costStr=cost===0?(isReactive?'Reacción':'Gratis'):`$${cost}`,isSelected=cardTargeting?.cardId===cId;
+    return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Elegible</span>':`<button class="play-card-btn" data-card="${cId}" ${canAfford?'':'disabled'} aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
   }).join('')}</div>`;
 
   els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / 3</strong></div>${targetingNotice}${discardNotice}${cardsHtml}`;
@@ -544,7 +549,7 @@ function renderTerritoryInspect(id) {
   const regionalFronts=(t.n||[]).map(tById).filter(neighbor=>neighbor&&neighbor.region!==t.region).map(neighbor=>{
     const neighborData=state.territories[neighbor.id],neighborIntel=getTerritoryIntel(state,neighbor.id,0,difficulty);
     if(neighborIntel.visibility==='hidden')return`<div class="territory-front-row"><span>${escapeHtml(neighbor.name)}</span><strong class="front-tag-unknown">? Sin confirmar</strong></div>`;
-    const frontState=getFrontState(state,d.owner,neighborData.owner),label=FRONT_STATE_LABELS[frontState]||FRONT_STATE_LABELS.stable;
+    const frontState=getFrontState(state,d.owner,neighborData.owner,t.region),label=FRONT_STATE_LABELS[frontState]||FRONT_STATE_LABELS.stable;
     const relation=d.owner===neighborData.owner?'Frontera propia':`${label.icon} ${label.name}`;
     return`<div class="territory-front-row"><span>${escapeHtml(neighbor.name)}</span><strong class="front-tag-${frontState}">${relation}</strong></div>`;
   }).join('');
@@ -700,23 +705,24 @@ function openMarketModal(){
 function bonusPreview(from,to){
   if(!from||!to)return '';
   const a=state.territories[from],d=state.territories[to];
-  const hasTempDef=state.tempDefense?.[d.owner]>=state.turn;
+  const defenderIntel=getTerritoryIntel(state,to,0,difficulty),defenseKnown=defenderIntel.visibility==='full';
+  const hasTempDef=defenseKnown&&state.tempDefense?.[d.owner]>=state.turn;
   const isConqueror=state.players[a.owner]?.commander==='conqueror'&&!state.attackMadeThisTurn;
-  const isGuardian=state.players[d.owner]?.commander==='guardian'&&isTerritoryInWarFront(state,to);
+  const isGuardian=defenseKnown&&state.players[d.owner]?.commander==='guardian'&&isTerritoryInWarFront(state,to);
   const attReasons=[];
   const defReasons=[];
   if(state.rulesMode==='terrain'){
     const terrain=TERRAINS[tById(to).terrain],au=UNIT_TYPES[a.unitType],du=UNIT_TYPES[d.unitType];
-    if(au.beats===d.unitType)attReasons.push(`${au.name} tiene ventaja`);
-    if(du.beats===a.unitType)defReasons.push('ventaja de unidad');
-    if(terrain.unit===d.unitType)defReasons.push('afinidad de terreno');
+    if(defenseKnown&&au.beats===d.unitType)attReasons.push(`${au.name} tiene ventaja`);
+    if(defenseKnown&&du.beats===a.unitType)defReasons.push('ventaja de unidad');
+    if(defenseKnown&&terrain.unit===d.unitType)defReasons.push('afinidad de terreno');
   }
   if(isConqueror)attReasons.push('doctrina El Conquistador (primer ataque)');
   if(hasTempDef)defReasons.push('defensa temporal activa');
   if(isGuardian)defReasons.push('doctrina El Guardián (frente en guerra)');
 
   const attText=attReasons.length?`⚔ Atacante: +${attReasons.length} (${attReasons.join(' + ')}).`:'Atacante: sin bono.';
-  const defText=defReasons.length?`🛡 Defensor: +${defReasons.length} (${defReasons.join(' + ')}).`:'Defensor: sin bono.';
+  const defText=!defenseKnown?'🛡 Bonos defensivos ocultos hasta revelar la guarnición.':defReasons.length?`🛡 Defensor: +${defReasons.length} (${defReasons.join(' + ')}).`:'Defensor: sin bono.';
   return `<div class="bonus-note">${attText}<br>${defText}</div>`;
 }
 function renderTerrainPanel(){if(state.rulesMode!=='terrain'){els.terrainPanel.classList.add('hidden');return}els.terrainPanel.classList.remove('hidden');const canChoose=state.phase==='reinforce'&&state.players[state.current].human;els.terrainPanel.innerHTML=`<h3>Rueda de ventaja · +1 al dado mayor</h3><div class="unit-wheel"><b>◆ Infantería</b> vence a <b>✦ Artillería</b> vence a <b>♞ Caballería</b> vence a <b>◆ Infantería</b></div>${canChoose?`<div class="unit-selector" role="group" aria-label="Unidad para los próximos refuerzos">${Object.entries(UNIT_TYPES).map(([k,u])=>`<button data-unit="${k}" class="${selectedUnit===k?'active':''}" aria-pressed="${selectedUnit===k}" style="--unit-color:${u.color}">${u.icon} ${u.name}</button>`).join('')}</div><div class="bonus-note">La unidad elegida se asignará al territorio que refuerces. Bosque favorece Infantería; Montaña, Artillería; Llanura, Caballería.</div>`:bonusPreview(selectedFrom,selectedTo)}`;document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{selectedUnit=b.dataset.unit;renderTerrainPanel();announce(`Unidad seleccionada: ${UNIT_TYPES[selectedUnit].name}`)})}
@@ -798,12 +804,12 @@ function renderPanel(){
       subEl.textContent = 'Elige un territorio propio con 2 o más tropas para atacar.';
     }
     els.turnStatus.innerHTML = state.attackMadeThisTurn
-      ? '<strong>Tirada cumplida.</strong> Puedes continuar combatiendo o pasar a maniobra.'
+      ? '<strong>Combate resuelto.</strong> Puedes continuar o pasar a Maniobra.'
       : possible
-      ? '<strong>Ataque obligatorio pendiente:</strong> realiza al menos 1 combate.'
-      : '<strong>Sin ataques posibles:</strong> puedes avanzar a maniobra.';
-    els.phaseBtn.textContent = state.attackMadeThisTurn || !possible ? 'Terminar combate →' : 'Debes atacar';
-    els.phaseBtn.disabled = possible && !state.attackMadeThisTurn;
+      ? '<strong>Combate opcional:</strong> ataca, realiza un Sondeo o pasa sin combatir.'
+      : '<strong>Sin ataques posibles:</strong> puedes avanzar a Maniobra.';
+    els.phaseBtn.textContent = state.attackMadeThisTurn ? 'Terminar combate →' : 'Pasar combate → maniobra';
+    els.phaseBtn.disabled = false;
     if (selectedFrom) {
       const a = state.territories[selectedFrom];
       els.selection.innerHTML = '<div class="selection-item"><span>Origen · ' + tById(selectedFrom).name + '</span><strong>' + a.troops + ' tropas</strong></div>';
@@ -849,7 +855,18 @@ function renderPanel(){
     }
   }
 }
-function renderAttackControls(){const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1);selectedDice=Math.min(selectedDice,max);els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} ${a.troops===1?'tropa':'tropas'}${state.rulesMode==='terrain'?` · ${UNIT_TYPES[a.unitType].name}`:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${d.troops} ${d.troops===1?'tropa':'tropas'}${state.rulesMode==='terrain'?` · ${UNIT_TYPES[d.unitType].name}`:''}</strong></div>`;els.controls.innerHTML=`<label id="soldierChoiceLabel">Soldados desplegados en esta ronda (máximo ${max})</label><div class="dice-choice soldier-choice" role="group" aria-labelledby="soldierChoiceLabel">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}" aria-pressed="${n===selectedDice}" aria-label="Desplegar ${n} ${n===1?'soldado y lanzar 1 dado':`soldados y lanzar ${n} dados`}"><span class="soldier-pips">${'♟'.repeat(n)}</span><strong>${n} ${n===1?'soldado':'soldados'}</strong><small>${n} ${n===1?'dado':'dados'}</small></button>`).join('')}</div><div class="deployment-preview"><span>⚔ Despliegue de esta ronda</span><strong>${selectedDice} ${selectedDice===1?'soldado':'soldados'} · ${selectedDice} ${selectedDice===1?'dado':'dados'}</strong><small>El territorio de origen conservará al menos una tropa.</small></div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn" aria-label="Lanzar una ronda con ${selectedDice} ${selectedDice===1?'soldado':'soldados'}">🎲 Lanzar una ronda con ${selectedDice}</button><button class="secondary-btn" id="blitzBtn" aria-label="Ataque rápido usando automáticamente el máximo de soldados permitido">Ataque rápido · máximo automático</button>`;document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel();updateControlAccessibility();announce(`${selectedDice} ${selectedDice===1?'soldado seleccionado, 1 dado':'soldados seleccionados, '+selectedDice+' dados'}`)});$('#rollBtn').onclick=()=>doAttack(false);$('#blitzBtn').onclick=()=>doAttack(true)}
+function renderAttackControls(){
+  const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1),intel=getTerritoryIntel(state,selectedTo,0,difficulty),known=intel.visibility==='full';
+  selectedDice=Math.min(selectedDice,max);
+  const defenderTroops=known?`${d.troops} ${d.troops===1?'tropa':'tropas'}`:`≈${intel.troopsDisplay} tropas estimadas`;
+  const defenderUnit=known&&state.rulesMode==='terrain'?` · ${UNIT_TYPES[d.unitType].name}`:'';
+  const probeControl=!state.probeUsedThisTurn&&!known?'<button class="secondary-btn probe-btn" id="probeBtn" aria-label="Sondear con un soldado; revela la guarnición y no puede conquistar">🔭 Sondear · 1 dado, sin conquista</button>':known?'<div class="bonus-note">👁 Guarnición revelada para esta ronda.</div>':'<div class="bonus-note">Sondeo ya utilizado este turno.</div>';
+  els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} ${a.troops===1?'tropa':'tropas'}${state.rulesMode==='terrain'?` · ${UNIT_TYPES[a.unitType].name}`:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${defenderTroops}${defenderUnit}</strong></div>`;
+  els.controls.innerHTML=`${probeControl}<label id="soldierChoiceLabel">Soldados desplegados en esta ronda (máximo ${max})</label><div class="dice-choice soldier-choice" role="group" aria-labelledby="soldierChoiceLabel">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}" aria-pressed="${n===selectedDice}" aria-label="Desplegar ${n} ${n===1?'soldado y lanzar 1 dado':`soldados y lanzar ${n} dados`}"><span class="soldier-pips">${'♟'.repeat(n)}</span><strong>${n} ${n===1?'soldado':'soldados'}</strong><small>${n} ${n===1?'dado':'dados'}</small></button>`).join('')}</div><div class="deployment-preview"><span>⚔ Despliegue de esta ronda</span><strong>${selectedDice} ${selectedDice===1?'soldado':'soldados'} · ${selectedDice} ${selectedDice===1?'dado':'dados'}</strong><small>El territorio de origen conservará al menos una tropa.</small></div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn" aria-label="Lanzar una ronda con ${selectedDice} ${selectedDice===1?'soldado':'soldados'}">🎲 Lanzar una ronda con ${selectedDice}</button><button class="secondary-btn" id="blitzBtn" aria-label="Ataque rápido usando automáticamente el máximo de soldados permitido">Ataque rápido · máximo automático</button>`;
+  document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel();updateControlAccessibility();announce(`${selectedDice} ${selectedDice===1?'soldado seleccionado, 1 dado':'soldados seleccionados, '+selectedDice+' dados'}`)});
+  if($('#probeBtn'))$('#probeBtn').onclick=doProbe;
+  $('#rollBtn').onclick=()=>doAttack(false);$('#blitzBtn').onclick=()=>doAttack(true);
+}
 function renderFortifyControls(){
   const origin=state.territories[selectedFrom],destination=state.territories[selectedTo],max=origin.troops-1;
   if(max<1)return;
@@ -868,6 +885,7 @@ function renderFortifyControls(){
 
 function territoryClick(id,shift=false){
   if(!state||aiBusy||rolling||state.winner!==null||!state.players[state.current].human)return;
+  if(state.pendingReactions?.some(reaction=>reaction.defenderId===state.current)){promptPendingCounterReactions();return}
   const d=state.territories[id];
   inspectedTerritory=id;
   renderTerritoryInspect(id);
@@ -982,7 +1000,7 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
   const title=$('#diceTitle'),comparison=$('#comparison'),close=$('#closeDice'),skip=$('#skipAiDice');
   els.diceModal.style.setProperty('--attacker-dice-color',attackerColor);
   els.diceModal.style.setProperty('--defender-dice-color',defenderColor);
-  $('#battleRoute').textContent=`${from} ataca ${to}`;
+  $('#battleRoute').textContent=rounds[0]?.probe?`${from} sondea ${to}`:`${from} ataca ${to}`;
   close.classList.remove('visible');
   skip.classList.add('hidden-control');
   close.textContent=defending?'Ver resultado de la defensa':'Ver el mapa y continuar';
@@ -1007,7 +1025,7 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
     $('#defenderDice').innerHTML=diceMarkup(round.defenderDice,round.rawDefenderDice);
     title.textContent=label;
     setBattleTone(roundTone(round,defending));
-    comparison.innerHTML=`<div class="deployed-summary"><span>⚔ Desplegados</span><strong>${attackerCount} ${attackerCount===1?'soldado atacante':'soldados atacantes'} · ${defenderCount} ${defenderCount===1?'defensor':'defensores'}</strong></div>${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.conquered?` Territorio conquistado: ${round.movedTroops} ${round.movedTroops===1?'soldado avanzó':'soldados avanzaron'}.`:''}</div>`;
+    comparison.innerHTML=`<div class="deployed-summary"><span>${round.probe?'🔭 Sondeo':'⚔ Desplegados'}</span><strong>${attackerCount} ${attackerCount===1?'soldado atacante':'soldados atacantes'} · ${defenderCount} ${defenderCount===1?'defensor':'defensores'}</strong></div>${comparisonMarkup(round)}<div class="battle-summary">Pérdidas de esta tirada: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor.${round.probe?` Guarnición revelada: <b>${round.revealedTroops} tropa${round.revealedTroops===1?'':'s'}</b>. El Sondeo nunca conquista.`:round.conquered?` Territorio conquistado: ${round.movedTroops} ${round.movedTroops===1?'soldado avanzó':'soldados avanzaron'}.`:''}</div>`;
     if(i<rounds.length-1)await pause(1100);
   }
   const totalA=rounds.reduce((sum,round)=>sum+round.attackerLosses,0);
@@ -1015,7 +1033,8 @@ async function presentDiceRounds(rounds,{from,to,defending=false,fast=false,atta
   const conquered=rounds.at(-1).conquered;
   const finalTone=defending?(conquered?'defeat':'victory'):(conquered?'victory':fast?'defeat':roundTone(rounds.at(-1),false));
   setBattleTone(finalTone);
-  title.textContent=defending?(conquered?'Perdiste el territorio':'Tu territorio resistió'):(conquered?'¡Territorio conquistado!':fast?'Ataque detenido':'Resultado de la tirada');
+  const isProbe=!!rounds[0]?.probe;
+  title.textContent=isProbe?'Sondeo completado':defending?(conquered?'Perdiste el territorio':'Tu territorio resistió'):(conquered?'¡Territorio conquistado!':fast?'Ataque detenido':'Resultado de la tirada');
   const moved=rounds.at(-1).movedTroops||0;
   comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${fast?`${rounds.length} ${rounds.length===1?'tirada':'tiradas'} · `:''}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.${conquered?` <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b>`:''}</div>`);
   close.classList.add('visible');
@@ -1135,7 +1154,41 @@ async function doAttack(fast){
   }finally{rolling=false}
 }
 
-function showAiSummary(report){return new Promise(resolve=>{aiReturnFocus=document.activeElement;aiResolve=resolve;$('#aiTitle').textContent=`Turno de ${report.playerName}`;const battles=report.battles.slice(-4).map(b=>`<div class="ai-battle"><span>${b.from} → ${b.to}${b.conquered?' · conquistado':''}</span><span>${b.rounds} tirada${b.rounds===1?'':'s'} · pérdidas ${b.attackerLosses}/${b.defenderLosses}</span></div>`).join('');$('#aiSummary').innerHTML=`<div class="ai-kpis"><div class="ai-kpi"><strong>${report.reinforcements}</strong><span>REFUERZOS</span></div><div class="ai-kpi"><strong>${report.battles.length}</strong><span>ATAQUES</span></div><div class="ai-kpi"><strong>${report.conquests}</strong><span>CONQUISTAS</span></div></div>${battles||'<div class="battle-summary">No encontró un ataque favorable este turno.</div>'}${report.eliminated.length?`<div class="battle-summary">Eliminó a ${report.eliminated.join(', ')}.</div>`:''}`;els.aiModal.classList.remove('hidden');$('#closeAi').focus()})}
+async function doProbe(){
+  if(rolling)return;
+  closeMobileOrders();rolling=true;
+  const from=selectedFrom,to=selectedTo,attackerColor=state.players[state.territories[from].owner].color,defenderColor=state.players[state.territories[to].owner].color;
+  try{
+    await playAttackApproach(from,to,1,1);
+    const result=probeTerritory(state,from,to);
+    if(!result.ok){showToast(result.reason||'No se pudo realizar el Sondeo');return}
+    await presentDiceRounds([result],{from:tById(from).name,to:tById(to).name,attackerColor,defenderColor});
+    if(state.territories[from].troops<2)selectedFrom=selectedTo=null;
+    render();showToast(`Sondeo completado: ${tById(to).name} tiene ${result.revealedTroops} tropa${result.revealedTroops===1?'':'s'}`);
+  }finally{rolling=false}
+}
+
+async function promptPendingCounterReactions(){
+  if(reactionPromptActive||!state||!state.players[state.current]?.human)return;
+  const reaction=state.pendingReactions?.find(item=>item.defenderId===state.current);
+  if(!reaction)return;
+  reactionPromptActive=true;
+  try{
+    const attacker=state.players[reaction.attackerId],card=TACTICAL_CARDS[reaction.cardId],target=tById(reaction.target);
+    let useCounter=false;
+    if(window.Swal){
+      const answer=await window.Swal.fire({icon:'warning',title:'¿Usar Contrainteligencia?',html:`<p><strong>${escapeHtml(attacker.name)}</strong> intenta usar ${card.icon} <strong>${escapeHtml(card.name)}</strong> sobre <strong>${escapeHtml(target.name)}</strong>.</p><p>Si reaccionas, descartas Contrainteligencia y anulas el efecto. Si la conservas, la operación enemiga se resuelve.</p>`,showCancelButton:true,confirmButtonText:'Usar Contrainteligencia',cancelButtonText:'Conservar carta',allowOutsideClick:false,allowEscapeKey:false});
+      useCounter=answer.isConfirmed;
+    }else useCounter=window.confirm(`${attacker.name} usa ${card.name} sobre ${target.name}. ¿Gastar Contrainteligencia para anularlo?`);
+    const result=resolveCounterReaction(state,reaction.id,useCounter,state.current);
+    if(result.ok&&result.countered){recordCardPlayed('counter');showToast(`${card.name} neutralizado`)}
+    else if(result.ok)showToast(`Conservaste Contrainteligencia; ${card.name} surtió efecto`);
+    render();
+  }finally{reactionPromptActive=false}
+  if(state.pendingReactions?.some(item=>item.defenderId===state.current))await promptPendingCounterReactions();
+}
+
+function showAiSummary(report){return new Promise(resolve=>{aiReturnFocus=document.activeElement;aiResolve=resolve;$('#aiTitle').textContent=`Turno de ${report.playerName}`;const probes=(report.probes||[]).map(p=>`<div class="ai-battle"><span>🔭 ${p.from} → ${p.to}</span><span>Guarnición revelada: ${p.revealedTroops}</span></div>`).join('');const battles=report.battles.slice(-4).map(b=>`<div class="ai-battle"><span>${b.from} → ${b.to}${b.conquered?' · conquistado':''}</span><span>${b.rounds} tirada${b.rounds===1?'':'s'} · pérdidas ${b.attackerLosses}/${b.defenderLosses}</span></div>`).join('');$('#aiSummary').innerHTML=`<div class="ai-kpis"><div class="ai-kpi"><strong>${report.reinforcements}</strong><span>REFUERZOS</span></div><div class="ai-kpi"><strong>${report.battles.length}</strong><span>ATAQUES</span></div><div class="ai-kpi"><strong>${report.conquests}</strong><span>CONQUISTAS</span></div></div>${probes}${battles||'<div class="battle-summary">No encontró un ataque favorable este turno.</div>'}${report.eliminated.length?`<div class="battle-summary">Eliminó a ${report.eliminated.join(', ')}.</div>`:''}`;els.aiModal.classList.remove('hidden');$('#closeAi').focus()})}
 function closeAiSummary(){els.aiModal.classList.add('hidden');restoreFocus(aiReturnFocus,'#mobileOrdersBtn');aiReturnFocus=null;if(aiResolve){const resolve=aiResolve;aiResolve=null;resolve()}}
 async function showDefenseAttack(battle){
   state=battle.beforeState;render(false);
@@ -1182,6 +1235,7 @@ window.addEventListener('resize',()=>{if(!mobileLayout())closeMobileOrders();upd
 els.phaseBtn.onclick=()=>{
   if(!state||rolling)return;
   if(!state.players[state.current].human){skipAiRequested=true;render();showToast('Turnos enemigos en avance rápido');return}
+  if(state.pendingReactions?.some(reaction=>reaction.defenderId===state.current)){promptPendingCounterReactions();return}
   if(state.phase==='gameover'){openStart();return}
   if(state.phase==='reinforce'){
     if(!finishReinforcement(state))return showToast('Primero coloca todos tus refuerzos');
@@ -1189,7 +1243,7 @@ els.phaseBtn.onclick=()=>{
     render();
     announce('Comienza la fase de Combate. Elige un territorio atacante.');
   }else if(state.phase==='attack'){
-    if(!setPhase(state,'fortify'))return showToast('Debes combatir al menos una vez');
+    setPhase(state,'fortify');
     selectedFrom=selectedTo=cardTargeting=null;
     render();
     closeMobileOrders();
@@ -1213,7 +1267,7 @@ els.phaseBtn.onclick=()=>{
   }
 };
 async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiRequested;elapsed+=50)await pause(50)}
-async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const humanCards=[...(state.players[0]?.cards||[])];const report=aiTurn(state,state.current,difficulty);const remaining=[...(state.players[0]?.cards||[])];for(const cardId of humanCards){const index=remaining.indexOf(cardId);if(index>=0)remaining.splice(index,1);else if(cardId==='counter')recordCardPlayed(cardId)}pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary()}}
+async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary();else await promptPendingCounterReactions()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
 function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
 const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!hasSavedCampaign();restoreFocus($('#startBtn'))}
@@ -1223,7 +1277,7 @@ function downloadTelemetry(){const blob=new Blob([exportTelemetry()],{type:'appl
 function deleteTelemetry(){clearTelemetry();if(state&&state.winner===null)ensureTelemetryCampaign(state,difficulty);renderTelemetryHelp();showToast('Telemetría local eliminada')}
 function openHelp(){helpReturnFocus=document.activeElement;renderTelemetryHelp();els.helpModal.classList.remove('hidden');$('#closeHelp').focus()}
 function closeHelp(){els.helpModal.classList.add('hidden');restoreFocus(helpReturnFocus,'#helpBtn');helpReturnFocus=null}
-document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){if(state.winner===null)ensureTelemetryCampaign(state,difficulty);initMap(state.mapId);els.startModal.classList.add('hidden');render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);if(state.winner!==null)showEndSummary();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=openHelp;$('#closeHelp').onclick=$('#gotItBtn').onclick=closeHelp;$('#nextTutorialBtn').onclick=advanceTutorial;$('#skipTutorialBtn').onclick=skipTutorial;$('#restartTutorialBtn').onclick=restartTutorial;$('#exportTelemetryBtn').onclick=downloadTelemetry;$('#clearTelemetryBtn').onclick=deleteTelemetry;window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
+document.querySelectorAll('.option-card input').forEach(input=>input.onchange=()=>{document.querySelectorAll(`input[name="${input.name}"]`).forEach(x=>x.closest('.option-card').classList.toggle('active',x.checked))});$('#startBtn').onclick=startNew;$('#continueBtn').onclick=()=>{if(load()){if(state.winner===null)ensureTelemetryCampaign(state,difficulty);initMap(state.mapId);els.startModal.classList.add('hidden');render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);if(state.winner!==null)showEndSummary();else if(state.players[state.current].human)promptPendingCounterReactions();else runAiTurns()}};$('#newBtn').onclick=openStart;els.summaryBtn.onclick=showEndSummary;$('#viewEndMap').onclick=closeEndSummary;$('#newFromEnd').onclick=()=>{closeEndSummary();openStart()};$('#helpBtn').onclick=openHelp;$('#closeHelp').onclick=$('#gotItBtn').onclick=closeHelp;$('#nextTutorialBtn').onclick=advanceTutorial;$('#skipTutorialBtn').onclick=skipTutorial;$('#restartTutorialBtn').onclick=restartTutorial;$('#exportTelemetryBtn').onclick=downloadTelemetry;$('#clearTelemetryBtn').onclick=deleteTelemetry;window.addEventListener('beforeunload',save);document.addEventListener('selectstart',e=>e.preventDefault());
 document.querySelectorAll('.color-choice input').forEach(input=>input.onchange=()=>document.querySelectorAll('.color-choice').forEach(label=>label.classList.toggle('active',label.querySelector('input').checked)));
 
 function registerWebMCP(){const c=document.modelContext;if(!c?.registerTool)return;try{c.registerTool({name:'get_campaign_state',title:'Consultar campaña',description:'Devuelve mapa, reglas, turno, fase y jugadores.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>state?{map:getMap(state).name,mode:state.rulesMode,turn:state.turn,phase:state.phase,currentPlayer:state.players[state.current].name,winner:state.winner===null?null:state.players[state.winner].name}:{status:'no_game'}})}catch(e){console.warn('WebMCP no disponible',e)}}

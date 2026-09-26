@@ -8,10 +8,10 @@ Este plan refleja el juego implementado. El detalle de prioridades de experienci
 | --- | --- | --- |
 | 0. Núcleo | Completada | 24 territorios, tres mapas, combate, maniobra, guardado y migraciones. |
 | 1. Economía | Completada | Producción, tesoro, compra básica y Mercado rotatorio. |
-| 2. Cartas tácticas | Completada | Mano máxima de tres, descarte y cinco cartas con coste, objetivo y contrajuego. |
+| 2. Cartas tácticas | Completada | Mano máxima de tres, descarte y cinco cartas con coste, objetivo y contrajuego; Contrainteligencia es una reacción elegible. |
 | 3. Influencia y objetivos | Influencia v2 completada | Presencia limitada a 17 puntos, producción/tropas sin puntuación, diez objetivos en siete rutas, elección entre tres opciones y Hegemonía a 70. |
-| 4. Comandantes y Frentes | Completada | Seis doctrinas y tensión Estable, Tenso, Conflicto y Guerra. |
-| 5. Información imperfecta | Completada | Visión completa, parcial y oculta; Espía revela temporalmente. |
+| 4. Comandantes y Frentes | Completada | Seis doctrinas y tensión Estable, Tenso, Conflicto y Guerra registrada de forma independiente por región. |
+| 5. Información imperfecta | Completada | Visión completa, parcial y oculta; Espía y el Sondeo de combate revelan temporalmente. |
 | 6. Eventos | Completada | Terremoto, tsunami y temporal, únicamente en Modo terreno. |
 | 7. Experiencia y accesibilidad | Completada | Tutorial, modales estratégicos, interfaz responsive, controles táctiles y foco accesible. |
 | 8. Medición y pruebas | Completada | Telemetría local, suite separada de motor/interfaz y simulación reproducible. |
