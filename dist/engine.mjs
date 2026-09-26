@@ -1,24 +1,23 @@
 export const REGIONS={north:{name:'Norte',bonus:2,color:'#70b7c7'},west:{name:'Occidente',bonus:3,color:'#c89e68'},crown:{name:'Corona',bonus:3,color:'#aa83bd'},ember:{name:'Brasa',bonus:2,color:'#da7867'},sun:{name:'Sol',bonus:3,color:'#d6bd57'},isles:{name:'Jade',bonus:2,color:'#64ae8b'}};
 export const TERRAINS={plain:{name:'Llanura',icon:'◌',color:'#d6bd57'},forest:{name:'Bosque',icon:'♠',color:'#64ae8b'},mountain:{name:'Montaña',icon:'▲',color:'#9aa8b5'}};
 export const DIFFICULTY_PROFILES={
-  pacifico:{name:'Pacífico',handLimit:4,maneuvers:3,reinforcementCost:5,marketMultiplier:.8,humanTerrainBonus:1,aiTerrainBonus:0,startBias:.10,attackThreshold:3,attackLimit:4,humanAttackBias:-100,pursuitBias:0,reinforceHumanBias:-6,summary:'La IA evita atacarte mientras tenga un rival alternativo. Tú recibes 4 cartas, 3 maniobras, terreno favorable y precios reducidos.'},
-  diplomatico:{name:'Diplomático',handLimit:3,maneuvers:2,reinforcementCost:10,marketMultiplier:1,humanTerrainBonus:1,aiTerrainBonus:1,startBias:0,attackThreshold:0,attackLimit:16,humanAttackBias:0,pursuitBias:0,reinforceHumanBias:0,summary:'Todos compiten con las mismas prioridades. Dispones de 3 cartas, 2 maniobras y precios estándar.'},
-  belico:{name:'Bélico',handLimit:3,maneuvers:1,reinforcementCost:15,marketMultiplier:1.2,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.08,attackThreshold:-1,attackLimit:30,humanAttackBias:6,pursuitBias:2,reinforceHumanBias:7,summary:'La IA dirige refuerzos, espionaje y ofensivas hacia ti. Dispones de 3 cartas, 1 maniobra y recursos más caros.'},
-  aniquilacion:{name:'Aniquilación',handLimit:2,maneuvers:0,reinforcementCost:20,marketMultiplier:1.4,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.12,attackThreshold:-2,attackLimit:42,humanAttackBias:100,pursuitBias:6,reinforceHumanBias:14,summary:'Todas las IA te cazan, abren rutas hacia tus fronteras y concentran allí sus recursos. Mano de 2, sin maniobra base y precios máximos.'}
+  pacifico:{name:'Pacífico',handLimit:4,maneuvers:3,marketMultiplier:.8,humanTerrainBonus:1,aiTerrainBonus:0,startBias:.10,attackThreshold:3,attackLimit:4,humanAttackBias:-100,pursuitBias:0,reinforceHumanBias:-6,summary:'La IA evita atacarte mientras tenga un rival alternativo. Tú recibes 4 cartas, 3 maniobras, terreno favorable y precios reducidos.'},
+  diplomatico:{name:'Diplomático',handLimit:3,maneuvers:2,marketMultiplier:1,humanTerrainBonus:1,aiTerrainBonus:1,startBias:0,attackThreshold:0,attackLimit:16,humanAttackBias:0,pursuitBias:0,reinforceHumanBias:0,summary:'Todos compiten con las mismas prioridades. Dispones de 3 cartas, 2 maniobras y precios estándar.'},
+  belico:{name:'Bélico',handLimit:3,maneuvers:1,marketMultiplier:1.2,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.08,attackThreshold:-1,attackLimit:30,humanAttackBias:6,pursuitBias:2,reinforceHumanBias:7,summary:'La IA dirige refuerzos, espionaje y ofensivas hacia ti. Dispones de 3 cartas, 1 maniobra y el Mercado es más caro.'},
+  aniquilacion:{name:'Aniquilación',handLimit:2,maneuvers:0,marketMultiplier:1.4,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.12,attackThreshold:-2,attackLimit:42,humanAttackBias:100,pursuitBias:6,reinforceHumanBias:14,summary:'Todas las IA te cazan, abren rutas hacia tus fronteras y concentran allí sus recursos. Mano de 2, sin maniobra base y precios máximos.'}
 };
 const DIFFICULTY_ALIASES={'fácil':'pacifico',facil:'pacifico',normal:'diplomatico','difícil':'belico',dificil:'belico',odio:'aniquilacion'};
 export function normalizeDifficulty(value){const key=DIFFICULTY_ALIASES[value]||value;return DIFFICULTY_PROFILES[key]?key:'diplomatico'}
 export function difficultyProfile(stateOrDifficulty){const key=typeof stateOrDifficulty==='string'?stateOrDifficulty:stateOrDifficulty?.difficulty;return DIFFICULTY_PROFILES[normalizeDifficulty(key)]}
 export function cardHandLimit(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).handLimit:3}
 export function maneuverLimit(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).maneuvers:1}
-export function reinforcementPrice(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).reinforcementCost:10}
 export function marketPrice(state,offer,pid=state.current){const p=state.players[pid],mult=p?.human?difficultyProfile(state).marketMultiplier:1,raw=offer.cost*mult,rounded=Math.max(5,Math.round(raw/5)*5);return Math.max(5,rounded-(p?.commander==='strategist'?5:0))}
 
 export const COMMANDERS={
   conqueror:{id:'conqueror',name:'El Conquistador',icon:'⚔️',desc:'+1 al dado de ataque en el primer combate de cada turno.'},
   guardian:{id:'guardian',name:'El Guardián',icon:'🛡️',desc:'+1 al dado de defensa en territorios con Frente en Guerra.'},
   industrial:{id:'industrial',name:'El Industrial',icon:'⚙️',desc:'+1 de producción base en todos sus territorios.'},
-  strategist:{id:'strategist',name:'El Estratega',icon:'♟️',desc:'-$5 en Mercado Táctico, Movilización gratis, Bloqueo $15 y 1 Movilización inicial.'},
+  strategist:{id:'strategist',name:'El Estratega',icon:'♟️',desc:'-$5 en todas las compras del Mercado Táctico y 1 Movilización inicial.'},
   spy:{id:'spy',name:'El Espía',icon:'👁️',desc:'+1 al dado de ataque contra objetivos espiados, 1 Espía inicial y 50% anti-sabotaje.'},
   diplomat:{id:'diplomat',name:'El Diplomático',icon:'🕊️',desc:'+40% de Influencia en objetivos y subsidio diplomático de +$3 por frentes pacíficos.'}
 };
@@ -288,16 +287,15 @@ export function collectIncome(state,pid=state.current){
 }
 export const TACTICAL_CARDS={
   spy:{id:'spy',name:'Espía',cost:0,duration:1,type:'territory',icon:'👁',desc:'Revela información completa de un territorio durante 1 ronda.'},
-  sabotage:{id:'sabotage',name:'Sabotaje',cost:15,duration:2,type:'territory',icon:'⚡',desc:'Reduce a la mitad la producción de un territorio enemigo durante 2 rondas.'},
-  blockade:{id:'blockade',name:'Bloqueo',cost:25,duration:2,type:'connection',icon:'⛔',desc:'Cierra una conexión durante 2 rondas.'},
-  mobilize:{id:'mobilize',name:'Movilización',cost:10,duration:0,type:'self',icon:'🚀',desc:'Permite una segunda operación de movimiento este turno.'},
+  sabotage:{id:'sabotage',name:'Sabotaje',cost:0,duration:2,type:'territory',icon:'⚡',desc:'Reduce a la mitad la producción de un territorio enemigo durante 2 rondas.'},
+  blockade:{id:'blockade',name:'Bloqueo',cost:0,duration:2,type:'connection',icon:'⛔',desc:'Cierra una conexión durante 2 rondas.'},
+  mobilize:{id:'mobilize',name:'Movilización',cost:0,duration:0,type:'self',icon:'🚀',desc:'Permite una operación de movimiento adicional este turno.'},
   counter:{id:'counter',name:'Contrainteligencia',cost:0,duration:0,type:'reaction',icon:'🛡',desc:'Cuando recibes Espía o Sabotaje, eliges si descartarla para anular el efecto.'}
 };
 export function tacticalCardCost(state,cardId,pid=state.current){
   const card=TACTICAL_CARDS[cardId];
   if(!card)return Infinity;
-  if(state.players[pid]?.commander==='strategist'&&(cardId==='blockade'||cardId==='mobilize'))return Math.max(0,card.cost-10);
-  return card.cost;
+  return 0;
 }
 
 export const connectionKey=(a,b)=>a<b?`${a}-${b}`:`${b}-${a}`;
@@ -334,11 +332,11 @@ export function cleanExpiredEffects(state){
 export const MARKET_CATALOG=[
   {id:'troops_3',name:'+3 Tropas',cost:30,type:'troops',value:3,icon:'🎖',desc:'Añade 3 refuerzos inmediatos a tu reserva.'},
   {id:'troops_5',name:'+5 Batallón',cost:45,type:'troops',value:5,icon:'⚔️',desc:'Añade 5 refuerzos inmediatos a tu reserva.'},
-  {id:'card_spy',name:'Carta de Espía',cost:35,type:'card',cardId:'spy',icon:'👁',desc:'Añade una carta de Espía a tu mano.'},
-  {id:'card_sabotage',name:'Carta de Sabotaje',cost:35,type:'card',cardId:'sabotage',icon:'⚡',desc:'Añade una carta de Sabotaje a tu mano.'},
-  {id:'card_blockade',name:'Carta de Bloqueo',cost:35,type:'card',cardId:'blockade',icon:'⛔',desc:'Añade una carta de Bloqueo a tu mano.'},
-  {id:'card_mobilize',name:'Carta de Movilización',cost:45,type:'card',cardId:'mobilize',icon:'🚀',desc:'Añade una carta de Movilización a tu mano.'},
-  {id:'card_counter',name:'Contrainteligencia',cost:30,type:'card',cardId:'counter',icon:'🛡',desc:'Añade una carta de Contrainteligencia a tu mano.'},
+  {id:'card_spy',name:'Carta de Espía',cost:20,type:'card',cardId:'spy',icon:'👁',desc:'Añade Espía a tu mano. Jugarla no cuesta dinero.'},
+  {id:'card_sabotage',name:'Carta de Sabotaje',cost:25,type:'card',cardId:'sabotage',icon:'⚡',desc:'Añade Sabotaje a tu mano. Jugarla no cuesta dinero.'},
+  {id:'card_blockade',name:'Carta de Bloqueo',cost:30,type:'card',cardId:'blockade',icon:'⛔',desc:'Añade Bloqueo a tu mano. Jugarla no cuesta dinero.'},
+  {id:'card_mobilize',name:'Carta de Movilización',cost:25,type:'card',cardId:'mobilize',icon:'🚀',desc:'Añade Movilización a tu mano. Jugarla no cuesta dinero.'},
+  {id:'card_counter',name:'Contrainteligencia',cost:25,type:'card',cardId:'counter',icon:'🛡',desc:'Añade Contrainteligencia a tu mano. Usarla como reacción no cuesta dinero.'},
   {id:'temp_defense',name:'Defensa Temporal',cost:40,type:'defense',icon:'🏰',desc:'+1 al dado defensivo mayor durante esta ronda.'}
 ];
 
@@ -348,9 +346,16 @@ export function generateMarket(state,cycle=Math.floor((state.turn-1)/3)){
     const j=Math.floor(nextRand(state)*(i+1));
     [pool[i],pool[j]]=[pool[j],pool[i]];
   }
-  const count=3+Math.floor(nextRand(state)*2);
-  const offers=pool.slice(0,count).map(item=>({...item,boughtBy:[]}));
+  const count=3+Math.floor(nextRand(state)*2),troops=pool.filter(item=>item.type==='troops'),guaranteed=troops[Math.floor(nextRand(state)*troops.length)],rest=pool.filter(item=>item.id!==guaranteed.id);
+  const offers=[guaranteed,...rest.slice(0,count-1)].map(item=>({...item,boughtBy:[]}));
   return{cycle,offers};
+}
+
+function ensureMarketTroopOffer(state){
+  if(!state.market?.offers||state.market.offers.some(offer=>offer.type==='troops'))return;
+  const troop={...MARKET_CATALOG.find(offer=>offer.type==='troops'),boughtBy:[]};
+  if(state.market.offers.length>=4)state.market.offers[state.market.offers.length-1]=troop;
+  else state.market.offers.push(troop);
 }
 
 export function buyMarketItem(state,offerId,pid=state.current){
@@ -384,15 +389,6 @@ export function buyMarketItem(state,offerId,pid=state.current){
   return{ok:true,offer};
 }
 
-export function buyReinforcements(state,pid=state.current){
-  const player=state.players[pid],cost=reinforcementPrice(state,pid);
-  if(state.phase!=='reinforce'||state.current!==pid||!player?.alive||player.money<cost||player.reinforcementsBoughtRound===state.turn)return false;
-  player.money-=cost;recordObjectiveAction(state,pid,{spent:cost});state.reinforcementHistory=[];state.pendingReinforcements+=3;
-  player.reinforcementsBoughtRound=state.turn;
-  addLog(state,`${player.name} realizó la compra básica: +3 refuerzos por $${cost}.`,pid);
-  checkObjectives(state,pid);
-  return true;
-}
 export const OBJECTIVES_CATALOG=[
   {id:'regional_network',kind:'main',path:'position',nonMilitary:false,name:'Red Continental',value:18,icon:'🗺️',desc:'Mantén al menos 3 territorios en 4 regiones distintas.'},
   {id:'tactical_doctrine',kind:'main',path:'tactics',nonMilitary:true,name:'Doctrina Combinada',value:18,icon:'🃏',desc:'Juega 3 tipos distintos de Carta Táctica durante la campaña.'},
@@ -576,6 +572,8 @@ export function upgradeGame(state){
     state.reinforcementHistory=Array.isArray(state.reinforcementHistory)?state.reinforcementHistory:[];
     state.reconTerritories=state.reconTerritories||{};state.pendingReactions=state.pendingReactions||[];state.reactionSequence=state.reactionSequence||0;state.probeUsedThisTurn=!!state.probeUsedThisTurn;
     state.players.forEach(p=>{ensureObjectiveStats(state,p);assignPlayerObjectives(state,p);p.influence=calculateInfluence(state,p.id)});
+    if(!state.market?.offers)state.market=generateMarket(state,Math.floor((state.turn-1)/3));
+    ensureMarketTroopOffer(state);
     if(state.rulesMode!=='terrain')clearTerrainEvents(state);
     return state;
   }
@@ -611,6 +609,7 @@ export function upgradeGame(state){
   if(!state.market||!state.market.offers){
     state.market=generateMarket(state,Math.floor((state.turn-1)/3));
   }
+  ensureMarketTroopOffer(state);
   state.victoryType=state.victoryType||(state.winner!==null?'dominance':null);
   state.turnConquests=state.turnConquests||{};
   state.objectiveCycle=state.objectiveCycle??Math.floor((state.turn-1)/3);
@@ -944,15 +943,11 @@ export function playTacticalCard(state,cardId,target=null,pid=state.current){
   if(!cardDef)return{ok:false,reason:'Carta desconocida'};
   if(cardDef.type==='reaction')return{ok:false,reason:'La Contrainteligencia solo puede elegirse como reacción a Espía o Sabotaje'};
   if(cardId==='mobilize'&&state.mobilizationUsedThisTurn)return{ok:false,reason:'Solo puedes activar una Movilización por turno'};
-  const effectiveCost=tacticalCardCost(state,cardId,pid);
-  if(p.money<effectiveCost)return{ok:false,reason:`Dinero insuficiente (necesitas $${effectiveCost})`};
-
   if(cardId==='spy'){
     if(!target||!state.territories[target]||state.territories[target].owner===pid)return{ok:false,reason:'Objetivo enemigo inválido'};
     const defenderId=state.territories[target].owner,defender=state.players[defenderId];
-    p.money-=effectiveCost;
     p.cards.splice(cardIndex,1);
-    recordObjectiveAction(state,pid,{cardId,spent:effectiveCost});
+    recordObjectiveAction(state,pid,{cardId});
     updateFrontTension(state,pid,defenderId,terr(state,target).region,'tense');
     const reaction=offerCounterReaction(state,cardId,target,pid,defenderId);
     checkObjectives(state,pid);return{ok:true,...reaction};
@@ -961,9 +956,8 @@ export function playTacticalCard(state,cardId,target=null,pid=state.current){
   if(cardId==='sabotage'){
     if(!target||!state.territories[target]||state.territories[target].owner===pid)return{ok:false,reason:'Objetivo enemigo inválido'};
     const defenderId=state.territories[target].owner,defender=state.players[defenderId];
-    p.money-=effectiveCost;
     p.cards.splice(cardIndex,1);
-    recordObjectiveAction(state,pid,{cardId,spent:effectiveCost});
+    recordObjectiveAction(state,pid,{cardId});
     updateFrontTension(state,pid,defenderId,terr(state,target).region,'tense');
     if(defender.commander==='spy'&&nextRand(state)<0.5){
       addLog(state,`¡Red de contrainteligencia de ${defender.name} (El Espía) neutralizó el Sabotaje de ${p.name}!`,defenderId);
@@ -978,9 +972,8 @@ export function playTacticalCard(state,cardId,target=null,pid=state.current){
     const[t1,t2]=target;
     if(!terr(state,t1)?.n.includes(t2))return{ok:false,reason:'Los territorios no están conectados'};
     if(isConnectionBlocked(state,t1,t2))return{ok:false,reason:'Esa conexión ya está bloqueada'};
-    p.money-=effectiveCost;
     p.cards.splice(cardIndex,1);
-    recordObjectiveAction(state,pid,{cardId,spent:effectiveCost});
+    recordObjectiveAction(state,pid,{cardId});
     const o1=state.territories[t1]?.owner,o2=state.territories[t2]?.owner;
     if(o1!==undefined&&o2!==undefined&&o1!==o2){
       for(const region of new Set([terr(state,t1).region,terr(state,t2).region]))updateFrontTension(state,pid,o1===pid?o2:o1,region,'tense');
@@ -991,13 +984,12 @@ export function playTacticalCard(state,cardId,target=null,pid=state.current){
   }
 
   if(cardId==='mobilize'){
-    p.money-=effectiveCost;
     p.cards.splice(cardIndex,1);
-    recordObjectiveAction(state,pid,{cardId,spent:effectiveCost});
+    recordObjectiveAction(state,pid,{cardId});
     state.mobilizationUsedThisTurn=true;
     state.extraFortifies=(state.extraFortifies||0)+1;
     if(state.phase==='close')state.phase='fortify';
-    addLog(state,`${p.name} activó Movilización por $${effectiveCost}.`,pid);
+    addLog(state,`${p.name} activó Movilización.`,pid);
     checkObjectives(state,pid);return{ok:true,countered:false};
   }
 
@@ -1099,7 +1091,7 @@ export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
   difficulty=normalizeDifficulty(difficulty||state.difficulty);state.difficulty=difficulty;
   const report={ok:true,playerId:pid,playerName:state.players[pid].name,reinforcements:state.pendingReinforcements,probes:[],battles:[],conquests:0,attackerLosses:0,defenderLosses:0,eliminated:[]};
   const p=state.players[pid];
-  if(p.cards.includes('sabotage')&&p.money>=15){
+  if(p.cards.includes('sabotage')){
     let enemyTerrs=getTerritories(state).filter(t=>state.territories[t.id].owner!==pid&&(!state.sabotagedTerritories||!state.sabotagedTerritories[t.id]));
     if(enemyTerrs.length){
       const humanTargets=enemyTerrs.filter(t=>state.players[state.territories[t.id].owner]?.human),aiTargets=enemyTerrs.filter(t=>!state.players[state.territories[t.id].owner]?.human);
@@ -1114,8 +1106,7 @@ export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
       }
     }
   }
-  const blockCost=p.commander==='strategist'?15:25;
-  if(p.cards.includes('blockade')&&p.money>=blockCost){
+  if(p.cards.includes('blockade')){
     let worstConn=null,maxThreat=0;
     for(const myId of ownedIds(state,pid)){
       for(const enemyId of enemiesOf(state,myId)){
@@ -1151,12 +1142,11 @@ export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
       const troopOffer=[...available].filter(o=>o.type==='troops').sort((a,b)=>b.value-a.value)[0];
       if(troopOffer)buyMarketItem(state,troopOffer.id,pid);
     }
-    if(difficulty!=='pacifico'&&p.cards.length<cardHandLimit(state,pid)&&p.money>=40){
+    if(difficulty!=='pacifico'&&p.cards.length<cardHandLimit(state,pid)){
       const cardOffer=(difficulty==='belico'||difficulty==='aniquilacion')?available.find(o=>o.type==='card'&&(o.cardId==='counter'||o.cardId==='sabotage'||o.cardId==='spy'))||available.find(o=>o.type==='card'):available.find(o=>o.type==='card');
       if(cardOffer)buyMarketItem(state,cardOffer.id,pid);
     }
   }
-  if((borderNeed||p.commander==='industrial')&&state.players[pid].money>=reinforcementPrice(state,pid))buyReinforcements(state,pid);
   report.reinforcements=state.pendingReinforcements;
   while(state.pendingReinforcements>0){
     let own=ownedIds(state,pid).sort((a,b)=>aiStrategicScore(state,b,pid,difficulty)-aiStrategicScore(state,a,pid,difficulty));
@@ -1210,8 +1200,7 @@ export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
   const borders=ownedIds(state,pid).filter(id=>enemiesOf(state,id).length).sort((a,b)=>aiStrategicScore(state,b,pid,difficulty)-aiStrategicScore(state,a,pid,difficulty));
   if(sources.length&&borders.length&&connectedOwned(state,sources[0],borders[0],pid)){
     fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));
-    const mobCost=p.commander==='strategist'?0:10;
-    if(p.cards.includes('mobilize')&&p.money>=mobCost&&sources.length>1&&borders.length>1){
+    if(p.cards.includes('mobilize')&&sources.length>1&&borders.length>1){
       if(playTacticalCard(state,'mobilize',null,pid).ok&&connectedOwned(state,sources[1],borders[1],pid)){
         fortify(state,sources[1],borders[1],Math.max(1,state.territories[sources[1]].troops-1));
       }
@@ -1219,4 +1208,4 @@ export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
   }else setPhase(state,'close');
   endTurn(state);return report;
 }
-export function validateState(state){const errors=[],ts=getTerritories(state);for(const t of ts){const s=state.territories[t.id];if(!s)errors.push(`Falta ${t.id}`);else if(s.troops<1)errors.push(`${t.id} sin tropas`);else if(!state.players[s.owner])errors.push(`${t.id} dueño inválido`);else if('unitType'in s)errors.push(`${t.id} conserva una unidad diferenciada`)}const owners=new Set(ts.map(t=>state.territories[t.id]?.owner));state.players.forEach(p=>{if(p.alive!==owners.has(p.id)&&state.winner===null)errors.push(`Estado vital incorrecto: ${p.name}`);if(!Array.isArray(p.cards)||p.cards.length>cardHandLimit(state,p.id))errors.push(`Mano de cartas inválida en ${p.name}`);if(typeof p.influence!=='number'||isNaN(p.influence))errors.push(`Influencia inválida en ${p.name}`);if(!Array.isArray(p.completedObjectives))errors.push(`Objetivos inválidos en ${p.name}`);if(!p.commander||!COMMANDERS[p.commander])errors.push(`Doctrina inválida en ${p.name}`)});if(!state.market||!Array.isArray(state.market.offers)||state.market.offers.length<3||state.market.offers.length>4){errors.push('Mercado inválido')}if(!state.fronts||typeof state.fronts!=='object'){errors.push('Frentes inválidos')}if(!Array.isArray(state.reinforcementHistory)){errors.push('Historial de Reclutamiento inválido')}if(state.announcedEvent&&(typeof state.announcedEvent!=='object'||!EVENT_CATALOG[state.announcedEvent.type]||!REGIONS[state.announcedEvent.region])){errors.push('Evento anunciado inválido')}if(state.activeEvent&&(typeof state.activeEvent!=='object'||!EVENT_CATALOG[state.activeEvent.type]||!REGIONS[state.activeEvent.region])){errors.push('Evento activo inválido')}return errors}
+export function validateState(state){const errors=[],ts=getTerritories(state);for(const t of ts){const s=state.territories[t.id];if(!s)errors.push(`Falta ${t.id}`);else if(s.troops<1)errors.push(`${t.id} sin tropas`);else if(!state.players[s.owner])errors.push(`${t.id} dueño inválido`);else if('unitType'in s)errors.push(`${t.id} conserva una unidad diferenciada`)}const owners=new Set(ts.map(t=>state.territories[t.id]?.owner));state.players.forEach(p=>{if(p.alive!==owners.has(p.id)&&state.winner===null)errors.push(`Estado vital incorrecto: ${p.name}`);if(!Array.isArray(p.cards)||p.cards.length>cardHandLimit(state,p.id))errors.push(`Mano de cartas inválida en ${p.name}`);if(typeof p.influence!=='number'||isNaN(p.influence))errors.push(`Influencia inválida en ${p.name}`);if(!Array.isArray(p.completedObjectives))errors.push(`Objetivos inválidos en ${p.name}`);if(!p.commander||!COMMANDERS[p.commander])errors.push(`Doctrina inválida en ${p.name}`)});if(!state.market||!Array.isArray(state.market.offers)||state.market.offers.length<3||state.market.offers.length>4){errors.push('Mercado inválido')}else if(!state.market.offers.some(offer=>offer.type==='troops'))errors.push('Mercado sin oferta de tropas');if(!state.fronts||typeof state.fronts!=='object'){errors.push('Frentes inválidos')}if(!Array.isArray(state.reinforcementHistory)){errors.push('Historial de Reclutamiento inválido')}if(state.announcedEvent&&(typeof state.announcedEvent!=='object'||!EVENT_CATALOG[state.announcedEvent.type]||!REGIONS[state.announcedEvent.region])){errors.push('Evento anunciado inválido')}if(state.activeEvent&&(typeof state.activeEvent!=='object'||!EVENT_CATALOG[state.activeEvent.type]||!REGIONS[state.activeEvent.region])){errors.push('Evento activo inválido')}return errors}

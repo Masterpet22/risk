@@ -121,7 +121,7 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 @media(max-width:760px){.summary-trigger{width:40px}.summary-trigger:before{content:'▤'}.end-scroll{padding:22px 18px 15px}.end-kpis{grid-template-columns:repeat(2,1fr)}.end-activity>div{flex-wrap:wrap}.end-activity span{flex-basis:100%;padding-left:14px}.end-actions{padding:12px 18px}.end-actions button{min-width:0;flex:1}}
 
 /* Treasury and territorial production */
-.player-money{margin-top:10px;padding-top:8px;border-top:1px solid #31516a;color:#a7c7d9;font-size:.72rem}.player-money strong{color:#f4d076}.economy-box{display:grid;gap:6px;padding:12px;border:1px solid #9d7c37;border-radius:10px;background:linear-gradient(140deg,#30291b,#17293a);color:#e9d9b2}.economy-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.economy-head span{font-size:.68rem;font-weight:800;letter-spacing:.12em;color:#f6cc68}.economy-head strong{font:700 1.4rem 'Marcellus',serif;color:#ffe188}.economy-box small{font-size:.75rem;color:#c7d6dd}.economy-box button{margin-top:4px;padding:8px 11px;border-radius:8px;font-size:.77rem;font-weight:800;color:#ffe4a2;border-color:#b38d42;background:#473718}.economy-box button:disabled{cursor:not-allowed;opacity:.48}
+.player-money{margin-top:10px;padding-top:8px;border-top:1px solid #31516a;color:#a7c7d9;font-size:.72rem}.player-money strong{color:#f4d076}
 
 /* Tactical Market styling */
 .market-box{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #3c6182;border-radius:12px;background:linear-gradient(145deg,#0d2338,#091a2a);color:#edf5f9;font-size:.87rem;margin:10px 0}
@@ -2518,7 +2518,7 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
   color: #ff9b91 !important;
 }
 
-/* El tesoro se integra visualmente con el comandante activo. */
+/* Los fondos se integran visualmente con el comandante activo. */
 .commander-economy {
   margin: 2px 0 0 !important;
   padding: 8px 9px !important;
@@ -3430,7 +3430,6 @@ body:has(#startModal:not(.hidden)) {
 .popover-fronts { display:grid; gap:5px; }.front-tag-unknown { color:#8ca4b3 !important; }
 .territory-fronts { display:grid; gap:4px; margin-top:5px; padding-top:6px; border-top:1px solid rgba(69,107,132,.3); }.territory-front-row { display:flex; justify-content:space-between; gap:8px; font-size:.65rem; }.territory-front-row span { color:#91adbe; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.territory-front-row strong { font-size:.62rem; white-space:nowrap; }
 
-.economy-production { color:#92b0c5 !important; font-size:.68rem !important; }.basic-purchase { display:grid; gap:3px; margin-top:3px; padding:7px; border:1px solid rgba(231,188,69,.35); border-radius:8px; background:rgba(109,78,17,.14); }.basic-purchase-label { color:#f0cb69; font-size:.57rem; font-weight:900; letter-spacing:.08em; }.basic-purchase>small { color:#839fb1 !important; font-size:.6rem !important; }.basic-buy-btn { margin-top:2px !important; border-color:#c69b3d !important; background:linear-gradient(180deg,#624817,#3f2e12) !important; color:#ffe18b !important; }
 .market-offer-title { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }.market-type-badge { padding:1px 5px; border-radius:8px; font-size:.52rem; font-weight:900; letter-spacing:.06em; }.market-type-reserve { color:#76e2dc; background:rgba(76,231,225,.12); border:1px solid rgba(76,231,225,.3); }.market-type-card { color:#aab9ff; background:rgba(132,146,235,.13); border:1px solid rgba(132,146,235,.3); }.market-type-effect { color:#ffb58a; background:rgba(255,128,92,.12); border:1px solid rgba(255,128,92,.3); }.market-separation-note { margin:8px 0 0 !important; padding:7px 8px; border-radius:7px; background:rgba(76,231,225,.06); color:#8fb0c3 !important; font-size:.65rem !important; }
 
 @media (max-width: 560px) {

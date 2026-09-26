@@ -108,7 +108,7 @@ Criterios de aceptación:
 
 Después de corregir los controles, la siguiente prioridad es que el mapa explique mejor el estado de la partida.
 
-**Estado: completado.** Se incorporaron el desglose calculado de Influencia, la Crónica filtrable, el resumen de Frentes de Guerra y una separación explícita entre compra básica y ofertas rotatorias. También se corrigió el recorte vertical del área de ataque para que su contenido determine la altura del panel.
+**Estado: completado.** Se incorporaron el desglose calculado de Influencia, la Crónica filtrable, el resumen de Frentes de Guerra y las compras unificadas en el Mercado táctico. También se corrigió el recorte vertical del área de ataque para que su contenido determine la altura del panel.
 
 ### P1.1 Mejorar la visibilidad de los Frentes de Guerra
 
@@ -143,16 +143,16 @@ Criterio de cierre: la suma de todas las filas coincide siempre con `calculateIn
 
 Criterio de cierre: cualquier cambio importante del estado puede rastrearse desde el modal sin saturar la pantalla principal.
 
-### P1.4 Diferenciar compra básica y refuerzos del Mercado
+### P1.4 Unificar las compras en el Mercado táctico
 
-- Nombrar la acción económica permanente como `Compra básica: +3 refuerzos por $10`.
-- Reservar `Mercado táctico` para ofertas rotatorias, cartas y efectos especiales.
-- Dar a ambas acciones iconos, colores y descripciones diferentes.
+- Eliminar la compra básica separada y ofrecer tropas junto con cartas y efectos.
+- Garantizar al menos una oferta de tropas en cada rotación del Mercado.
+- Mostrar fondos y producción dentro del Mercado para centralizar la decisión económica.
 - Mostrar claramente si una oferta del Mercado entrega tropas inmediatas, reserva, una carta o un efecto temporal.
-- Evitar que la compra básica parezca una oferta más del Mercado o que dependa de su rotación.
+- Cobrar las cartas al adquirirlas y permitir jugarlas sin un segundo coste.
 - Revisar los mensajes de saldo insuficiente y fase no válida.
 
-Criterio de cierre: en una prueba sin explicación previa, el jugador distingue dónde comprar refuerzos estándar y dónde adquirir ofertas tácticas.
+Criterio de cierre: en una prueba sin explicación previa, el jugador entiende que toda compra ocurre en el Mercado y que usar una carta ya adquirida es gratuito.
 
 ## P2 — Jerarquía del panel de órdenes
 
@@ -278,7 +278,7 @@ Criterio de cierre: el informe de simulación demuestra que una ventaja temprana
 1. P0.2 — Nuevo selector de maniobra y vista previa.
 2. P0.1 — Soldados desplegados, animación y resolución de combate.
 3. P0.3 — Deshacer durante Reclutamiento.
-4. P1.4 — Diferenciar compra básica y Mercado táctico.
+4. P1.4 — Unificar las compras en el Mercado táctico.
 5. P1.2 — Desglose visible de Influencia.
 6. P1.1 — Visibilidad y explicación de los Frentes de Guerra.
 7. P1.3 — Crónica de campaña como modal.

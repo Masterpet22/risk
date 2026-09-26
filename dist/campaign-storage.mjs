@@ -1,4 +1,4 @@
-import {upgradeGame,validateState,normalizeDifficulty} from './engine.mjs?v=20';
+import {upgradeGame,validateState,normalizeDifficulty} from './engine.mjs?v=22';
 
 export const CAMPAIGN_SAVE_KEY='fronteras-acero-save-v3';
 

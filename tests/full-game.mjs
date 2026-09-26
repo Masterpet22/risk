@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,DIFFICULTY_PROFILES,cardHandLimit,maneuverLimit,reinforcementPrice,marketPrice,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolveCardChoice,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,DIFFICULTY_PROFILES,cardHandLimit,maneuverLimit,marketPrice,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,reinforcementCount,upgradeGame,drawTacticalCard,resolveCardChoice,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -166,7 +166,7 @@ for(const map of Object.values(MAPS)){
 }
 console.log('OK: conectividad, rutas simétricas y nombres únicos verificados en los 3 mapas.');
 
-// Economía: conectividad, control regional, cobro único, gasto y continuidad del guardado anterior.
+// Economía: conectividad, control regional, cobro único, Mercado unificado y continuidad del guardado anterior.
 const economy=createGame({players:2,seed:314,human:true});
 for(const t of TERRITORIES)economy.territories[t.id].owner=1;
 economy.territories.n1.owner=economy.territories.n2.owner=0;
@@ -178,8 +178,11 @@ const expectedRegionTotal=['n1','n2','n3','n4'].reduce((sum,id)=>sum+territoryPr
 if(territoryProduction(economy,'n1')!==n1Production||productionTotal(economy,0)!==expectedRegionTotal)throw new Error('El bono regional plano o la producción por conectividad fallaron');
 economy.players[0].money=0;economy.players[0].lastIncomeRound=0;
 if(collectIncome(economy,0)!==expectedRegionTotal||collectIncome(economy,0)!==0||economy.players[0].money!==expectedRegionTotal)throw new Error('El cobro económico se duplicó o calculó mal');
-const before=economy.pendingReinforcements;
-if(!buyReinforcements(economy)||economy.players[0].money!==expectedRegionTotal-10||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
+const economyTroops=economy.market.offers.find(o=>o.type==='troops');
+if(!economyTroops)throw new Error('El Mercado no garantizó una oferta de tropas');
+economy.players[0].money=100;
+const economyBefore=economy.pendingReinforcements,economyPrice=marketPrice(economy,economyTroops,0);
+if(!buyMarketItem(economy,economyTroops.id,0).ok||economy.players[0].money!==100-economyPrice||economy.pendingReinforcements!==economyBefore+economyTroops.value)throw new Error('La compra unificada de tropas no respetó coste y saldo');
 const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
 if(upgradeGame(previousV3)?.version!==14||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v14 de forma estable');
 const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
@@ -188,12 +191,17 @@ const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete pr
 if(upgradeGame(previousV5)?.version!==14||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v14 de forma estable');
 const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
 if(upgradeGame(previousV6)?.version!==14||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v14 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v14 verificados.');
+console.log('OK: producción, fondos, Mercado unificado y migración v14 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
 if(!mg.market||mg.market.offers.length<3||mg.market.offers.length>4)throw new Error('El mercado inicial no tiene entre 3 y 4 ofertas');
+if(!mg.market.offers.some(o=>o.type==='troops'))throw new Error('Cada rotación del Mercado debe incluir tropas');
 if(mg.market.cycle!==0)throw new Error('El ciclo de mercado inicial debe ser 0');
+const legacyMarket=createGame({players:2,seed:405,human:true});
+legacyMarket.market.offers=MARKET_CATALOG.filter(o=>o.type!=='troops').slice(0,3).map(o=>({...o,boughtBy:[]}));
+upgradeGame(legacyMarket);
+if(!legacyMarket.market.offers.some(o=>o.type==='troops'))throw new Error('Una partida guardada no recuperó la oferta obligatoria de tropas');
 
 // Compra fuera de fase o sin dinero
 mg.players[0].money=10;
@@ -266,8 +274,9 @@ if(objectiveProgress(ig,0,'investment_60').target!==60)throw new Error('El progr
 
 const objectiveActions=createGame({players:2,seed:818,human:true});
 objectiveActions.players[0].mainObjective='investment_60';objectiveActions.players[0].objectiveChoices.main=[];objectiveActions.players[0].money=100;
-buyReinforcements(objectiveActions,0);
-if(objectiveProgress(objectiveActions,0,'investment_60').raw!==10)throw new Error('La compra básica no registró inversión para objetivos');
+const objectiveTroops=objectiveActions.market.offers.find(o=>o.type==='troops'),objectivePrice=marketPrice(objectiveActions,objectiveTroops,0);
+buyMarketItem(objectiveActions,objectiveTroops.id,0);
+if(objectiveProgress(objectiveActions,0,'investment_60').raw!==objectivePrice)throw new Error('La compra de tropas en el Mercado no registró inversión para objetivos');
 for(const t of TERRITORIES)objectiveActions.territories[t.id].owner=0;
 objectiveActions.phase='fortify';objectiveActions.territories.n1.troops=8;objectiveActions.players[0].temporaryObjective='fortify_6';objectiveActions.players[0].objectiveChoices.temporary=[];
 if(!fortify(objectiveActions,'n1','n2',6)||!objectiveActions.players[0].completedObjectives.includes('fortify_6'))throw new Error('La Maniobra no completó la misión logística');
@@ -358,16 +367,16 @@ const indProd = territoryProduction(testInd, indTerr, 0);
 const indExpected=1+Math.min(2,Math.floor(getTerritories(testInd).find(t=>t.id===indTerr).n.length/2))+1;
 if (indProd !== indExpected) throw new Error(`El Industrial debe sumar $1 a la producción conectada, obtenido: $${indProd}`);
 
-// 4. Doctrina El Estratega: Costes reducidos en Bloqueo ($15) y Movilización ($0)
+// 4. Las cartas se pagan al adquirirlas y se usan sin coste adicional.
 const testStrat = createGame({players:2, seed:904, human:true, playerCommander:'strategist'});
 testStrat.players[0].cards = ['blockade', 'mobilize'];
 testStrat.players[0].money = 15;
 const sConn = [ownedIds(testStrat, 0)[0], getTerritories(testStrat).find(t => t.id === ownedIds(testStrat, 0)[0]).n[0]];
 const bRes = playTacticalCard(testStrat, 'blockade', sConn, 0);
-if (!bRes.ok || testStrat.players[0].money !== 0) throw new Error('El Estratega debió pagar exactamente $15 por Bloqueo');
+if (!bRes.ok || testStrat.players[0].money !== 15) throw new Error('Jugar Bloqueo no debe volver a cobrar la carta');
 const mRes = playTacticalCard(testStrat, 'mobilize', null, 0);
-if (!mRes.ok || testStrat.players[0].money !== 0 || testStrat.extraFortifies !== 1) throw new Error('El Estratega debió pagar $0 por Movilización');
-if(tacticalCardCost(testStrat,'blockade',0)!==15||tacticalCardCost(testStrat,'mobilize',0)!==0)throw new Error('Los costes efectivos del Estratega no coinciden con la interfaz');
+if (!mRes.ok || testStrat.players[0].money !== 15 || testStrat.extraFortifies !== 1) throw new Error('Jugar Movilización no debe cobrar y debe habilitar una maniobra');
+if(tacticalCardCost(testStrat,'blockade',0)!==0||tacticalCardCost(testStrat,'mobilize',0)!==0)throw new Error('La interfaz debe mostrar uso gratuito para todas las cartas');
 
 // 5. Doctrina El Diplomático: +20% de Influencia en Objetivos
 const testDip = createGame({players:2, seed:905, human:true, playerCommander:'diplomat'});

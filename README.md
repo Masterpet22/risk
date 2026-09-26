@@ -30,7 +30,7 @@ Después abre <http://localhost:8000>.
 
 ## Controles y comportamiento
 
-El turno se divide en Reclutamiento, Combate, Maniobra y Cierre. Durante Reclutamiento se pueden deshacer colocaciones y comprar refuerzos básicos o artículos del Mercado. El Combate es opcional: una vez por turno se puede realizar un Sondeo de 1 dado contra 1 para revelar una guarnición sin posibilidad de conquistar, o comprometer tropas en un ataque normal. Cada dado atacante representa un soldado desplegado. La Maniobra utiliza botones −/+, entrada numérica y accesos 1, Mitad y Máximo con vista previa de origen y destino.
+El turno se divide en Reclutamiento, Combate, Maniobra y Cierre. Durante Reclutamiento se pueden deshacer colocaciones y comprar tropas, cartas o efectos exclusivamente en el Mercado táctico; cada rotación garantiza al menos una oferta de tropas. Las cartas se pagan al adquirirlas y no vuelven a cobrar al jugarlas. El Combate es opcional: una vez por turno se puede realizar un Sondeo de 1 dado contra 1 para revelar una guarnición sin posibilidad de conquistar, o comprometer tropas en un ataque normal. Cada dado atacante representa un soldado desplegado. La Maniobra utiliza botones −/+, entrada numérica y accesos 1, Mitad y Máximo con vista previa de origen y destino.
 
 Los Frentes de Guerra se registran por pareja de comandantes y por región. Sondeo, Espía y Sabotaje elevan la tensión regional; los combates y conquistas la escalan. Contrainteligencia no se consume automáticamente: el defensor elige si descartar la carta para anular Espía o Sabotaje, o conservarla y aceptar el efecto.
 

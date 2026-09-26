@@ -1,7 +1,7 @@
 import {strict as assert} from 'node:assert';
 import {
   createGame,aiTurn,ownedIds,getTerritories,cardHandLimit,maneuverLimit,
-  reinforcementPrice,marketPrice,validateState,aiStrategicScore,normalizeDifficulty,
+  marketPrice,validateState,aiStrategicScore,normalizeDifficulty,
   enemiesOf,placeTroops,finishReinforcement,setPhase,endTurn
 } from '../dist/engine.mjs';
 
@@ -11,18 +11,18 @@ assert.equal(normalizeDifficulty('difícil'),'belico');
 assert.equal(normalizeDifficulty('odio'),'aniquilacion');
 
 const expected={
-  pacifico:{cards:4,moves:3,basic:5,market:25},
-  diplomatico:{cards:3,moves:2,basic:10,market:30},
-  belico:{cards:3,moves:1,basic:15,market:35},
-  aniquilacion:{cards:2,moves:0,basic:20,market:40}
+  pacifico:{cards:4,moves:3,market:25},
+  diplomatico:{cards:3,moves:2,market:30},
+  belico:{cards:3,moves:1,market:35},
+  aniquilacion:{cards:2,moves:0,market:40}
 };
 for(const[difficulty,rules]of Object.entries(expected)){
   const state=createGame({players:3,seed:7100,human:true,difficulty});
   assert.equal(state.difficulty,difficulty);
   assert.equal(cardHandLimit(state,0),rules.cards);
   assert.equal(maneuverLimit(state,0),rules.moves);
-  assert.equal(reinforcementPrice(state,0),rules.basic);
   assert.equal(marketPrice(state,{cost:30},0),rules.market);
+  assert.ok(state.market.offers.some(o=>o.type==='troops'),'El Mercado debe garantizar una oferta de tropas');
   assert.equal(cardHandLimit(state,1),3,'La mano de IA no debe recibir el hándicap humano');
   assert.equal(validateState(state).length,0);
 }

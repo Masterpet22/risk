@@ -1,13 +1,13 @@
-import {REGIONS,MAPS,TERRAINS,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,reinforcementPrice,marketPrice,cardHandLimit,maneuverLimit,difficultyProfile,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolveCardChoice,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=20';
+import {REGIONS,MAPS,TERRAINS,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,marketPrice,cardHandLimit,maneuverLimit,difficultyProfile,TACTICAL_CARDS,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolveCardChoice,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=22';
 import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
-import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=1';
+import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=2';
 import {routeGeometry} from './map-routes.mjs?v=1';
 import {createLiveAnnouncer,restoreFocus,escapeHtml} from './ui-accessibility.mjs?v=1';
 import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1';
 import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=1';
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 
-const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
+const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
 let state=null,pendingAiState=null,difficulty='diplomatico',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
 let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
 let lastRenderedPhase=null;
@@ -19,7 +19,7 @@ const tutorialSteps=[
   {id:'influence',title:'Entiende tu Influencia',text:'Pulsa tu total de Influencia para ver cuánto aporta cada fuente y cuánto falta para ganar.',target:'.metric-influence-btn',when:()=>state?.phase==='reinforce'},
   {id:'objectives',title:'Consulta tus objetivos',text:'La bandera abre tus objetivos y su progreso sin ocupar espacio permanente en el tablero.',target:'#objectivesMapBtn',when:()=>state?.phase==='reinforce'},
   {id:'fronts',title:'Lee los Frentes regionales',text:'Cada región registra su propia tensión. Una guerra en el norte no convierte automáticamente los demás límites en guerra.',target:'#frontsMapBtn',when:()=>state?.phase==='reinforce'},
-  {id:'market',title:'Compra con intención',text:'Tesoro contiene la compra básica de +3 tropas. El Mercado reúne ofertas rotatorias, cartas y efectos.',target:'#marketModalBtn',when:()=>state?.phase==='reinforce'},
+  {id:'market',title:'Compra con intención',text:'El Mercado concentra tropas, cartas y efectos. Las cartas se pagan al comprarlas y se juegan sin coste.',target:'#marketModalBtn',when:()=>state?.phase==='reinforce'},
   {id:'attack-origin',title:'Elige quién ataca',text:'Selecciona un territorio propio con al menos 2 tropas. Sus objetivos válidos quedarán destacados.',target:'#map',when:()=>state?.phase==='attack'&&!selectedFrom},
   {id:'attack-target',title:'Elige un vecino enemigo',text:'Ahora selecciona un territorio enemigo conectado. Las rutas visibles corresponden al origen elegido.',target:'#map',when:()=>state?.phase==='attack'&&!!selectedFrom&&!selectedTo},
   {id:'attack-dice',title:'Sondea o compromete tropas',text:'Sondeo revela la guarnición con 1 dado y nunca conquista. Atacar es opcional; puedes pasar a Maniobra.',target:'#actionControls',when:()=>state?.phase==='attack'&&!!selectedTo},
@@ -70,7 +70,7 @@ function updateControlAccessibility(){
   const heading=$('#contextActionHeading')?.textContent||'Orden actual',phaseButton=els.phaseBtn,mobileButton=$('#mobileOrdersBtn');
   if(phaseButton){phaseButton.setAttribute('aria-label',`${phaseButton.textContent.trim()}. ${heading}${phaseButton.disabled?'. Acción no disponible todavía':''}`);phaseButton.setAttribute('aria-describedby','turnStatus')}
   if(mobileButton)mobileButton.setAttribute('aria-label',`${mobileButton.getAttribute('aria-expanded')==='true'?'Cerrar':'Abrir'} órdenes. ${$('#mobileOrdersLabel')?.textContent||heading}`);
-  const market=$('#marketModalBtn');if(market)market.setAttribute('aria-label',`Abrir Mercado táctico. Tesoro disponible: $${state.players[state.current]?.money||0}`);
+  const market=$('#marketModalBtn');if(market)market.setAttribute('aria-label',`Abrir Mercado táctico. Fondos disponibles: $${state.players[state.current]?.money||0}`);
   document.querySelectorAll('.zoom-btn').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('active'))));
 }
 function updateMobileMapOverlay(){const head=document.querySelector('.map-head')||document.querySelector('.map-floating-header'),toolbar=document.querySelector('.map-toolbar')||document.querySelector('.map-floating-footer');if(head&&head.style){head.style.left='';head.style.right='';head.style.width=''}if(toolbar&&toolbar.style){toolbar.style.left=''}}
@@ -166,7 +166,7 @@ function openInfluenceModal(pid=0){
 function chronicleCategory(text){
   const value=String(text).toLowerCase();
   if(/conquist|atac|combate|baja|elimin|defend|frente|guerra/.test(value))return'combat';
-  if(/compr|mercado|producci|\$|tesoro|refuerzo|subsidio/.test(value))return'economy';
+  if(/compr|mercado|producci|\$|fondos|refuerzo|subsidio/.test(value))return'economy';
   if(/evento|terremoto|tsunami|temporal|alerta|geol|desastre|rutas cortadas/.test(value))return'events';
   return'campaign';
 }
@@ -317,7 +317,7 @@ function showCommanderPopover(pid, anchorEl) {
     '<div class="popover-stats-grid">' +
       '<div class="popover-stat-cell"><span>Territorios</span><strong>' + terrStr + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Tropas</span><strong>' + troopsStr + '</strong></div>' +
-      '<div class="popover-stat-cell"><span>Tesoro</span><strong class="gold-val">$' + (p.money || 0) + '</strong></div>' +
+      '<div class="popover-stat-cell"><span>Fondos</span><strong class="gold-val">$' + (p.money || 0) + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Cartas</span><strong>' + (p.cards?.length || 0) + ' / ' + cardHandLimit(state,p.id) + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Influencia</span><strong class="gold-val">' + (isHuman?calculateInfluence(state,p.id):(p.influence||0)) + ' pts</strong></div>' +
       '<div class="popover-stat-cell"><span>Objetivos</span><strong>' + (p.completedObjectives || []).length + ' hechos</strong></div>' +
@@ -451,8 +451,8 @@ function renderCards(){
     }
   }
   const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo ${cardHandLimit(state,p.id)}). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
-    const c=TACTICAL_CARDS[cId],cost=tacticalCardCost(state,cId,p.id),canAfford=p.money>=cost,isReactive=c.type==='reaction',costStr=cost===0?(isReactive?'Reacción':'Gratis'):`$${cost}`,isSelected=cardTargeting?.cardId===cId;
-    return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Elegible</span>':`<button class="play-card-btn" data-card="${cId}" ${canAfford?'':'disabled'} aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
+    const c=TACTICAL_CARDS[cId],isReactive=c.type==='reaction',costStr=isReactive?'Reacción sin coste':'Uso sin coste',isSelected=cardTargeting?.cardId===cId;
+    return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Elegible</span>':`<button class="play-card-btn" data-card="${cId}" aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
   }).join('')}</div>`;
 
   els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / ${cardHandLimit(state,p.id)}</strong></div>${targetingNotice}${rewardNotice}${discardNotice}${cardsHtml}`;
@@ -603,31 +603,6 @@ function renderObjectives() {
   if(badge)badge.textContent=(!main&&!p.mainObjectiveResolved)||(!temp&&!tempResolved)?'!':String((p.completedObjectives||[]).length)+'✓';
 }
 
-function renderEconomy(){
-  const p = state.players[state.current], income = productionTotal(state, p.id);
-  const alreadyBought = p.reinforcementsBoughtRound === state.turn;
-  const basicCost=reinforcementPrice(state,p.id),canBuy = p.human && state.phase === 'reinforce' && p.money >= basicCost && !alreadyBought;
-
-  els.economyBox.innerHTML = '<div class="economy-head">' +
-    '<span class="section-title"><span class="sec-icon">💰</span> TESORO</span>' +
-    '<strong style="color: #ffd45f; font-size: 1.35rem; font-family: \'Marcellus\', serif;">$' + p.money + '</strong>' +
-  '</div>' +
-  '<small class="economy-production">Producción actual: <strong>+$' + income + '</strong> al inicio del turno.</small>' +
-  (p.human && state.phase === 'reinforce' ? (
-    '<div class="basic-purchase"><span class="basic-purchase-label">COMPRA BÁSICA · 1 POR RONDA</span><small>Reserva inmediata; no depende del Mercado.</small><button id="buyTroopsBtn" class="basic-buy-btn" ' + (canBuy ? '' : 'disabled') + '>' +
-      (alreadyBought ? '✓ Compra básica utilizada' : '🏰 +3 refuerzos · $'+basicCost) +
-    '</button></div>'
-  ) : '');
-
-  const button = $('#buyTroopsBtn');
-  if (button) button.onclick = () => {
-    if (buyReinforcements(state)) {
-      render();
-      showToast('Compra básica: +3 refuerzos por $'+basicCost);
-    }
-  };
-  renderObjectives();
-}
 function renderMarket(){
   if(!state.market?.offers){
     marketModalHtml='';
@@ -678,7 +653,7 @@ function renderMarket(){
         </div>
       ${hasTempDef?`<span class="temp-def-active-pill">🛡 Defensa +1 activa</span>`:''}
     </div>
-    <p class="market-separation-note">El Mercado ofrece cartas y ventajas especiales. La compra básica de +3 refuerzos está en Tesoro.</p>
+    <p class="market-separation-note"><strong>Fondos: $${p.money}</strong> · Producción al inicio del turno: +$${productionTotal(state,p.id)}. Tropas, cartas y efectos se compran únicamente aquí; las cartas no vuelven a cobrar al jugarlas.</p>
     <div class="market-offers-list">${offersHtml}</div>
     <p class="market-rotation-note">Rota en la ronda ${nextRotationRound} · ${roundsLeft} ${roundsLeft===1?'ronda':'rondas'} restantes</p>
     </div>`;
@@ -731,7 +706,7 @@ function renderPanel(){
   els.battle.innerHTML = '';
   els.controls.innerHTML = '';
   els.selection.innerHTML = '';
-  renderEconomy();
+  renderObjectives();
   renderMarket();
   renderCards();
   renderTerrainPanel();
@@ -1090,7 +1065,7 @@ function summaryHtml(){
           <th>Influencia</th>
           <th>Territorios</th>
           <th>Tropas</th>
-          <th>Tesoro</th>
+          <th>Fondos</th>
           <th>Objetivos</th>
           ${campaign?.complete?'<th>Conquistas</th><th>Bajas</th>':''}
         </tr>
