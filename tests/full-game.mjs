@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolveCardChoice,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -54,13 +54,16 @@ if(!roll.ok||!combatGame.attackMadeThisTurn||roll.deployedTroops!==1||roll.rawAt
 if(combatGame.winner===null&&!setPhase(combatGame,'fortify'))throw new Error('No se permitió avanzar después de combatir');
 if(combatGame.winner===null&&!setPhase(combatGame,'close'))throw new Error('No se mostró el cierre del turno');
 
-// Cartas tácticas: mano máxima 3, descarte al robar la cuarta, costes y efectos.
+// Cartas tácticas: escoger una de dos y, con mano llena, descartar después.
 const tc=createGame({players:2,seed:77,human:true});
 tc.players[0].cards=['spy','mobilize','counter'];
 const drawRes=drawTacticalCard(tc,0);
-if(!drawRes.pending||!tc.pendingCardDraw)throw new Error('No se generó descarte pendiente al robar la cuarta carta');
+if(!drawRes.pending||drawRes.choices.length!==2||new Set(drawRes.choices).size!==2||tc.pendingCardDraw.stage!=='choose')throw new Error('No se ofrecieron dos cartas distintas');
+const chosenReward=drawRes.choices.find(card=>!tc.players[0].cards.includes(card))||drawRes.choices[0];
+const choiceResult=resolveCardChoice(tc,chosenReward,0);
+if(!choiceResult.ok||!choiceResult.pendingDiscard||tc.pendingCardDraw.stage!=='discard')throw new Error('Elegir recompensa no condujo al descarte con mano llena');
 resolvePendingCardDraw(tc,'spy');
-if(tc.players[0].cards.length!==3||tc.players[0].cards.includes('spy'))throw new Error('El descarte no dejó exactamente 3 cartas en mano');
+if(tc.players[0].cards.length!==3||!tc.players[0].cards.includes(chosenReward))throw new Error('El descarte no conservó la recompensa elegida');
 
 // Sabotaje: Contrainteligencia es una reacción elegible del defensor humano.
 const saboGame=createGame({players:2,seed:88,human:true});
@@ -110,10 +113,16 @@ finishReinforcement(reward);
 const strong=ownedIds(reward,0).find(id=>enemiesOf(reward,id).length);
 const victim=enemiesOf(reward,strong)[0];reward.territories[strong].troops=30;reward.territories[victim].troops=1;
 while(reward.territories[victim].owner!==0)attackRound(reward,strong,victim,3);
-setPhase(reward,'fortify');setPhase(reward,'close');endTurn(reward);
+setPhase(reward,'fortify');setPhase(reward,'close');
+if(!reward.pendingCardDraw?.choices?.length||endTurn(reward)!==false)throw new Error('El cierre permitió omitir la elección de recompensa');
+resolveCardChoice(reward,reward.pendingCardDraw.choices[0],0);endTurn(reward);
 if(reward.players[0].cards.length!==1)throw new Error('No se robó carta después de conquistar');
 if(reward.campaign.players[0].conquests!==1||reward.campaign.conquests.length!==1||reward.campaign.players[0].cards!==1)throw new Error('El resumen de campaña no registró conquista y carta');
 if(reward.campaign.players[0].lost+reward.campaign.players[1].lost<1)throw new Error('El resumen de campaña no registró bajas');
+const lateReward=createGame({players:2,seed:992,human:true});lateReward.phase='close';lateReward.conqueredThisTurn=true;
+if(endTurn(lateReward)!==false||lateReward.pendingCardDraw?.stage!=='choose')throw new Error('El cierre directo no detuvo el turno para elegir recompensa');
+resolveCardChoice(lateReward,lateReward.pendingCardDraw.choices[0],0);
+if(!endTurn(lateReward)||lateReward.current===0)throw new Error('El turno no continuó después de elegir la recompensa tardía');
 console.log('OK: combate opcional, Sondeo, selección de dados y reacciones tácticas verificados.');
 
 // Reclutamiento reversible: varias colocaciones, unidad anterior y confirmación explícita.
@@ -171,14 +180,14 @@ if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[
 const before=economy.pendingReinforcements;
 if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
 const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV3)?.version!==12||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v12 de forma estable');
+if(upgradeGame(previousV3)?.version!==13||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v13 de forma estable');
 const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV4)?.version!==12||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v12 de forma estable');
+if(upgradeGame(previousV4)?.version!==13||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v13 de forma estable');
 const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV5)?.version!==12||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v12 de forma estable');
+if(upgradeGame(previousV5)?.version!==13||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v13 de forma estable');
 const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV6)?.version!==12||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v12 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v12 verificados.');
+if(upgradeGame(previousV6)?.version!==13||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v13 de forma estable');
+console.log('OK: producción, tesoro, compras y migración v13 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
@@ -263,13 +272,28 @@ objectiveActions.phase='fortify';objectiveActions.territories.n1.troops=8;object
 if(!fortify(objectiveActions,'n1','n2',6)||!objectiveActions.players[0].completedObjectives.includes('fortify_6'))throw new Error('La Maniobra no completó la misión logística');
 
 // 3. Condición de Victoria B: Hegemonía por Influencia
+if(INFLUENCE_TARGET!==60)throw new Error('El umbral provisional de Hegemonía debe ser 60');
+const vicBlocked=createGame({players:2,seed:811,human:true});
+for(const t of TERRITORIES)vicBlocked.territories[t.id].owner=0;
+vicBlocked.territories.i4.owner=1;vicBlocked.players[0].completedObjectives=OBJECTIVES_CATALOG.filter(obj=>obj.kind==='temporary').map(obj=>obj.id);vicBlocked.players[0].mainObjective=null;vicBlocked.players[0].mainObjectiveResolved=true;
+vicBlocked.current=1;vicBlocked.turn=2;endTurn(vicBlocked);
+if(vicBlocked.players[0].influence<INFLUENCE_TARGET||vicBlocked.winner===0||influenceVictoryEligibility(vicBlocked,0).hasMain)throw new Error('Se concedió Hegemonía sin objetivo principal');
+
+const vicNoStrategic=createGame({players:2,seed:812,human:true});
+for(const t of TERRITORIES)vicNoStrategic.territories[t.id].owner=0;
+vicNoStrategic.territories.i4.owner=1;vicNoStrategic.players[0].completedObjectives=['regional_network','conquer_2','frontline_3','recover_2'];vicNoStrategic.players[0].mainObjective=null;vicNoStrategic.players[0].mainObjectiveResolved=true;
+vicNoStrategic.current=1;vicNoStrategic.turn=2;endTurn(vicNoStrategic);
+const noStrategicEligibility=influenceVictoryEligibility(vicNoStrategic,0);
+if(vicNoStrategic.players[0].influence<INFLUENCE_TARGET||vicNoStrategic.winner===0||!noStrategicEligibility.hasMain||noStrategicEligibility.hasNonMilitary)throw new Error('Se concedió Hegemonía sin objetivo no militar');
+
 const vicB=createGame({players:2,seed:809,human:true});
 for(const t of TERRITORIES)vicB.territories[t.id].owner=0;
 vicB.territories.i4.owner=1;vicB.territories.i4.troops=2; // Rival vivo con 1 territorio
 vicB.players[0].completedObjectives=['regional_network','tactical_doctrine','logistics_12','investment_60'];
 vicB.current=1;vicB.turn=2;
 endTurn(vicB);
-if(vicB.winner!==0||vicB.victoryType!=='influence'||vicB.phase!=='gameover'||vicB.players[0].influence<INFLUENCE_TARGET)throw new Error('La victoria por Hegemonía no se activó al cierre de ronda');
+const vicEligibility=influenceVictoryEligibility(vicB,0);
+if(vicB.winner!==0||vicB.victoryType!=='influence'||vicB.phase!=='gameover'||!vicEligibility.eligible||!vicEligibility.hasMain||!vicEligibility.hasNonMilitary)throw new Error('La victoria por Hegemonía condicionada no se activó al cierre de ronda');
 
 // 4. Condición de Victoria C: Límite de 40 rondas
 const vicC=createGame({players:2,seed:810,human:true});
@@ -359,20 +383,24 @@ const spyTarget = ownedIds(testSpy, 1)[0];
 const spyRes = playTacticalCard(testSpy, 'spy', spyTarget, 0);
 if (!spyRes.ok) throw new Error('El Espía debe poder usar Espía gratis sin dinero');
 
-// 7. Migración de partida guardada a v12:
+// 7. Migración de partida guardada a v13:
 const oldV7 = createGame({players:2, seed:907, human:true});
 oldV7.version = 7;
 delete oldV7.fronts;
 oldV7.players.forEach(p => delete p.commander);
 const upgraded = upgradeGame(oldV7);
-if (!upgraded || upgraded.version !== 12 || !upgraded.fronts || !upgraded.players[0].commander||!Array.isArray(upgraded.pendingReactions)) throw new Error('La migración a versión 12 falló');
+if (!upgraded || upgraded.version !== 13 || !upgraded.fronts || !upgraded.players[0].commander||!Array.isArray(upgraded.pendingReactions)) throw new Error('La migración a versión 13 falló');
 
 const oldV8 = createGame({players:2, seed:908, human:true});
 oldV8.version = 8;
 const upgradedV8 = upgradeGame(oldV8);
-if (!upgradedV8 || upgradedV8.version !== 12) throw new Error('La migración desde versión 8 a versión 12 falló');
+if (!upgradedV8 || upgradedV8.version !== 13) throw new Error('La migración desde versión 8 a versión 13 falló');
 
-console.log('OK: Doctrinas de Comandante (§9.1), Frentes regionales (§13) y Migración v8/v12 verificadas.');
+const oldV12=createGame({players:2,seed:909,human:true});oldV12.version=12;oldV12.pendingCardDraw={pid:0,card:'spy'};const regionalFrontBefore=Object.keys(oldV12.fronts)[0];oldV12.fronts[regionalFrontBefore].state='war';
+const upgradedV12=upgradeGame(oldV12);
+if(upgradedV12.version!==13||upgradedV12.pendingCardDraw?.stage!=='discard'||upgradedV12.fronts[regionalFrontBefore].state!=='war')throw new Error('La migración v12 perdió el descarte o los frentes regionales');
+
+console.log('OK: Doctrinas de Comandante (§9.1), Frentes regionales (§13) y Migración v8/v13 verificadas.');
 
 // 8. Información Imperfecta (§10) y Rangos de Tropas
 if (approximateTroops(1) !== '1-2' || approximateTroops(2) !== '1-2') throw new Error('Rango 1-2 incorrecto');

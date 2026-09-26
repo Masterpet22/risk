@@ -68,6 +68,11 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 .discard-btn{border:1px solid #ff7b7b88;background:#ff7b7b25;color:#fff;border-radius:6px;padding:5px 8px;font-size:.72rem;text-align:left;cursor:pointer}
 .discard-btn:hover{background:#ff7b7b55}
 .discard-btn.discard-new{border-color:#c9a552;background:#c9a55225;color:#ffe6aa}
+.card-reward-choice{border-color:#c9a552;background:linear-gradient(145deg,#2b2515,#171b24);color:#fff0bd}
+.card-reward-choice .discard-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.reward-choice-btn{display:grid;gap:4px;min-height:72px;padding:9px;border:1px solid #c9a55288;border-radius:8px;background:#c9a55218;color:#fff;text-align:left;cursor:pointer}
+.reward-choice-btn:hover,.reward-choice-btn:focus-visible{border-color:#ffd45f;background:#c9a55236;outline:none}
+.reward-choice-btn small{color:#b9cbd7;line-height:1.3}
 
 /* Map connection and territory states for tactical cards */
 .connection.blocked{stroke:#ff4757!important;stroke-dasharray:6 5!important;stroke-width:5px!important;opacity:.95!important;filter:drop-shadow(0 0 6px #ff4757)!important}

@@ -1,4 +1,4 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=17';
+import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolveCardChoice,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=18';
 import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
 import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=1';
 import {routeGeometry} from './map-routes.mjs?v=1';
@@ -148,7 +148,7 @@ function openObjectivesModal(){if(objectivesModalHtml)openStrategicModal({title:
 function openInfluenceModal(pid=0){
   const p=state?.players?.[pid];
   if(!p?.human)return;
-  const b=influenceBreakdown(state,pid),pct=Math.min(100,(b.total/b.target)*100);
+  const b=influenceBreakdown(state,pid),eligibility=influenceVictoryEligibility(state,pid),pct=Math.min(100,(b.total/b.target)*100);
   const diplomat=b.objectives.multiplier>1?`<div class="influence-row influence-bonus"><span>Bonificación de El Diplomático <small>+40% sobre objetivos</small></span><strong>+${b.objectives.bonusPoints}</strong></div>`:'';
   openStrategicModal({title:'✦ Desglose de Influencia',width:520,html:`<div class="influence-breakdown">
     <div class="influence-total"><div><small>${escapeHtml(p.name)}</small><strong>${b.total} / ${b.target}</strong></div><span>Faltan ${b.remaining} para la victoria</span></div>
@@ -158,7 +158,9 @@ function openInfluenceModal(pid=0){
     <div class="influence-row"><span>Objetivos completados <small>${b.objectives.count} objetivos</small></span><strong>+${b.objectives.basePoints}</strong></div>
     ${diplomat}
     <div class="influence-row influence-final"><span>Total calculado ahora</span><strong>${b.total}</strong></div>
-    <p class="influence-hint">Producción y tropas aumentan tu capacidad de actuar, pero no conceden Influencia. La principal ruta hacia la Hegemonía son los objetivos.</p>
+    <div class="influence-row"><span>Objetivo principal completado</span><strong>${eligibility.hasMain?'✓':'Pendiente'}</strong></div>
+    <div class="influence-row"><span>Objetivo no militar completado</span><strong>${eligibility.hasNonMilitary?'✓':'Pendiente'}</strong></div>
+    <p class="influence-hint">La Hegemonía exige 60 puntos, un objetivo principal y uno no militar. Producción y tropas aumentan tu capacidad de actuar, pero no conceden Influencia.</p>
   </div>`});
 }
 function chronicleCategory(text){
@@ -431,7 +433,7 @@ function renderLog(){
   const count=$('#chronicleCount');if(count)count.textContent=String(entries.length);
 }
 function setGuide(step,title,text){els.mapGuide.innerHTML=`<span>${step}</span><strong>${title}</strong><small>${text}</small>`}
-function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado',`Ganador: ${state.players[state.winner].name}. Abre el resumen final cuando quieras.`);return}if(!state.players[state.current].human){setGuide('…',`${state.players[state.current].name} está jugando`,'Al terminar verás un informe de sus combates.');return}if(state.phase==='reinforce')setGuide('1','Pulsa tus territorios luminosos',`Coloca las ${state.pendingReinforcements} tropas restantes.`);else if(state.phase==='attack'&&!selectedFrom)setGuide('1','Combate opcional','Elige un atacante o pasa directamente a Maniobra.');else if(state.phase==='attack'&&!selectedTo)setGuide('2','Elige un vecino enemigo','Podrás sondearlo antes de comprometer un ataque.');else if(state.phase==='attack')setGuide('3','Sondea o ataca',state.probeUsedThisTurn?'Ya usaste tu Sondeo; aún puedes atacar o pasar.':'Sondeo revela la guarnición, pero nunca conquista.');else if(state.phase==='fortify'&&!selectedFrom)setGuide('1','Elige el origen de la maniobra','Debe tener al menos 2 tropas. También puedes pasar.');else if(state.phase==='fortify'&&!selectedTo)setGuide('2','Elige el destino propio','Puede conectarse por una ruta continua propia.');else if(state.phase==='fortify')setGuide('3','Confirma cuántas tropas mover','Siempre quedará al menos una en el origen.');else setGuide('4','Revisa el cierre',state.conqueredThisTurn?'Recibes una carta táctica.':'No conquistaste: no recibes carta.')}
+function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado',`Ganador: ${state.players[state.winner].name}. Abre el resumen final cuando quieras.`);return}if(!state.players[state.current].human){setGuide('…',`${state.players[state.current].name} está jugando`,'Al terminar verás un informe de sus combates.');return}if(state.phase==='reinforce')setGuide('1','Pulsa tus territorios luminosos',`Coloca las ${state.pendingReinforcements} tropas restantes.`);else if(state.phase==='attack'&&!selectedFrom)setGuide('1','Combate opcional','Elige un atacante o pasa directamente a Maniobra.');else if(state.phase==='attack'&&!selectedTo)setGuide('2','Elige un vecino enemigo','Podrás sondearlo antes de comprometer un ataque.');else if(state.phase==='attack')setGuide('3','Sondea o ataca',state.probeUsedThisTurn?'Ya usaste tu Sondeo; aún puedes atacar o pasar.':'Sondeo revela la guarnición, pero nunca conquista.');else if(state.phase==='fortify'&&!selectedFrom)setGuide('1','Elige el origen de la maniobra','Debe tener al menos 2 tropas. También puedes pasar.');else if(state.phase==='fortify'&&!selectedTo)setGuide('2','Elige el destino propio','Puede conectarse por una ruta continua propia.');else if(state.phase==='fortify')setGuide('3','Confirma cuántas tropas mover','Siempre quedará al menos una en el origen.');else setGuide('4','Revisa el cierre',state.conqueredThisTurn?'Elige una de dos cartas tácticas.':'No conquistaste: no recibes carta.')}
 
 function renderCards(){
   const p=state.players[state.current];
@@ -444,19 +446,30 @@ function renderCards(){
     const cDef=TACTICAL_CARDS[cardTargeting.cardId];
     targetingNotice=`<div class="card-targeting-bar"><span>🎯 Seleccionando objetivo para <b>${cDef.name}</b>${cardTargeting.from?` (desde ${tById(cardTargeting.from).name})`:''}</span><button id="cancelTargetingBtn" class="cancel-card-btn">Cancelar</button></div>`;
   }
-  let discardNotice='';
+  let rewardNotice='',discardNotice='';
   if(state.pendingCardDraw&&state.pendingCardDraw.pid===state.current){
-    const drawn=TACTICAL_CARDS[state.pendingCardDraw.card];
-    discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (3 cartas)</strong><p>Has robado <b>${drawn.icon} ${drawn.name}</b>. Elige qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la nueva (${drawn.name})</button></div></div>`;
+    if(state.pendingCardDraw.stage==='choose'){
+      rewardNotice=`<div class="card-discard-box card-reward-choice"><strong>🏆 Elige tu recompensa</strong><p>Conquistaste este turno. Escoge una de estas dos cartas:</p><div class="discard-options">${state.pendingCardDraw.choices.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="reward-choice-btn" data-reward-card="${cId}"><b>${c.icon} ${c.name}</b><small>${c.desc}</small></button>`}).join('')}</div></div>`;
+    }else{
+      const drawn=TACTICAL_CARDS[state.pendingCardDraw.card];
+      discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (3 cartas)</strong><p>Elegiste <b>${drawn.icon} ${drawn.name}</b>. Decide qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la elegida (${drawn.name})</button></div></div>`;
+    }
   }
   const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo 3). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
     const c=TACTICAL_CARDS[cId],cost=tacticalCardCost(state,cId,p.id),canAfford=p.money>=cost,isReactive=c.type==='reaction',costStr=cost===0?(isReactive?'Reacción':'Gratis'):`$${cost}`,isSelected=cardTargeting?.cardId===cId;
     return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Elegible</span>':`<button class="play-card-btn" data-card="${cId}" ${canAfford?'':'disabled'} aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
   }).join('')}</div>`;
 
-  els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / 3</strong></div>${targetingNotice}${discardNotice}${cardsHtml}`;
+  els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / 3</strong></div>${targetingNotice}${rewardNotice}${discardNotice}${cardsHtml}`;
 
   if($('#cancelTargetingBtn'))$('#cancelTargetingBtn').onclick=()=>{cardTargeting=null;render()};
+  document.querySelectorAll('.reward-choice-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const result=resolveCardChoice(state,btn.dataset.rewardCard);
+      if(!result.ok)return showToast(result.reason||'No se pudo elegir la carta');
+      render();showToast(result.pendingDiscard?'Carta elegida. Ahora libera un espacio.':'Carta añadida a tu mano.');
+    };
+  });
   document.querySelectorAll('.discard-btn').forEach(btn=>{
     btn.onclick=()=>{
       recordCardDiscarded(btn.dataset.discard);
@@ -584,7 +597,7 @@ function renderObjectives() {
   const p = state.players[state.current] || state.players[0];
   const main = OBJECTIVES_CATALOG.find(o => o.id === p.mainObjective);
   const temp = OBJECTIVES_CATALOG.find(o => o.id === p.temporaryObjective);
-  const activeCard=(obj,label)=>'<div class="objective-item"><div class="obj-top"><span class="obj-title">'+obj.icon+' '+obj.name+'</span><span class="obj-progress-badge">'+objectiveProgress(state,p.id,obj.id).label+'</span></div><small class="obj-desc">'+obj.desc+' · +'+obj.value+' infl. · '+label+'</small></div>';
+  const activeCard=(obj,label)=>'<div class="objective-item"><div class="obj-top"><span class="obj-title">'+obj.icon+' '+obj.name+'</span><span class="obj-progress-badge">'+objectiveProgress(state,p.id,obj.id).label+'</span></div><small class="obj-desc">'+obj.desc+' · +'+obj.value+' infl. · '+label+(obj.nonMilitary?' · No militar':'')+'</small></div>';
   const choiceCards=(kind,label)=>{
     const choices=p.objectiveChoices?.[kind]||[];
     if(!choices.length)return '<div class="objective-item"><div class="obj-top"><span class="obj-title">✓ '+label+'</span></div><small class="obj-desc">No hay otra misión disponible en esta etapa.</small></div>';
@@ -594,7 +607,7 @@ function renderObjectives() {
   const tempResolved=p.temporaryObjectiveResolvedCycle===(state.objectiveCycle||0);
   const tempHtml=temp?activeCard(temp,'Misión del ciclo'):tempResolved?'<div class="objective-item"><div class="obj-top"><span class="obj-title">✓ Misión del ciclo cumplida</span></div><small class="obj-desc">Recibirás nuevas opciones al rotar el Mercado.</small></div>':choiceCards('temporary','Misión del ciclo');
 
-  objectivesModalHtml = '<div class="objectives-box swal-objectives">'+mainHtml+tempHtml+'<p class="objective-system-note">La presencia aporta un máximo de 17 puntos. Para alcanzar la Hegemonía necesitas completar misiones de varias clases.</p></div>';
+  objectivesModalHtml = '<div class="objectives-box swal-objectives">'+mainHtml+tempHtml+'<p class="objective-system-note">La Hegemonía provisional exige 60 puntos, un objetivo principal y uno no militar. La presencia aporta un máximo de 17 puntos.</p></div>';
   button.classList.remove('hidden');
   button.setAttribute('aria-label','Ver objetivos de '+p.name);
   const badge=$('#objectivesMapBadge');
@@ -840,15 +853,16 @@ function renderPanel(){
   else {
     if (badgeEl) badgeEl.textContent = 'Cierre';
     if (state.pendingCardDraw) {
-      headingEl.textContent = 'Mano llena (3 cartas)';
-      subEl.textContent = 'Elige qué carta descartar en tu mano táctica.';
-      els.turnStatus.innerHTML = '<strong>Descarte obligatorio:</strong> debes descartar una carta para continuar.';
-      els.phaseBtn.textContent = 'Descarta una carta';
+      const choosing=state.pendingCardDraw.stage==='choose';
+      headingEl.textContent = choosing?'Elige una de dos cartas':'Mano llena (3 cartas)';
+      subEl.textContent = choosing?'Tu conquista ofrece dos recompensas tácticas.':'Elige qué carta descartar en tu mano táctica.';
+      els.turnStatus.innerHTML = choosing?'<strong>Recompensa pendiente:</strong> escoge una carta para continuar.':'<strong>Descarte obligatorio:</strong> debes liberar un espacio para continuar.';
+      els.phaseBtn.textContent = choosing?'Elige tu recompensa':'Descarta una carta';
       els.phaseBtn.disabled = true;
     } else {
       const p = state.players[state.current];
-      headingEl.textContent = state.conqueredThisTurn ? '¡Carta táctica ganada!' : 'Fin de turno';
-      subEl.textContent = state.conqueredThisTurn ? 'Conquistaste territorios: carta táctica añadida a tu mano.' : 'No conquistaste territorios en esta ronda.';
+      headingEl.textContent = state.conqueredThisTurn ? 'Recompensa táctica resuelta' : 'Fin de turno';
+      subEl.textContent = state.conqueredThisTurn ? 'Elegiste una de las dos cartas ofrecidas por tu conquista.' : 'No conquistaste territorios en esta ronda.';
       els.turnStatus.innerHTML = '<strong>Influencia:</strong> ' + p.influence + ' pts · <strong>Objetivos:</strong> ' + (p.completedObjectives||[]).length + ' cumplidos.';
       els.phaseBtn.textContent = 'Pasar al siguiente jugador →';
       els.phaseBtn.disabled = false;
@@ -1255,9 +1269,9 @@ els.phaseBtn.onclick=()=>{
     closeMobileOrders();
     announce('Comienza el Cierre del turno. Revisa tus cartas y confirma el pase.');
   }else if(state.phase==='close'){
-    if(state.pendingCardDraw)return showToast('Debes descartar una carta antes de pasar el turno');
+    if(state.pendingCardDraw)return showToast(state.pendingCardDraw.stage==='choose'?'Elige una de las dos cartas antes de pasar':'Debes descartar una carta antes de pasar el turno');
     const earned=state.conqueredThisTurn;
-    endTurn(state);
+    if(endTurn(state)===false){render();showToast('Elige una de las dos cartas antes de terminar');return}
     selectedFrom=selectedTo=cardTargeting=null;
     render();
     closeMobileOrders();

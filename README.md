@@ -34,7 +34,9 @@ El turno se divide en Reclutamiento, Combate, Maniobra y Cierre. Durante Recluta
 
 Los Frentes de Guerra se registran por pareja de comandantes y por región. Sondeo, Espía y Sabotaje elevan la tensión regional; los combates y conquistas la escalan. Contrainteligencia no se consume automáticamente: el defensor elige si descartar la carta para anular Espía o Sabotaje, o conservarla y aceptar el efecto.
 
-La Influencia v2 separa capacidad y victoria: producción y tropas permiten actuar, pero no puntúan. La presencia aporta un máximo de 17 puntos y el resto procede principalmente de objetivos. El jugador elige un objetivo principal entre tres opciones y una misión por cada ciclo de tres rondas, con rutas de posición, táctica, logística, economía, inteligencia, defensa y recuperación. La Hegemonía requiere 70 puntos al cierre de una ronda.
+La Influencia v2 separa capacidad y victoria: producción y tropas permiten actuar, pero no puntúan. La presencia aporta un máximo de 17 puntos y el resto procede principalmente de objetivos. El jugador elige un objetivo principal entre tres opciones y una misión por cada ciclo de tres rondas, con rutas de posición, táctica, logística, economía, inteligencia, defensa y recuperación. La Hegemonía provisional requiere 60 puntos al cierre de una ronda, además de un objetivo principal y uno no militar completados.
+
+Al conquistar durante el turno se ofrecen dos Cartas Tácticas distintas y el jugador conserva una. Si la mano ya contiene tres cartas, la elección ocurre primero y después se decide cuál descartar.
 
 En pantallas de hasta 1200 px, las órdenes se presentan como una hoja inferior. Los controles principales tienen objetivos táctiles de al menos 44 px, foco visible y anuncios accesibles. `prefers-reduced-motion` desactiva transiciones y animaciones no esenciales.
 
@@ -55,7 +57,7 @@ node tests/balance-analysis.mjs
 
 ## Balance conocido
 
-La matriz P4 de 600 campañas, repetida tras introducir combate opcional y Sondeo, confirma que producción y tropas aportan 0 puntos y los objetivos son la fuente principal. La mediana es de 12 rondas y ninguna condición de victoria supera el 80%. La bola de nieve operativa aún no está cerrada: el líder territorial de ronda 8 gana el 84,5% y las remontadas alcanzan 15,5%. El siguiente ajuste debe actuar sobre economía y refuerzos, no volver a cargar la Influencia territorial.
+La matriz P4 de 600 campañas, repetida con Hegemonía provisional a 60 y requisitos de objetivos, confirma que producción y tropas aportan 0 puntos y los objetivos son la fuente principal. La mediana es de 10 rondas y ninguna condición de victoria supera el 60%. La bola de nieve operativa aún no está cerrada: el líder territorial de ronda 8 gana el 80,8% y las remontadas alcanzan 19,2%. El siguiente ajuste debe actuar sobre economía y refuerzos, no volver a cargar la Influencia territorial.
 
 ## Publicación
 

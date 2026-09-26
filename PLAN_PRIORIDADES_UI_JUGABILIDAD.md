@@ -210,7 +210,7 @@ Criterio de cierre: todas las métricas permanecen en almacenamiento local, pued
 
 ### P4.2 Revisar la bola de nieve territorial y la Influencia alternativa
 
-**Estado: Influencia v2 implementada; balance operativo pendiente.** La simulación reproducible de 600 campañas y sus umbrales están documentados en `INFORME_BALANCE_P4.md`. La nueva fórmula elimina producción y tropas, limita la presencia a 17 puntos y convierte los objetivos elegibles en la fuente principal. Tras añadir combate opcional y Sondeo, la mediana sigue en rango y ninguna condición de victoria supera el 80%; la economía y los refuerzos mantienen la correlación territorial en 0,75.
+**Estado: Influencia v2 implementada; balance operativo pendiente.** La simulación reproducible de 600 campañas y sus umbrales están documentados en `INFORME_BALANCE_P4.md`. La fórmula elimina producción y tropas, limita la presencia a 17 puntos y convierte los objetivos elegibles en la fuente principal. Con Hegemonía provisional a 60, la correlación territorial queda en 0,74 y la mediana baja a 10 rondas.
 
 - Medir la correlación entre ventaja territorial temprana y victoria final.
 - Comparar producción, refuerzos, control regional e Influencia obtenidos por el líder frente al resto.
@@ -299,7 +299,7 @@ Los bloques P0, P1, P2, P3, P4.1, P4.3, P5.2 y P5.3 están cerrados para el alca
 
 Queda pendiente, en este orden:
 
-1. **Balance P4.2:** revisar economía regional, refuerzos y prioridad de las misiones de recuperación hasta elevar las remontadas de 15,5% a 25% y bajar la correlación de 0,75 a 0,60.
+1. **Balance P4.2:** revisar economía regional, refuerzos y prioridad de las misiones de recuperación hasta elevar las remontadas de 19,2% a 25%, bajar la correlación de 0,74 a 0,60 y recuperar una mediana mínima de 12 rondas.
 2. **Simulación factorial:** repetir la muestra de 600 campañas después de cada cambio operativo y separar el efecto real de doctrina, posición, mapa y cantidad de comandantes.
 3. **Modularización gradual P5.1:** extraer tutorial, panel de órdenes, mapa, Mercado y Crónica de `app.mjs` cuando haya una necesidad funcional, manteniendo pruebas de arranque e interacción después de cada extracción.
 4. **Multijugador:** permanece fuera del alcance hasta estabilizar el balance individual; requerirá servidor autoritativo y un plan propio.
