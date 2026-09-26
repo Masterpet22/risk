@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=26">
+  <link rel="stylesheet" href="./theme.css?v=27">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -222,13 +222,14 @@
             <label for="difficulty"><span class="setup-icon">📊</span> DIFICULTAD</label>
             <div class="select-shell">
               <select id="difficulty">
-                <option value="fácil">Fácil — IA evita al jugador</option>
-                <option value="normal" selected>Normal — todos por igual</option>
-                <option value="difícil">Difícil — IA prioriza al jugador</option>
-                <option value="odio">Odio — todos contra ti</option>
+                <option value="pacifico">Pacífico — expansión contenida</option>
+                <option value="diplomatico" selected>Diplomático — rivalidad equilibrada</option>
+                <option value="belico">Bélico — presión dirigida</option>
+                <option value="aniquilacion">Aniquilación — cacería total</option>
               </select>
               <span class="chevron">▾</span>
             </div>
+            <p class="difficulty-summary" id="difficultySummary">Todos compiten con las mismas prioridades. Dispones de 3 cartas, 2 maniobras y precios estándar.</p>
           </div>
         </div>
 
@@ -416,13 +417,13 @@
         <li><b>Mapas.</b> Cada mapa conserva 24 territorios, pero cambia las rutas, los pasos estratégicos y el ritmo de conquista.</li>
         <li><b>Modo terreno.</b> No hay tipos de unidad: todas las fuerzas son tropas. Bosques y montañas pueden sumar +1 al dado defensivo mayor según la dificultad; las llanuras no dan bonificación. Los desastres y rutas bloqueadas hacen este modo más exigente que el clásico.</li>
         <li><b>Influencia y Objetivos.</b> La presencia aporta 1 punto por territorio (máximo 8) y 3 por región completa (máximo 3 regiones). Producción y tropas dan capacidad operativa, pero no Influencia. Elige un objetivo principal entre tres rutas y una misión por ciclo; las operaciones de posición, cartas, logística, economía, inteligencia, defensa y recuperación otorgan la mayor parte de la puntuación.</li>
-        <li><b>Dificultad.</b> Fácil ofrece 4 cartas, 3 maniobras y precios bajos; Normal, 3 cartas y 2 maniobras; Difícil, 3 cartas y 1 maniobra; Odio limita la mano a 2, elimina la maniobra base y hace que todas las IA te persigan. Movilización siempre puede recuperar una maniobra.</li>
+        <li><b>Dificultad.</b> Pacífico ofrece 4 cartas, 3 maniobras, precios bajos y una IA que evita atacarte mientras tenga alternativas. Diplomático enfrenta a todos con prioridades simétricas. Bélico dirige refuerzos, cartas y ofensivas hacia el jugador. Aniquilación hace que todas las IA abran rutas hacia ti, limita la mano a 2 y elimina la maniobra base. Movilización siempre puede recuperar una maniobra.</li>
         <li><b>Economía conectada.</b> Cada territorio produce según sus rutas: 1 conexión genera $1, 2–3 generan $2 y 4–5 generan $3. Una región completa añade $2 al tesoro total.</li>
         <li><b>Tres Condiciones de Victoria.</b> Puedes ganar por: (A) <b>Dominio Total</b> conquistando los 24 territorios; (B) <b>Hegemonía de Influencia</b> alcanzando 70+ puntos al término de una ronda completa; o (C) <b>Límite de Campaña</b>: al concluir la ronda 40, el comandante vivo con mayor puntuación de Influencia es declarado vencedor.</li>
         <li><b>Comandantes y Doctrinas.</b> Cada líder militar dispone de una doctrina asimétrica: <b>El Conquistador</b> (+1 al dado de ataque en el primer combate de cada turno), <b>El Guardián</b> (+1 al dado defensivo en frentes en Guerra), <b>El Industrial</b> (+$1 de producción económica base en todos sus territorios), <b>El Estratega</b> (descuento de $5 en Mercado, Movilización gratis, Bloqueo a $15 y 1 Movilización inicial), <b>El Espía</b> (+1 al dado de ataque contra objetivos espiados, 1 Espía inicial y 50% de protección pasiva contra sabotajes) y <b>El Diplomático</b> (+40% de Influencia en objetivos y subsidio de $3 por mantener frentes pacíficos).</li>
         <li><b>Frentes regionales.</b> Cada pareja de comandantes mantiene una tensión separada en cada región: <b>Estable</b>, <b>Tenso</b> (Sondeo, sabotaje o espionaje), <b>Conflicto</b> (combates) y <b>Guerra</b> (conquistas). La hostilidad en una región no contamina las demás; los frentes pacíficos se enfrían al término de cada ronda.</li>
         <li><b>Información Imperfecta y Niebla de Guerra.</b> No dispones de certeza total sobre territorios remotos: <b>Completa</b> en tus tierras, vecinos directos (distancia 1) y objetivos espiados (guarnición, unidad y producción exactas); <b>Parcial</b> a distancia 2 (rango aproximado de tropas como 1-2, 3-5, 6-9 o 10+, con unidad oculta); y <b>Oculta</b> en tierras lejanas (guarnición desconocida con ? tropas). Jugar la carta de <b>Espía</b> levanta la niebla y revela datos completos de cualquier territorio durante 1 ronda. La dificultad de la IA ajusta su nivel de percepción sin alterar las tiradas de dados.</li>
-        <li><b>Eventos Dinámicos del Mapa (solo modo terreno).</b> El continente sufre fuerzas impredecibles: <b>Terremotos</b> en fallas continentales, <b>Tsunamis</b> en costas e islas, y <b>Temporales</b> en estrechos marítimos y pasos montañosos. Se anuncian con 1 ronda de anticipación para permitir evacuaciones o repliegues; al activarse, causan bajas en la guarnición (respetando un mínimo de 1 tropa) y bloquean temporalmente rutas durante 2 rondas. En dificultad difícil, la IA tiene en cuenta las alertas tempranas para no reforzar zonas en riesgo.</li>
+        <li><b>Eventos Dinámicos del Mapa (solo modo terreno).</b> El continente sufre fuerzas impredecibles: <b>Terremotos</b> en fallas continentales, <b>Tsunamis</b> en costas e islas, y <b>Temporales</b> en estrechos marítimos y pasos montañosos. Se anuncian con 1 ronda de anticipación para permitir evacuaciones o repliegues; al activarse, causan bajas en la guarnición (respetando un mínimo de 1 tropa) y bloquean temporalmente rutas durante 2 rondas. En Bélico y Aniquilación, la IA evita reforzar zonas bajo alerta.</li>
       </ol>
       <div class="tutorial-help-box">
         <div><b>Tutorial contextual</b><small>Vuelve a mostrar la guía paso a paso durante la partida.</small></div>
@@ -499,6 +500,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div id="gameAnnouncements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-    <script type="module" src="./app.mjs?v=30"></script>
+    <script type="module" src="./app.mjs?v=31"></script>
 </body>
 </html>

@@ -19,12 +19,12 @@ function abandonActive(data,now){
   data.campaigns.push({...data.active,result:'abandoned',durationSeconds:Math.max(0,Math.round((now-data.active.startedAt)/1000)),market:undefined,startedAt:undefined});
   data.active=null;
 }
-export function startTelemetryCampaign(state,difficulty='normal',storage,now=Date.now()){
+export function startTelemetryCampaign(state,difficulty='diplomatico',storage,now=Date.now()){
   const data=loadTelemetry(storage);abandonActive(data,now);
   data.active={startedAt:now,map:state.mapId,mode:state.rulesMode,difficulty,players:state.players.length,commander:state.players[0]?.commander||'conqueror',cardsPlayed:{},cardsDiscarded:{},offersBought:{},offersIgnored:{},snapshots:[],market:null,lastSnapshotKey:null};
   return saveTelemetry(data,storage);
 }
-export function ensureTelemetryCampaign(state,difficulty='normal',storage,now=Date.now()){
+export function ensureTelemetryCampaign(state,difficulty='diplomatico',storage,now=Date.now()){
   const data=loadTelemetry(storage);if(data.active)return data;
   data.active={startedAt:now,map:state.mapId,mode:state.rulesMode,difficulty,players:state.players.length,commander:state.players[0]?.commander||'conqueror',cardsPlayed:{},cardsDiscarded:{},offersBought:{},offersIgnored:{},snapshots:[],market:null,lastSnapshotKey:null};
   return saveTelemetry(data,storage);

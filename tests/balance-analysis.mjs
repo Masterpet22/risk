@@ -11,7 +11,7 @@ for(let seed=1;seed<=GAMES;seed++){
   const state=createGame({players:2+(seed%3),seed:9000+seed,human:false,mapId:Object.keys(MAPS)[seed%3],rulesMode:seed%2?'classic':'terrain',playerCommander:COMMANDER_IDS[seed%COMMANDER_IDS.length]});
   state.players.forEach(player=>add(commanderGames,player.commander));
   let early=null,actions=0;
-  while(state.winner===null&&actions<4000){aiTurn(state,state.current,seed%3===0?'difícil':'normal');actions++;if(!early&&state.turn>=EARLY_ROUND)early=state.players.filter(player=>player.alive).map(player=>playerMetrics(state,player))}
+  while(state.winner===null&&actions<4000){aiTurn(state,state.current,seed%3===0?'belico':'diplomatico');actions++;if(!early&&state.turn>=EARLY_ROUND)early=state.players.filter(player=>player.alive).map(player=>playerMetrics(state,player))}
   if(state.winner===null)throw new Error(`La simulación ${seed} no terminó`);
   early=early||state.players.filter(player=>player.alive).map(player=>playerMetrics(state,player));
   const earlyLeader=[...early].sort((a,b)=>b.territories-a.territories||b.influence-a.influence)[0];

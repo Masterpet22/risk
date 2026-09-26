@@ -4,7 +4,7 @@ import {TELEMETRY_VERSION,TELEMETRY_KEY,startTelemetryCampaign,observeTelemetryS
 
 class MemoryStorage{constructor(){this.data=new Map()}getItem(key){return this.data.get(key)??null}setItem(key,value){this.data.set(key,String(value))}removeItem(key){this.data.delete(key)}}
 const storage=new MemoryStorage(),state=createGame({players:3,seed:4401,human:true,mapId:'rift',rulesMode:'terrain',playerCommander:'diplomat'});
-startTelemetryCampaign(state,'difícil',storage,1000);
+startTelemetryCampaign(state,'belico',storage,1000);
 observeTelemetryState(state,storage);
 recordCardPlayed('spy',storage);recordCardDiscarded('mobilize',storage);
 const bought=state.market.offers[0].id;recordOfferBought(bought,storage);

@@ -1,12 +1,13 @@
 export const REGIONS={north:{name:'Norte',bonus:2,color:'#70b7c7'},west:{name:'Occidente',bonus:3,color:'#c89e68'},crown:{name:'Corona',bonus:3,color:'#aa83bd'},ember:{name:'Brasa',bonus:2,color:'#da7867'},sun:{name:'Sol',bonus:3,color:'#d6bd57'},isles:{name:'Jade',bonus:2,color:'#64ae8b'}};
 export const TERRAINS={plain:{name:'Llanura',icon:'◌',color:'#d6bd57'},forest:{name:'Bosque',icon:'♠',color:'#64ae8b'},mountain:{name:'Montaña',icon:'▲',color:'#9aa8b5'}};
 export const DIFFICULTY_PROFILES={
-  'fácil':{name:'Fácil',handLimit:4,maneuvers:3,reinforcementCost:5,marketMultiplier:.8,humanTerrainBonus:1,aiTerrainBonus:0,startBias:.10},
-  normal:{name:'Normal',handLimit:3,maneuvers:2,reinforcementCost:10,marketMultiplier:1,humanTerrainBonus:1,aiTerrainBonus:1,startBias:0},
-  'difícil':{name:'Difícil',handLimit:3,maneuvers:1,reinforcementCost:15,marketMultiplier:1.2,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.08},
-  odio:{name:'Odio',handLimit:2,maneuvers:0,reinforcementCost:20,marketMultiplier:1.4,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.12}
+  pacifico:{name:'Pacífico',handLimit:4,maneuvers:3,reinforcementCost:5,marketMultiplier:.8,humanTerrainBonus:1,aiTerrainBonus:0,startBias:.10,attackThreshold:3,attackLimit:4,humanAttackBias:-100,pursuitBias:0,reinforceHumanBias:-6,summary:'La IA evita atacarte mientras tenga un rival alternativo. Tú recibes 4 cartas, 3 maniobras, terreno favorable y precios reducidos.'},
+  diplomatico:{name:'Diplomático',handLimit:3,maneuvers:2,reinforcementCost:10,marketMultiplier:1,humanTerrainBonus:1,aiTerrainBonus:1,startBias:0,attackThreshold:0,attackLimit:16,humanAttackBias:0,pursuitBias:0,reinforceHumanBias:0,summary:'Todos compiten con las mismas prioridades. Dispones de 3 cartas, 2 maniobras y precios estándar.'},
+  belico:{name:'Bélico',handLimit:3,maneuvers:1,reinforcementCost:15,marketMultiplier:1.2,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.08,attackThreshold:-1,attackLimit:30,humanAttackBias:6,pursuitBias:2,reinforceHumanBias:7,summary:'La IA dirige refuerzos, espionaje y ofensivas hacia ti. Dispones de 3 cartas, 1 maniobra y recursos más caros.'},
+  aniquilacion:{name:'Aniquilación',handLimit:2,maneuvers:0,reinforcementCost:20,marketMultiplier:1.4,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.12,attackThreshold:-2,attackLimit:42,humanAttackBias:100,pursuitBias:6,reinforceHumanBias:14,summary:'Todas las IA te cazan, abren rutas hacia tus fronteras y concentran allí sus recursos. Mano de 2, sin maniobra base y precios máximos.'}
 };
-export function normalizeDifficulty(value){return DIFFICULTY_PROFILES[value]?value:'normal'}
+const DIFFICULTY_ALIASES={'fácil':'pacifico',facil:'pacifico',normal:'diplomatico','difícil':'belico',dificil:'belico',odio:'aniquilacion'};
+export function normalizeDifficulty(value){const key=DIFFICULTY_ALIASES[value]||value;return DIFFICULTY_PROFILES[key]?key:'diplomatico'}
 export function difficultyProfile(stateOrDifficulty){const key=typeof stateOrDifficulty==='string'?stateOrDifficulty:stateOrDifficulty?.difficulty;return DIFFICULTY_PROFILES[normalizeDifficulty(key)]}
 export function cardHandLimit(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).handLimit:3}
 export function maneuverLimit(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).maneuvers:1}
@@ -156,7 +157,7 @@ const terr=(s,id)=>getTerritories(s).find(t=>t.id===id);
 
 export function makeRng(seed=Date.now()){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier',rulesMode='classic',difficulty='normal',playerCommander='conqueror',playerColor=PLAYER_COLORS[0]}={}){
+export function createGame({players=3,seed=Date.now(),human=true,mapId='frontier',rulesMode='classic',difficulty='diplomatico',playerCommander='conqueror',playerColor=PLAYER_COLORS[0]}={}){
   const rng=makeRng(seed),map=getMap(mapId),order=shuffle(map.territories.map(t=>t.id),rng);
   const chosenCmd=COMMANDERS[playerCommander]?playerCommander:'conqueror';
   const chosenColor=PLAYER_COLORS.includes(playerColor)?playerColor:PLAYER_COLORS[0];
@@ -233,24 +234,25 @@ export function isTerritoryReconnoitered(state,tid,pid=0){
   if(!data||data.expiresTurn<state.turn||data.scoutedBy!==pid)return false;
   return true;
 }
-export function getTerritoryVisibility(state,tid,observerId=0,difficulty='normal'){
+export function getTerritoryVisibility(state,tid,observerId=0,difficulty='diplomatico'){
+  difficulty=normalizeDifficulty(difficulty);
   if(!state?.territories?.[tid])return 'hidden';
   if(state.territories[tid].owner===observerId)return 'full';
   if(isTerritorySpied(state,tid,observerId)||isTerritoryReconnoitered(state,tid,observerId))return 'full';
   const d=minDistanceToOwned(state,tid,observerId);
   const isObserverHuman=state.players[observerId]?.human;
-  if(isObserverHuman||difficulty==='normal'){
+  if(isObserverHuman||difficulty==='diplomatico'){
     if(d<=2)return 'partial';
     return 'hidden';
   }
-  if(difficulty==='fácil'){
+  if(difficulty==='pacifico'){
     if(d<=1)return 'partial';
     return 'hidden';
   }
-  if(difficulty==='difícil')return d<=2?'partial':'hidden';
+  if(difficulty==='belico'||difficulty==='aniquilacion')return d<=2?'partial':'hidden';
   return d<=2?'partial':'hidden';
 }
-export function getTerritoryIntel(state,tid,observerId=0,difficulty='normal'){
+export function getTerritoryIntel(state,tid,observerId=0,difficulty='diplomatico'){
   const vis=getTerritoryVisibility(state,tid,observerId,difficulty);
   const t=terr(state,tid);
   const d=state.territories[tid];
@@ -1081,7 +1083,18 @@ export function endTurn(state){
 }
 function checkWinner(state){const alive=state.players.filter(p=>p.alive);if(alive.length===1){state.winner=alive[0].id;state.victoryType='dominance';state.phase='gameover';addLog(state,`${alive[0].name} domina todo el mapa.`,alive[0].id)}}
 function borderScore(state,id,pid){const t=state.territories[id],enemy=terr(state,id).n.filter(n=>state.territories[n].owner!==pid&&!isConnectionBlocked(state,id,n)).reduce((s,n)=>s+state.territories[n].troops,0);return enemy+t.troops*.15}
-export function aiTurn(state,pid=state.current,difficulty='normal'){
+export function distanceToHuman(state,start){
+  const targets=new Set(getTerritories(state).filter(t=>state.players[state.territories[t.id].owner]?.human).map(t=>t.id));
+  if(!targets.size)return Infinity;if(targets.has(start))return 0;
+  const queue=[[start,0]],seen=new Set([start]);
+  while(queue.length){const[id,distance]=queue.shift();for(const next of terr(state,id).n)if(!seen.has(next)){if(targets.has(next))return distance+1;seen.add(next);queue.push([next,distance+1])}}
+  return Infinity;
+}
+export function aiStrategicScore(state,id,pid,difficulty=state.difficulty){
+  const profile=difficultyProfile(difficulty),neighbors=terr(state,id).n.filter(n=>state.territories[n].owner!==pid&&!isConnectionBlocked(state,id,n)),touchesHuman=neighbors.some(n=>state.players[state.territories[n].owner]?.human),distance=distanceToHuman(state,id);
+  return borderScore(state,id,pid)+(touchesHuman?profile.reinforceHumanBias:0)+(Number.isFinite(distance)&&distance>0?profile.pursuitBias/distance:0);
+}
+export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
   if(state.winner!==null||state.current!==pid)return{ok:false};
   difficulty=normalizeDifficulty(difficulty||state.difficulty);state.difficulty=difficulty;
   const report={ok:true,playerId:pid,playerName:state.players[pid].name,reinforcements:state.pendingReinforcements,probes:[],battles:[],conquests:0,attackerLosses:0,defenderLosses:0,eliminated:[]};
@@ -1090,9 +1103,9 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
     let enemyTerrs=getTerritories(state).filter(t=>state.territories[t.id].owner!==pid&&(!state.sabotagedTerritories||!state.sabotagedTerritories[t.id]));
     if(enemyTerrs.length){
       const humanTargets=enemyTerrs.filter(t=>state.players[state.territories[t.id].owner]?.human),aiTargets=enemyTerrs.filter(t=>!state.players[state.territories[t.id].owner]?.human);
-      if(difficulty==='fácil'&&aiTargets.length)enemyTerrs=aiTargets;
-      if(difficulty==='odio'&&humanTargets.length)enemyTerrs=humanTargets;
-      if(difficulty==='fácil'){
+      if(difficulty==='pacifico'&&aiTargets.length)enemyTerrs=aiTargets;
+      if((difficulty==='belico'||difficulty==='aniquilacion')&&humanTargets.length)enemyTerrs=humanTargets;
+      if(difficulty==='pacifico'){
         const randIdx=Math.floor(nextRand(state)*enemyTerrs.length);
         playTacticalCard(state,'sabotage',enemyTerrs[randIdx].id,pid);
       }else{
@@ -1116,7 +1129,10 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
     if(worstConn&&maxThreat>=2)playTacticalCard(state,'blockade',worstConn,pid);
   }
   if(p.cards.includes('spy')){
-    let spyTarget=null;if(p.commander==='spy'){const adj=ownedIds(state,pid).flatMap(m=>enemiesOf(state,m)).filter(e=>!isTerritorySpied(state,e,pid));if(adj.length){adj.sort((a,b)=>state.territories[b].troops-state.territories[a].troops);spyTarget=adj[0];}}const unseen=getTerritories(state).filter(t=>state.territories[t.id].owner!==pid&&getTerritoryVisibility(state,t.id,pid,difficulty)!=='full');
+    let spyTarget=null;if(p.commander==='spy'){let adj=ownedIds(state,pid).flatMap(m=>enemiesOf(state,m)).filter(e=>!isTerritorySpied(state,e,pid));const adjHuman=adj.filter(id=>state.players[state.territories[id].owner]?.human),adjAi=adj.filter(id=>!state.players[state.territories[id].owner]?.human);if(difficulty==='pacifico'&&adjAi.length)adj=adjAi;if((difficulty==='belico'||difficulty==='aniquilacion')&&adjHuman.length)adj=adjHuman;if(adj.length){adj.sort((a,b)=>state.territories[b].troops-state.territories[a].troops);spyTarget=adj[0];}}let unseen=getTerritories(state).filter(t=>state.territories[t.id].owner!==pid&&getTerritoryVisibility(state,t.id,pid,difficulty)!=='full');
+    const humanUnseen=unseen.filter(t=>state.players[state.territories[t.id].owner]?.human),aiUnseen=unseen.filter(t=>!state.players[state.territories[t.id].owner]?.human);
+    if(difficulty==='pacifico'&&aiUnseen.length)unseen=aiUnseen;
+    if((difficulty==='belico'||difficulty==='aniquilacion')&&humanUnseen.length){unseen=humanUnseen;spyTarget=null}
     if(spyTarget)playTacticalCard(state,'spy',spyTarget,pid);else if(unseen.length){
       unseen.sort((a,b)=>minDistanceToOwned(state,a.id,pid)-minDistanceToOwned(state,b.id,pid));
       playTacticalCard(state,'spy',unseen[0].id,pid);
@@ -1126,7 +1142,7 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   const borderNeed=ownedIds(state,pid).some(id=>state.territories[id].troops<3&&enemiesOf(state,id).length);
   if(state.market?.offers){
     const actualCost=o=>marketPrice(state,o,pid);const available=state.market.offers.filter(o=>!o.boughtBy?.includes(pid)&&p.money>=actualCost(o));
-    if(difficulty==='fácil'){
+    if(difficulty==='pacifico'){
       const cheap=[...available].sort((a,b)=>a.cost-b.cost)[0];
       if(cheap&&nextRand(state)>.55)buyMarketItem(state,cheap.id,pid);
     }else if(borderNeed){
@@ -1135,23 +1151,23 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
       const troopOffer=[...available].filter(o=>o.type==='troops').sort((a,b)=>b.value-a.value)[0];
       if(troopOffer)buyMarketItem(state,troopOffer.id,pid);
     }
-    if(difficulty!=='fácil'&&p.cards.length<cardHandLimit(state,pid)&&p.money>=40){
-      const cardOffer=difficulty==='difícil'?available.find(o=>o.type==='card'&&(o.cardId==='counter'||o.cardId==='sabotage'))||available.find(o=>o.type==='card'):available.find(o=>o.type==='card');
+    if(difficulty!=='pacifico'&&p.cards.length<cardHandLimit(state,pid)&&p.money>=40){
+      const cardOffer=(difficulty==='belico'||difficulty==='aniquilacion')?available.find(o=>o.type==='card'&&(o.cardId==='counter'||o.cardId==='sabotage'||o.cardId==='spy'))||available.find(o=>o.type==='card'):available.find(o=>o.type==='card');
       if(cardOffer)buyMarketItem(state,cardOffer.id,pid);
     }
   }
   if((borderNeed||p.commander==='industrial')&&state.players[pid].money>=reinforcementPrice(state,pid))buyReinforcements(state,pid);
   report.reinforcements=state.pendingReinforcements;
   while(state.pendingReinforcements>0){
-    let own=ownedIds(state,pid).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
-    if(difficulty==='difícil'&&state.announcedEvent){
+    let own=ownedIds(state,pid).sort((a,b)=>aiStrategicScore(state,b,pid,difficulty)-aiStrategicScore(state,a,pid,difficulty));
+    if((difficulty==='belico'||difficulty==='aniquilacion')&&state.announcedEvent){
       const safe=own.filter(id=>terr(state,id).region!==state.announcedEvent.region);
       if(safe.length)own=safe;
     }
     const id=own[0];placeTroops(state,id,1);
   }
   finishReinforcement(state);
-  let moves=0,limit=difficulty==='fácil'?5:difficulty==='odio'?36:difficulty==='difícil'?28:16;
+  const profile=difficultyProfile(difficulty);let moves=0,limit=profile.attackLimit;
   while(moves++<limit&&state.winner===null){
     const options=[];
     for(const from of ownedIds(state,pid))for(const to of enemiesOf(state,from)){
@@ -1170,12 +1186,12 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
     const vsHuman=option=>state.players[state.territories[option.to].owner]?.human;
     const humanOptions=options.filter(vsHuman),aiOptions=options.filter(option=>!vsHuman(option));
     let eligible=options;
-    if(difficulty==='fácil'&&aiOptions.length)eligible=aiOptions;
-    else if(difficulty==='odio'&&humanOptions.length)eligible=humanOptions;
-    eligible.sort((a,b)=>{const biasA=vsHuman(a)?(difficulty==='difícil'?3:0):0,biasB=vsHuman(b)?(difficulty==='difícil'?3:0):0;return(b.advantage+biasB)-(a.advantage+biasA)||a.target-b.target});
-    const best=eligible[0],threshold=difficulty==='fácil'?2:difficulty==='odio'?-2:difficulty==='difícil'?-1:0;
+    if(difficulty==='pacifico'&&aiOptions.length)eligible=aiOptions;
+    else if(difficulty==='aniquilacion'&&humanOptions.length)eligible=humanOptions;
+    eligible.sort((a,b)=>{const score=option=>option.advantage+(vsHuman(option)?profile.humanAttackBias:0)+(Number.isFinite(distanceToHuman(state,option.to))?profile.pursuitBias/Math.max(1,distanceToHuman(state,option.to)):0);return score(b)-score(a)||a.target-b.target});
+    const best=eligible[0],threshold=profile.attackThreshold;
     if(best.advantage<threshold)break;
-    if(difficulty!=='fácil'&&!state.probeUsedThisTurn&&best.visibility!=='full'){
+    if(difficulty!=='pacifico'&&!state.probeUsedThisTurn&&best.visibility!=='full'){
       const probe=probeTerritory(state,best.from,best.to);
       if(probe.ok){report.probes.push({from:terr(state,best.from).name,to:terr(state,best.to).name,fromId:best.from,toId:best.to,attackerLosses:probe.attackerLosses,defenderLosses:probe.defenderLosses,revealedTroops:probe.revealedTroops});continue}
     }
@@ -1191,7 +1207,7 @@ export function aiTurn(state,pid=state.current,difficulty='normal'){
   if(state.winner!==null)return report;
   setPhase(state,'fortify');
   const sources=ownedIds(state,pid).filter(id=>state.territories[id].troops>2&&!enemiesOf(state,id).length).sort((a,b)=>state.territories[b].troops-state.territories[a].troops);
-  const borders=ownedIds(state,pid).filter(id=>enemiesOf(state,id).length).sort((a,b)=>borderScore(state,b,pid)-borderScore(state,a,pid));
+  const borders=ownedIds(state,pid).filter(id=>enemiesOf(state,id).length).sort((a,b)=>aiStrategicScore(state,b,pid,difficulty)-aiStrategicScore(state,a,pid,difficulty));
   if(sources.length&&borders.length&&connectedOwned(state,sources[0],borders[0],pid)){
     fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));
     const mobCost=p.commander==='strategist'?0:10;

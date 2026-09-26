@@ -1,10 +1,10 @@
-import {upgradeGame,validateState} from './engine.mjs?v=19';
+import {upgradeGame,validateState,normalizeDifficulty} from './engine.mjs?v=20';
 
 export const CAMPAIGN_SAVE_KEY='fronteras-acero-save-v3';
 
 const browserStorage=storage=>storage||globalThis.localStorage;
 
-export function saveCampaign(state,difficulty='normal',storage){
+export function saveCampaign(state,difficulty='diplomatico',storage){
   if(!state)return false;
   try{browserStorage(storage).setItem(CAMPAIGN_SAVE_KEY,JSON.stringify({state,difficulty}));return true}catch{return false}
 }
@@ -14,7 +14,7 @@ export function loadCampaign(storage){
     const stored=JSON.parse(browserStorage(storage).getItem(CAMPAIGN_SAVE_KEY)||'null');
     const state=upgradeGame(stored?.state);
     if(!state||validateState(state).length)return null;
-    return{state,difficulty:stored.difficulty||'normal'};
+    return{state,difficulty:normalizeDifficulty(stored.difficulty||state.difficulty)};
   }catch{return null}
 }
 

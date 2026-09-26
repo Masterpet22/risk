@@ -1,7 +1,7 @@
 # Informe de balance P4
 
 Fecha de revisión: 2026-09-26
-Muestra: 600 campañas deterministas, 2–4 comandantes, tres mapas, modos clásico/terreno y dificultad normal/difícil.
+Muestra: 600 campañas deterministas, 2–4 comandantes, tres mapas, modos clásico/terreno y perfiles Diplomático/Bélico.
 Script reproducible: `$env:BALANCE_GAMES='600'; node tests/balance-analysis.mjs`
 
 ## Umbrales de control

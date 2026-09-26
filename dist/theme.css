@@ -476,6 +476,14 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
   box-shadow: 0 0 10px rgba(233, 185, 73, 0.3);
 }
 
+.difficulty-summary {
+  margin: 8px 2px 0;
+  color: #9fb9ca;
+  font-size: .73rem;
+  line-height: 1.4;
+}
+.difficulty-summary strong { color:#f1ca62; }
+
 .select-shell .chevron {
   position: absolute;
   right: 14px;
