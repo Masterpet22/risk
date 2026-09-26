@@ -1,4 +1,4 @@
-import {upgradeGame,validateState} from './engine.mjs?v=14';
+import {upgradeGame,validateState} from './engine.mjs?v=19';
 
 export const CAMPAIGN_SAVE_KEY='fronteras-acero-save-v3';
 

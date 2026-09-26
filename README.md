@@ -36,7 +36,11 @@ Los Frentes de Guerra se registran por pareja de comandantes y por región. Sond
 
 La Influencia v2 separa capacidad y victoria: producción y tropas permiten actuar, pero no puntúan. La presencia aporta un máximo de 17 puntos y el resto procede principalmente de objetivos. El jugador elige un objetivo principal entre tres opciones y una misión por cada ciclo de tres rondas, con rutas de posición, táctica, logística, economía, inteligencia, defensa y recuperación. La Hegemonía provisional requiere 60 puntos al cierre de una ronda, además de un objetivo principal y uno no militar completados.
 
-Al conquistar durante el turno se ofrecen dos Cartas Tácticas distintas y el jugador conserva una. Si la mano ya contiene tres cartas, la elección ocurre primero y después se decide cuál descartar.
+Al conquistar durante el turno se ofrecen dos Cartas Tácticas distintas y el jugador conserva una. Si la mano está llena, la elección ocurre primero y después se decide cuál descartar. El límite depende de la dificultad: 4 en Fácil, 3 en Normal y Difícil, y 2 en Odio.
+
+La dificultad modifica estrategia y recursos, no los dados. Fácil hace que la IA ataque al jugador solo cuando no tiene alternativa, concede 3 maniobras y precios bajos. Normal trata a todos por igual y concede 2 maniobras. Difícil prioriza al jugador y deja 1 maniobra. Odio hace que todas las IA persigan al jugador, elimina la maniobra base y eleva los precios; Movilización todavía permite recuperar una maniobra. El reparto conserva cantidades iguales y una pareja conectada por jugador, pero pondera el valor de las conexiones según la dificultad.
+
+No existen tipos de unidad. En Modo terreno, bosques y montañas otorgan defensa según la dificultad, mientras eventos y rutas bloqueadas lo vuelven más exigente que el modo clásico. La producción de cada territorio depende de sus conexiones directas y el control completo de una región suma un bono plano de $2.
 
 En pantallas de hasta 1200 px, las órdenes se presentan como una hoja inferior. Los controles principales tienen objetivos táctiles de al menos 44 px, foco visible y anuncios accesibles. `prefers-reduced-motion` desactiva transiciones y animaciones no esenciales.
 
@@ -50,6 +54,7 @@ node tests/telemetry.mjs
 node tests/interaction-engine.mjs
 node tests/ui-modules.mjs
 node tests/ui-regression.mjs
+node tests/difficulty-system.mjs
 node tests/balance-analysis.mjs
 ```
 
@@ -57,7 +62,7 @@ node tests/balance-analysis.mjs
 
 ## Balance conocido
 
-La matriz P4 de 600 campañas, repetida con Hegemonía provisional a 60 y requisitos de objetivos, confirma que producción y tropas aportan 0 puntos y los objetivos son la fuente principal. La mediana es de 10 rondas y ninguna condición de victoria supera el 60%. La bola de nieve operativa aún no está cerrada: el líder territorial de ronda 8 gana el 80,8% y las remontadas alcanzan 19,2%. El siguiente ajuste debe actuar sobre economía y refuerzos, no volver a cargar la Influencia territorial.
+La matriz de 600 campañas, repetida tras el rediseño de economía y distribución, confirma que producción y tropas aportan 0 puntos de Influencia y los objetivos son la fuente principal. La mediana es de 10 rondas; 327 partidas terminaron por dominio y 273 por Influencia. La bola de nieve operativa sigue siendo el principal punto de balance: el líder territorial de ronda 8 gana el 84,7% y las remontadas alcanzan 15,3%.
 
 ## Publicación
 

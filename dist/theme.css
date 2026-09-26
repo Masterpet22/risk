@@ -38,7 +38,7 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 #map{display:block;width:100%;height:100%;min-height:0;filter:none;background:#061726}.map-art,.map-art-shade{pointer-events:none}.map-art-shade{fill:#041321;fill-opacity:.41}
 .region-zone,.sea-ring{display:none}.connection{stroke:#e4f3f6;stroke-width:3;stroke-dasharray:none;opacity:.5;filter:drop-shadow(0 0 3px #63cbe5);pointer-events:none}.connection.cross{stroke:#ffe9ac;stroke-width:3}.connection.visible,.connection.show-all{opacity:.94;stroke-width:4}
 .territory-shape{fill:var(--owner);fill-opacity:.19;stroke:var(--owner);stroke-width:3;filter:drop-shadow(0 0 7px var(--owner));transition:fill-opacity .18s,stroke-width .18s,filter .18s;cursor:pointer}.territory.owned .territory-shape{stroke:var(--owner);filter:drop-shadow(0 0 9px var(--owner))}.territory.owned:not(.selected) .territory-shape{animation:none}.territory:hover .territory-shape,.territory:focus .territory-shape{fill:var(--owner);fill-opacity:.32;stroke:#fff;stroke-width:4;filter:drop-shadow(0 0 13px var(--owner))}.territory.selected .territory-shape{stroke:#fff1ad;stroke-width:5;filter:drop-shadow(0 0 16px var(--owner))}.territory.target .territory-shape{stroke:#ff737a;stroke-width:4;stroke-dasharray:8 5}
-.territory-region{fill:#bde3e7;font-size:10px;font-weight:900;letter-spacing:.07em;paint-order:stroke;stroke:#06101d;stroke-width:2px}.territory-label{fill:#fff;font-size:13px;font-weight:800;paint-order:stroke;stroke:#06101d;stroke-width:3.5px;filter:drop-shadow(0 2px 3px #000)}.army-disc{fill:#07111c;fill-opacity:.9;stroke:var(--owner);stroke-width:1.2;pointer-events:none;filter:drop-shadow(0 2px 5px #000a)}.unit-mark{fill:#f7fbfc;text-anchor:middle;font-size:16px;pointer-events:none}.army-count{fill:#fff;text-anchor:middle;font-size:15px;font-weight:900;pointer-events:none}.terrain-mark{fill:#fff6c6;font-size:13px}
+.territory-region{fill:#bde3e7;font-size:10px;font-weight:900;letter-spacing:.07em;paint-order:stroke;stroke:#06101d;stroke-width:2px}.territory-label{fill:#fff;font-size:13px;font-weight:800;paint-order:stroke;stroke:#06101d;stroke-width:3.5px;filter:drop-shadow(0 2px 3px #000)}.army-disc{fill:#07111c;fill-opacity:.9;stroke:var(--owner);stroke-width:1.2;pointer-events:none;filter:drop-shadow(0 2px 5px #000a)}.troop-mark{fill:#f7fbfc;text-anchor:middle;font-size:16px;pointer-events:none}.army-count{fill:#fff;text-anchor:middle;font-size:15px;font-weight:900;pointer-events:none}.terrain-mark{fill:#fff6c6;font-size:13px}
 .map-toolbar{top:18px;z-index:4;gap:5px;padding:4px;border:1px solid #35627a;border-radius:20px;background:#07192be9;box-shadow:0 8px 24px #0009}.map-toolbar>span:first-child{font-size:.79rem}.map-toolbar button{padding:5px 10px;border-radius:16px;color:#b9d5e8;font-size:.72rem}.mode-badge{padding:6px 9px;border:1px solid #0dabb2;border-radius:15px;color:#4ce7e1;font-size:.68rem}
 .map-guide{display:none}.map-legend{z-index:3;bottom:11px;left:20px;gap:17px;padding:7px 12px;border:1px solid #426987;border-radius:10px;background:#0a2035df;color:#cae0ed;font-size:.75rem;box-shadow:0 5px 18px #0008}.map-tooltip{z-index:8;border:1px solid #547891;background:#071827f2;color:#e9f7ff;font-size:.79rem;box-shadow:0 15px 35px #000c}
 
@@ -170,7 +170,7 @@ button:focus-visible,.territory:focus-visible{outline:2px solid #fff1a8;outline-
 .territory.intel-hidden .territory-shape{opacity:.65;stroke:#425b70!important}
 .territory.intel-hidden .army-disc{fill:#0c1825d9;stroke:#53708a}
 .territory.intel-hidden .army-count.army-hidden{fill:#9ab4c7;font-weight:800;font-size:1.05rem}
-.territory.intel-hidden .unit-mark{fill:#728c9f}
+.territory.intel-hidden .troop-mark{fill:#728c9f}
 .territory.spied .territory-shape{stroke:#4ce7e1!important;stroke-width:3.5px!important;filter:drop-shadow(0 0 12px #4ce7e1ff)!important;animation:radarBeacon 1.4s infinite alternate}
 @keyframes radarBeacon{from{filter:drop-shadow(0 0 6px #4ce7e1aa)}to{filter:drop-shadow(0 0 16px #4ce7e1ff)}}
 
@@ -3509,8 +3509,7 @@ body:has(#startModal:not(.hidden)) {
 .context-action-panel .secondary-btn,
 .context-action-panel .context-phase-btn,
 .zoom-btn,
-.map-corner-btn,
-.unit-selector button {
+.map-corner-btn {
   min-height: 44px !important;
 }
 

@@ -1,4 +1,4 @@
-import {REGIONS,MAPS,TERRAINS,UNIT_TYPES,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolveCardChoice,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=18';
+import {REGIONS,MAPS,TERRAINS,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,buyReinforcements,reinforcementPrice,marketPrice,cardHandLimit,maneuverLimit,difficultyProfile,TACTICAL_CARDS,tacticalCardCost,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolveCardChoice,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=19';
 import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
 import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=1';
 import {routeGeometry} from './map-routes.mjs?v=1';
@@ -8,7 +8,7 @@ import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-vie
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),economyBox:$('#economyBox'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),defenseModal:$('#defenseModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
-let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,selectedUnit='infantry',toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
+let state=null,pendingAiState=null,difficulty='normal',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,defenseResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
 let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
 let lastRenderedPhase=null;
 let helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,defenseReturnFocus=null,endReturnFocus=null;
@@ -58,7 +58,7 @@ function restartTutorial(){saveTutorialStatus({version:1,seen:[],dismissed:false
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
 const regionShort=(map,key)=>getRegion(map,key).short||getRegion(map,key).name.toUpperCase();
 function save(){if(state)saveCampaign(pendingAiState||state,difficulty)}
-function load(){const restored=loadCampaign();if(!restored)return false;state=restored.state;difficulty=restored.difficulty;return true}
+function load(){const restored=loadCampaign();if(!restored)return false;state=restored.state;difficulty=restored.difficulty;state.difficulty=difficulty;return true}
 function showToast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),2500)}
 const announce=createLiveAnnouncer(els.announcements);
 const mobileLayout=()=>window.matchMedia('(max-width: 1200px)').matches;
@@ -79,7 +79,7 @@ function initMap(mapId='frontier'){
   const map=MAPS[mapId]||MAPS.frontier,T=map.territories;els.map.innerHTML=`<image class="map-art" href="./map-${map.id}.webp" x="0" y="0" width="1000" height="760" preserveAspectRatio="xMidYMid slice"/><rect class="map-art-shade" x="0" y="0" width="1000" height="760"/>`;
   const wrap=document.querySelector('.map-wrap');wrap.scrollLeft=0;wrap.classList.remove('overview');$('#mapOverviewBtn').setAttribute('aria-pressed','false');$('#mapOverviewBtn').textContent='⌕';
   const drawn=new Set();for(const t of T)for(const n of t.n){const k=[t.id,n].sort().join('-');if(drawn.has(k))continue;drawn.add(k);const b=T.find(x=>x.id===n),cross=t.region!==b.region?' cross':'',route=routeGeometry(t,b,T);els.map.insertAdjacentHTML('beforeend',`<path class="connection${cross}" data-a="${t.id}" data-b="${n}" data-routed="${route.curved}" d="${route.d}"/>`)}
-  for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(map,t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="unit-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
+  for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(map,t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="troop-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
   els.map.onclick=e=>{const g=e.target.closest('.territory');if(g)territoryClick(g.dataset.id,e.shiftKey)};els.map.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.territory')){e.preventDefault();territoryClick(e.target.closest('.territory').dataset.id)}};els.map.onpointerover=e=>{const g=e.target.closest('.territory');if(g&&hoverId!==g.dataset.id){hoverId=g.dataset.id;updateHover(g.dataset.id)}};els.map.onpointerout=e=>{if(e.target.closest('.territory')&&!e.relatedTarget?.closest?.('.territory')){hoverId=null;renderMap()}};updateConnections();updateMobileMapOverlay();
 }
 function updateHover(id){
@@ -318,7 +318,7 @@ function showCommanderPopover(pid, anchorEl) {
       '<div class="popover-stat-cell"><span>Territorios</span><strong>' + terrStr + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Tropas</span><strong>' + troopsStr + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Tesoro</span><strong class="gold-val">$' + (p.money || 0) + '</strong></div>' +
-      '<div class="popover-stat-cell"><span>Cartas</span><strong>' + (p.cards?.length || 0) + ' / 3</strong></div>' +
+      '<div class="popover-stat-cell"><span>Cartas</span><strong>' + (p.cards?.length || 0) + ' / ' + cardHandLimit(state,p.id) + '</strong></div>' +
       '<div class="popover-stat-cell"><span>Influencia</span><strong class="gold-val">' + (isHuman?calculateInfluence(state,p.id):(p.influence||0)) + ' pts</strong></div>' +
       '<div class="popover-stat-cell"><span>Objetivos</span><strong>' + (p.completedObjectives || []).length + ' hechos</strong></div>' +
     '</div>' +
@@ -377,7 +377,6 @@ function renderMap(){
     const intel=getTerritoryIntel(state,t.id,0,difficulty);
     g.style.setProperty('--owner',intel.visibility==='hidden'?'#526a7b':p.color);
     g.style.setProperty('--terrain',TERRAINS[t.terrain].color);
-    g.style.setProperty('--unit',UNIT_TYPES[d.unitType].color);
     g.classList.toggle('owned',d.owner===state.current);
     g.classList.toggle('selected',t.id===selectedFrom||t.id===selectedTo);
     g.classList.toggle('target',selectedFrom&&state.phase==='attack'&&enemiesOf(state,selectedFrom).includes(t.id));
@@ -406,12 +405,8 @@ function renderMap(){
     countEl.classList.toggle('army-range',intel.visibility==='partial');
     countEl.classList.toggle('army-hidden',intel.visibility==='hidden');
 
-    const unitEl=g.querySelector('.unit-mark');
-    if(intel.visibility==='full'){
-      unitEl.textContent=state.rulesMode==='terrain'?UNIT_TYPES[d.unitType].icon:'♟';
-    }else{
-      unitEl.textContent='?';
-    }
+    const troopEl=g.querySelector('.troop-mark');
+    troopEl.textContent=intel.visibility==='full'?'♟':'?';
 
     const terrMarkEl=g.querySelector('.terrain-mark');
     terrMarkEl.style.display=(state.rulesMode==='terrain'&&intel.visibility!=='hidden')?'block':'none';
@@ -438,7 +433,7 @@ function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado'
 function renderCards(){
   const p=state.players[state.current];
   if(!p.human){
-    els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / 3</strong></div>`;
+    els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / ${cardHandLimit(state,p.id)}</strong></div>`;
     return;
   }
   let targetingNotice='';
@@ -452,15 +447,15 @@ function renderCards(){
       rewardNotice=`<div class="card-discard-box card-reward-choice"><strong>🏆 Elige tu recompensa</strong><p>Conquistaste este turno. Escoge una de estas dos cartas:</p><div class="discard-options">${state.pendingCardDraw.choices.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="reward-choice-btn" data-reward-card="${cId}"><b>${c.icon} ${c.name}</b><small>${c.desc}</small></button>`}).join('')}</div></div>`;
     }else{
       const drawn=TACTICAL_CARDS[state.pendingCardDraw.card];
-      discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (3 cartas)</strong><p>Elegiste <b>${drawn.icon} ${drawn.name}</b>. Decide qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la elegida (${drawn.name})</button></div></div>`;
+      discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (${cardHandLimit(state,p.id)} cartas)</strong><p>Elegiste <b>${drawn.icon} ${drawn.name}</b>. Decide qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la elegida (${drawn.name})</button></div></div>`;
     }
   }
-  const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo 3). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
+  const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo ${cardHandLimit(state,p.id)}). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
     const c=TACTICAL_CARDS[cId],cost=tacticalCardCost(state,cId,p.id),canAfford=p.money>=cost,isReactive=c.type==='reaction',costStr=cost===0?(isReactive?'Reacción':'Gratis'):`$${cost}`,isSelected=cardTargeting?.cardId===cId;
     return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Elegible</span>':`<button class="play-card-btn" data-card="${cId}" ${canAfford?'':'disabled'} aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
   }).join('')}</div>`;
 
-  els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / 3</strong></div>${targetingNotice}${rewardNotice}${discardNotice}${cardsHtml}`;
+  els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / ${cardHandLimit(state,p.id)}</strong></div>${targetingNotice}${rewardNotice}${discardNotice}${cardsHtml}`;
 
   if($('#cancelTargetingBtn'))$('#cancelTargetingBtn').onclick=()=>{cardTargeting=null;render()};
   document.querySelectorAll('.reward-choice-btn').forEach(btn=>{
@@ -533,7 +528,6 @@ function renderTerritoryInspect(id) {
   const owner = state.players[d.owner];
   const terrainMode = state.rulesMode === 'terrain';
   const terrain = TERRAINS[t.terrain] || { name: 'Normal', icon: '📍', color: '#ffd45f' };
-  const unit = UNIT_TYPES[d.unitType] || { name: 'Infantería', icon: '◆' };
   const intel = getTerritoryIntel(state, id, 0, difficulty);
   const vis = intel.visibility;
   const isSabotaged = state.sabotagedTerritories?.[id] >= state.turn;
@@ -541,7 +535,6 @@ function renderTerritoryInspect(id) {
   const ownerName = vis === 'hidden' ? 'Desconocido' : owner.name;
   const ownerColor = vis === 'hidden' ? '#95a5a6' : owner.color;
   const productionText = vis === 'full' ? ('+$' + territoryProduction(state, id) + (isSabotaged ? ' · saboteado' : '')) : vis === 'partial' ? 'Aprox. regional' : 'Oculta por niebla';
-  const unitText = vis === 'full' ? (unit.icon + ' ' + unit.name) : 'Oculta por niebla';
   const intelText = vis === 'full' ? (intel.isSpied ? '👁 Revelado por Espía' : d.owner === 0 ? '✓ Bajo tu mando' : '✓ Visión completa') : vis === 'partial' ? '⚠ Información parcial' : '🌫 Niebla profunda';
   let alertText = '';
   if (terrainMode && state.activeEvent?.region === t.region) {
@@ -556,9 +549,6 @@ function renderTerritoryInspect(id) {
   const regionName = t.region ? getRegion(state,t.region).name : 'Continental';
   const terrainIcon = terrainMode ? '<span class="terrain-huge-icon">' + terrain.icon + '</span>' : '';
   const territoryBadge = terrainMode ? (terrain.name + ' · ' + regionName) : regionName;
-  const unitRow = terrainMode
-    ? '<div class="territory-spec-row"><span class="spec-lbl">Unidad</span><span class="spec-val">' + unitText + '</span></div>'
-    : '';
   const regionalFronts=(t.n||[]).map(tById).filter(neighbor=>neighbor&&neighbor.region!==t.region).map(neighbor=>{
     const neighborData=state.territories[neighbor.id],neighborIntel=getTerritoryIntel(state,neighbor.id,0,difficulty);
     if(neighborIntel.visibility==='hidden')return`<div class="territory-front-row"><span>${escapeHtml(neighbor.name)}</span><strong class="front-tag-unknown">? Sin confirmar</strong></div>`;
@@ -582,7 +572,6 @@ function renderTerritoryInspect(id) {
       '<div class="territory-spec-row"><span class="spec-lbl">Propietario</span><span class="spec-val" style="color:' + ownerColor + ';">● ' + ownerName + '</span></div>' +
       '<div class="territory-spec-row"><span class="spec-lbl">Guarnición</span><span class="spec-val">' + troopsDisplay + '</span></div>' +
       '<div class="territory-spec-row"><span class="spec-lbl">Producción</span><span class="spec-val">' + productionText + '</span></div>' +
-      unitRow +
       '<div class="territory-spec-row"><span class="spec-lbl">Conexiones</span><span class="spec-val">' + (t.n?.length || 0) + ' rutas directas</span></div>' +
       '<div class="territory-spec-row intel-row"><span class="spec-lbl">Inteligencia</span><span class="spec-val">' + intelText + '</span></div>' +
       (alertText ? '<div class="territory-spec-row alert-row"><span class="spec-lbl">Alerta</span><span class="spec-val">' + alertText + '</span></div>' : '') +
@@ -617,7 +606,7 @@ function renderObjectives() {
 function renderEconomy(){
   const p = state.players[state.current], income = productionTotal(state, p.id);
   const alreadyBought = p.reinforcementsBoughtRound === state.turn;
-  const canBuy = p.human && state.phase === 'reinforce' && p.money >= 10 && !alreadyBought;
+  const basicCost=reinforcementPrice(state,p.id),canBuy = p.human && state.phase === 'reinforce' && p.money >= basicCost && !alreadyBought;
 
   els.economyBox.innerHTML = '<div class="economy-head">' +
     '<span class="section-title"><span class="sec-icon">💰</span> TESORO</span>' +
@@ -626,7 +615,7 @@ function renderEconomy(){
   '<small class="economy-production">Producción actual: <strong>+$' + income + '</strong> al inicio del turno.</small>' +
   (p.human && state.phase === 'reinforce' ? (
     '<div class="basic-purchase"><span class="basic-purchase-label">COMPRA BÁSICA · 1 POR RONDA</span><small>Reserva inmediata; no depende del Mercado.</small><button id="buyTroopsBtn" class="basic-buy-btn" ' + (canBuy ? '' : 'disabled') + '>' +
-      (alreadyBought ? '✓ Compra básica utilizada' : '🏰 +3 refuerzos · $10') +
+      (alreadyBought ? '✓ Compra básica utilizada' : '🏰 +3 refuerzos · $'+basicCost) +
     '</button></div>'
   ) : '');
 
@@ -634,7 +623,7 @@ function renderEconomy(){
   if (button) button.onclick = () => {
     if (buyReinforcements(state)) {
       render();
-      showToast('Compra básica: +3 refuerzos por $10');
+      showToast('Compra básica: +3 refuerzos por $'+basicCost);
     }
   };
   renderObjectives();
@@ -651,16 +640,16 @@ function renderMarket(){
 
   const offersHtml=state.market.offers.map(offer=>{
     const alreadyBought=offer.boughtBy?.includes(p.id);
-    const actualCost=Math.max(5,offer.cost-(p.commander==='strategist'?5:0));
+    const actualCost=marketPrice(state,offer,p.id);
     const canAfford=p.money>=actualCost;
-    const isFullCards=offer.type==='card'&&p.cards.length>=3;
+    const handLimit=cardHandLimit(state,p.id),isFullCards=offer.type==='card'&&p.cards.length>=handLimit;
     const canBuy=p.human&&state.phase==='reinforce'&&!alreadyBought&&canAfford&&!isFullCards;
 
     let buttonOrBadge='';
     if(alreadyBought){
       buttonOrBadge=`<span class="market-badge bought">Adquirido</span>`;
     }else if(p.human&&state.phase==='reinforce'){
-      const reasonDisabled=!canAfford?`Requiere $${actualCost}`:isFullCards?'Mano llena (máx 3)':`Comprar ${offer.name}`;
+      const reasonDisabled=!canAfford?`Requiere $${actualCost}`:isFullCards?`Mano llena (máx ${handLimit})`:`Comprar ${offer.name}`;
       buttonOrBadge=`<button class="secondary-btn market-buy-btn" data-offer="${offer.id}" ${canBuy?'':'disabled'} title="${reasonDisabled}">Comprar · $${actualCost}</button>`;
     }else{
       buttonOrBadge=`<span class="market-price-tag">$${actualCost}</span>`;
@@ -725,10 +714,8 @@ function bonusPreview(from,to){
   const attReasons=[];
   const defReasons=[];
   if(state.rulesMode==='terrain'){
-    const terrain=TERRAINS[tById(to).terrain],au=UNIT_TYPES[a.unitType],du=UNIT_TYPES[d.unitType];
-    if(defenseKnown&&au.beats===d.unitType)attReasons.push(`${au.name} tiene ventaja`);
-    if(defenseKnown&&du.beats===a.unitType)defReasons.push('ventaja de unidad');
-    if(defenseKnown&&terrain.unit===d.unitType)defReasons.push('afinidad de terreno');
+    const terrain=TERRAINS[tById(to).terrain],profile=difficultyProfile(state),terrainBonus=state.players[d.owner]?.human?profile.humanTerrainBonus:profile.aiTerrainBonus;
+    if(defenseKnown&&terrainBonus&&(tById(to).terrain==='forest'||tById(to).terrain==='mountain'))defReasons.push(`${terrain.name} defensivo +${terrainBonus}`);
   }
   if(isConqueror)attReasons.push('doctrina El Conquistador (primer ataque)');
   if(hasTempDef)defReasons.push('defensa temporal activa');
@@ -738,7 +725,7 @@ function bonusPreview(from,to){
   const defText=!defenseKnown?'🛡 Bonos defensivos ocultos hasta revelar la guarnición.':defReasons.length?`🛡 Defensor: +${defReasons.length} (${defReasons.join(' + ')}).`:'Defensor: sin bono.';
   return `<div class="bonus-note">${attText}<br>${defText}</div>`;
 }
-function renderTerrainPanel(){if(state.rulesMode!=='terrain'){els.terrainPanel.classList.add('hidden');return}els.terrainPanel.classList.remove('hidden');const canChoose=state.phase==='reinforce'&&state.players[state.current].human;els.terrainPanel.innerHTML=`<h3>Rueda de ventaja · +1 al dado mayor</h3><div class="unit-wheel"><b>◆ Infantería</b> vence a <b>✦ Artillería</b> vence a <b>♞ Caballería</b> vence a <b>◆ Infantería</b></div>${canChoose?`<div class="unit-selector" role="group" aria-label="Unidad para los próximos refuerzos">${Object.entries(UNIT_TYPES).map(([k,u])=>`<button data-unit="${k}" class="${selectedUnit===k?'active':''}" aria-pressed="${selectedUnit===k}" style="--unit-color:${u.color}">${u.icon} ${u.name}</button>`).join('')}</div><div class="bonus-note">La unidad elegida se asignará al territorio que refuerces. Bosque favorece Infantería; Montaña, Artillería; Llanura, Caballería.</div>`:bonusPreview(selectedFrom,selectedTo)}`;document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{selectedUnit=b.dataset.unit;renderTerrainPanel();announce(`Unidad seleccionada: ${UNIT_TYPES[selectedUnit].name}`)})}
+function renderTerrainPanel(){if(state.rulesMode!=='terrain'){els.terrainPanel.classList.add('hidden');return}els.terrainPanel.classList.remove('hidden');const profile=difficultyProfile(state),humanBonus=profile.humanTerrainBonus,aiBonus=profile.aiTerrainBonus;els.terrainPanel.innerHTML=`<h3>Defensa del terreno</h3><div class="terrain-rules"><b>♠ Bosque</b> y <b>▲ Montaña</b> protegen al defensor. Llanura no concede bono.</div><div class="bonus-note">${profile.name}: tu defensa de terreno es +${humanBonus}; la IA recibe +${aiBonus}. Todas las fuerzas son tropas.</div>${bonusPreview(selectedFrom,selectedTo)}`}
 function renderPanel(){
   const human = state.players[state.current].human;
   els.battle.innerHTML = '';
@@ -790,9 +777,7 @@ function renderPanel(){
     headingEl.textContent = state.pendingReinforcements > 0 
       ? (state.pendingReinforcements + ' tropas por desplegar')
       : 'Despliegue completado';
-    subEl.textContent = state.rulesMode === 'terrain'
-      ? ('Unidad elegida: ' + UNIT_TYPES[selectedUnit].name + '. Pulsa un territorio propio.')
-      : 'Pulsa un territorio propio para añadir tropas.';
+    subEl.textContent = 'Pulsa un territorio propio para añadir tropas.';
     els.turnStatus.innerHTML = '<strong>Objetivo:</strong> coloca todas las tropas; después comienza el combate.';
     els.phaseBtn.textContent = state.pendingReinforcements > 0 ? 'Coloca todos tus refuerzos' : 'Comenzar combate →';
     els.phaseBtn.disabled = state.pendingReinforcements > 0;
@@ -841,9 +826,8 @@ function renderPanel(){
       headingEl.textContent = 'Fase de Maniobra';
       subEl.textContent = 'Mueve tropas por una ruta continua o pasa al cierre.';
     }
-    els.turnStatus.innerHTML = state.extraFortifies > 0
-      ? '<strong>Movilización activa:</strong> puedes realizar una maniobra adicional.'
-      : '<strong>Opcional:</strong> un movimiento por ronda o pasar.';
+    const total=maneuverLimit(state,state.current)+(state.extraFortifies||0),remaining=Math.max(0,total-(state.fortifiesUsedThisTurn||0));
+    els.turnStatus.innerHTML = remaining?`<strong>${remaining} ${remaining===1?'maniobra disponible':'maniobras disponibles'}.</strong> Puedes mover o pasar.`:'<strong>Sin maniobras base.</strong> Una carta de Movilización habilita una.';
     els.phaseBtn.textContent = 'Pasar maniobra → cierre';
     if (selectedFrom) {
       els.selection.innerHTML = '<div class="selection-item"><span>Origen · ' + tById(selectedFrom).name + '</span><strong>' + state.territories[selectedFrom].troops + ' tropas</strong></div>';
@@ -854,7 +838,7 @@ function renderPanel(){
     if (badgeEl) badgeEl.textContent = 'Cierre';
     if (state.pendingCardDraw) {
       const choosing=state.pendingCardDraw.stage==='choose';
-      headingEl.textContent = choosing?'Elige una de dos cartas':'Mano llena (3 cartas)';
+      headingEl.textContent = choosing?'Elige una de dos cartas':`Mano llena (${cardHandLimit(state,state.current)} cartas)`;
       subEl.textContent = choosing?'Tu conquista ofrece dos recompensas tácticas.':'Elige qué carta descartar en tu mano táctica.';
       els.turnStatus.innerHTML = choosing?'<strong>Recompensa pendiente:</strong> escoge una carta para continuar.':'<strong>Descarte obligatorio:</strong> debes liberar un espacio para continuar.';
       els.phaseBtn.textContent = choosing?'Elige tu recompensa':'Descarta una carta';
@@ -873,9 +857,8 @@ function renderAttackControls(){
   const a=state.territories[selectedFrom],d=state.territories[selectedTo],max=Math.min(3,a.troops-1),intel=getTerritoryIntel(state,selectedTo,0,difficulty),known=intel.visibility==='full';
   selectedDice=Math.min(selectedDice,max);
   const defenderTroops=known?`${d.troops} ${d.troops===1?'tropa':'tropas'}`:`≈${intel.troopsDisplay} tropas estimadas`;
-  const defenderUnit=known&&state.rulesMode==='terrain'?` · ${UNIT_TYPES[d.unitType].name}`:'';
   const probeControl=!state.probeUsedThisTurn&&!known?'<button class="secondary-btn probe-btn" id="probeBtn" aria-label="Sondear con un soldado; revela la guarnición y no puede conquistar">🔭 Sondear · 1 dado, sin conquista</button>':known?'<div class="bonus-note">👁 Guarnición revelada para esta ronda.</div>':'<div class="bonus-note">Sondeo ya utilizado este turno.</div>';
-  els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} ${a.troops===1?'tropa':'tropas'}${state.rulesMode==='terrain'?` · ${UNIT_TYPES[a.unitType].name}`:''}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${defenderTroops}${defenderUnit}</strong></div>`;
+  els.selection.innerHTML=`<div class="selection-item"><span>Atacante · ${tById(selectedFrom).name}</span><strong>${a.troops} ${a.troops===1?'tropa':'tropas'}</strong></div><div class="selection-item"><span>Defensor · ${tById(selectedTo).name}</span><strong>${defenderTroops}</strong></div>`;
   els.controls.innerHTML=`${probeControl}<label id="soldierChoiceLabel">Soldados desplegados en esta ronda (máximo ${max})</label><div class="dice-choice soldier-choice" role="group" aria-labelledby="soldierChoiceLabel">${[1,2,3].filter(n=>n<=max).map(n=>`<button data-dice="${n}" class="${n===selectedDice?'active':''}" aria-pressed="${n===selectedDice}" aria-label="Desplegar ${n} ${n===1?'soldado y lanzar 1 dado':`soldados y lanzar ${n} dados`}"><span class="soldier-pips">${'♟'.repeat(n)}</span><strong>${n} ${n===1?'soldado':'soldados'}</strong><small>${n} ${n===1?'dado':'dados'}</small></button>`).join('')}</div><div class="deployment-preview"><span>⚔ Despliegue de esta ronda</span><strong>${selectedDice} ${selectedDice===1?'soldado':'soldados'} · ${selectedDice} ${selectedDice===1?'dado':'dados'}</strong><small>El territorio de origen conservará al menos una tropa.</small></div>${bonusPreview(selectedFrom,selectedTo)}<button class="primary-btn" id="rollBtn" aria-label="Lanzar una ronda con ${selectedDice} ${selectedDice===1?'soldado':'soldados'}">🎲 Lanzar una ronda con ${selectedDice}</button><button class="secondary-btn" id="blitzBtn" aria-label="Ataque rápido usando automáticamente el máximo de soldados permitido">Ataque rápido · máximo automático</button>`;
   document.querySelectorAll('[data-dice]').forEach(b=>b.onclick=()=>{selectedDice=+b.dataset.dice;renderPanel();updateControlAccessibility();announce(`${selectedDice} ${selectedDice===1?'soldado seleccionado, 1 dado':'soldados seleccionados, '+selectedDice+' dados'}`)});
   if($('#probeBtn'))$('#probeBtn').onclick=doProbe;
@@ -945,7 +928,7 @@ function territoryClick(id,shift=false){
   }
   if(state.phase==='reinforce'){
     if(d.owner!==state.current)return showToast('Elige uno de tus territorios luminosos');
-    const amount=Math.min(shift?5:1,state.pendingReinforcements);placeTroops(state,id,amount,selectedUnit);
+    const amount=Math.min(shift?5:1,state.pendingReinforcements);placeTroops(state,id,amount);
     render();
     announce(`${amount} ${amount===1?'tropa colocada':'tropas colocadas'} en ${tById(id).name}. Quedan ${state.pendingReinforcements} refuerzos.`);
     return;
@@ -1283,7 +1266,7 @@ els.phaseBtn.onclick=()=>{
 async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiRequested;elapsed+=50)await pause(50)}
 async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary();else await promptPendingCounterReactions()}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
-function startNew(){state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});difficulty=$('#difficulty').value;startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;selectedUnit='infantry';skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
+function startNew(){difficulty=$('#difficulty').value;state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),difficulty,playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos')}
 const START_BG_MAPS=['./map-frontier.webp','./map-archipelago.webp','./map-rift.webp'];function applyRandomStartBg(){const m=START_BG_MAPS[Math.floor(Math.random()*START_BG_MAPS.length)];if(els.startModal)els.startModal.style.setProperty('--start-bg-img',`url("${m}")`)}function openStart(){applyRandomStartBg();els.startModal.classList.remove('hidden');$('#continueBtn').hidden=!hasSavedCampaign();restoreFocus($('#startBtn'))}
 function telemetryList(values,labels={}){const entries=Object.entries(values||{}).sort((a,b)=>b[1]-a[1]);return entries.length?entries.slice(0,4).map(([key,value])=>`<span><b>${labels[key]||key}</b> ${value}</span>`).join(''):'<span>Sin datos todavía</span>'}
 function renderTelemetryHelp(){const box=$('#telemetrySummary');if(!box)return;const summary=telemetrySummary(),cardLabels=Object.fromEntries(Object.entries(TACTICAL_CARDS).map(([id,card])=>[id,card.name])),offerLabels=Object.fromEntries(MARKET_CATALOG.map(offer=>[offer.id,offer.name])),commanderLabels=Object.fromEntries(Object.entries(COMMANDERS).map(([id,commander])=>[id,commander.name]));box.innerHTML=`<div class="telemetry-kpis"><div><strong>${summary.completed}</strong><span>campañas</span></div><div><strong>${summary.victories}</strong><span>victorias</span></div><div><strong>${Object.values(summary.cardsPlayed).reduce((a,b)=>a+b,0)}</strong><span>cartas jugadas</span></div></div><div class="telemetry-groups"><div><small>Comandantes elegidos</small>${telemetryList(summary.commanders,commanderLabels)}</div><div><small>Cartas utilizadas</small>${telemetryList(summary.cardsPlayed,cardLabels)}</div><div><small>Ofertas compradas</small>${telemetryList(summary.offersBought,offerLabels)}</div><div><small>Ofertas ignoradas</small>${telemetryList(summary.offersIgnored,offerLabels)}</div></div>`}

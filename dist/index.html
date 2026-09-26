@@ -38,7 +38,7 @@
       <i class="flow-arrow">›</i>
       <div class="flow-step" data-step="attack"><span class="flow-num">2</span><div class="flow-text"><b>Combate</b><small>opcional · Sondeo disponible</small></div></div>
       <i class="flow-arrow">›</i>
-      <div class="flow-step" data-step="fortify"><span class="flow-num">3</span><div class="flow-text"><b>Maniobra</b><small>Mueve una vez o pasa</small></div></div>
+      <div class="flow-step" data-step="fortify"><span class="flow-num">3</span><div class="flow-text"><b>Maniobra</b><small>Límite según dificultad</small></div></div>
       <i class="flow-arrow">›</i>
       <div class="flow-step" data-step="close"><span class="flow-num">4</span><div class="flow-text"><b>Cierre</b><small>Carta táctica y pase</small></div></div>
     </nav>
@@ -222,9 +222,10 @@
             <label for="difficulty"><span class="setup-icon">📊</span> DIFICULTAD</label>
             <div class="select-shell">
               <select id="difficulty">
-                <option value="fácil">Fácil</option>
-                <option value="normal" selected>Normal</option>
-                <option value="difícil">Difícil</option>
+                <option value="fácil">Fácil — IA evita al jugador</option>
+                <option value="normal" selected>Normal — todos por igual</option>
+                <option value="difícil">Difícil — IA prioriza al jugador</option>
+                <option value="odio">Odio — todos contra ti</option>
               </select>
               <span class="chevron">▾</span>
             </div>
@@ -312,7 +313,7 @@
               <span class="rule-icon">⛰️</span>
               <div class="rule-meta">
                 <b>Modo terreno</b>
-                <small>Unidades, afinidades, ventaja +1 y desastres.</small>
+                <small>Terreno defensivo, rutas críticas y desastres.</small>
               </div>
               <span class="radio-indicator"></span>
             </label>
@@ -413,8 +414,10 @@
         <li><b>Cierre y Cartas Tácticas.</b> Si conquistaste al menos un territorio, se ofrecen dos cartas tácticas y escoges una. La mano máxima es 3: primero eliges la recompensa y después, si hace falta, descartas una. Los bloqueos cierran rutas durante 2 rondas; el sabotaje reduce la producción. Cuando recibes Espía o Sabotaje, eliges si descartas Contrainteligencia para anularlo o conservas la carta y aceptas el efecto.</li>
         <li><b>Hegemonía provisional.</b> Alcanzar 60 puntos no basta por sí solo: debes haber completado al menos un objetivo principal y uno no militar. La comprobación ocurre al cierre de una ronda completa.</li>
         <li><b>Mapas.</b> Cada mapa conserva 24 territorios, pero cambia las rutas, los pasos estratégicos y el ritmo de conquista.</li>
-        <li><b>Modo terreno.</b> Infantería vence a Artillería, Artillería a Caballería y Caballería a Infantería. La ventaja suma +1 al dado mayor. El defensor también obtiene +1 cuando su unidad coincide con el terreno.</li>
+        <li><b>Modo terreno.</b> No hay tipos de unidad: todas las fuerzas son tropas. Bosques y montañas pueden sumar +1 al dado defensivo mayor según la dificultad; las llanuras no dan bonificación. Los desastres y rutas bloqueadas hacen este modo más exigente que el clásico.</li>
         <li><b>Influencia y Objetivos.</b> La presencia aporta 1 punto por territorio (máximo 8) y 3 por región completa (máximo 3 regiones). Producción y tropas dan capacidad operativa, pero no Influencia. Elige un objetivo principal entre tres rutas y una misión por ciclo; las operaciones de posición, cartas, logística, economía, inteligencia, defensa y recuperación otorgan la mayor parte de la puntuación.</li>
+        <li><b>Dificultad.</b> Fácil ofrece 4 cartas, 3 maniobras y precios bajos; Normal, 3 cartas y 2 maniobras; Difícil, 3 cartas y 1 maniobra; Odio limita la mano a 2, elimina la maniobra base y hace que todas las IA te persigan. Movilización siempre puede recuperar una maniobra.</li>
+        <li><b>Economía conectada.</b> Cada territorio produce según sus rutas: 1 conexión genera $1, 2–3 generan $2 y 4–5 generan $3. Una región completa añade $2 al tesoro total.</li>
         <li><b>Tres Condiciones de Victoria.</b> Puedes ganar por: (A) <b>Dominio Total</b> conquistando los 24 territorios; (B) <b>Hegemonía de Influencia</b> alcanzando 70+ puntos al término de una ronda completa; o (C) <b>Límite de Campaña</b>: al concluir la ronda 40, el comandante vivo con mayor puntuación de Influencia es declarado vencedor.</li>
         <li><b>Comandantes y Doctrinas.</b> Cada líder militar dispone de una doctrina asimétrica: <b>El Conquistador</b> (+1 al dado de ataque en el primer combate de cada turno), <b>El Guardián</b> (+1 al dado defensivo en frentes en Guerra), <b>El Industrial</b> (+$1 de producción económica base en todos sus territorios), <b>El Estratega</b> (descuento de $5 en Mercado, Movilización gratis, Bloqueo a $15 y 1 Movilización inicial), <b>El Espía</b> (+1 al dado de ataque contra objetivos espiados, 1 Espía inicial y 50% de protección pasiva contra sabotajes) y <b>El Diplomático</b> (+40% de Influencia en objetivos y subsidio de $3 por mantener frentes pacíficos).</li>
         <li><b>Frentes regionales.</b> Cada pareja de comandantes mantiene una tensión separada en cada región: <b>Estable</b>, <b>Tenso</b> (Sondeo, sabotaje o espionaje), <b>Conflicto</b> (combates) y <b>Guerra</b> (conquistas). La hostilidad en una región no contamina las demás; los frentes pacíficos se enfrían al término de cada ronda.</li>

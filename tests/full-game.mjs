@@ -1,4 +1,4 @@
-import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,UNIT_TYPES,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolveCardChoice,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
+import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,DIFFICULTY_PROFILES,cardHandLimit,maneuverLimit,reinforcementPrice,marketPrice,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,buyReinforcements,reinforcementCount,upgradeGame,drawTacticalCard,resolveCardChoice,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;
 for(let seed=1;seed<=60;seed++){
@@ -100,10 +100,11 @@ setPhase(mobGame,'fortify');
 playTacticalCard(mobGame,'mobilize',null,0);
 if(mobGame.extraFortifies!==1)throw new Error('Movilización no otorgó maniobra adicional');
 
-// Movilización también funciona cuando se juega después de la primera maniobra.
+// Normal ofrece dos maniobras y Movilización añade una tercera.
 const mobAfter=createGame({players:2,seed:102,human:true});
 mobAfter.territories.n1.owner=mobAfter.territories.n2.owner=0;mobAfter.territories.n1.troops=4;mobAfter.territories.n2.troops=2;mobAfter.phase='fortify';
-if(!fortify(mobAfter,'n1','n2',1)||mobAfter.phase!=='close')throw new Error('La primera maniobra no cerró la fase');
+if(!fortify(mobAfter,'n1','n2',1)||mobAfter.phase!=='fortify')throw new Error('Normal no conservó la segunda maniobra');
+if(!fortify(mobAfter,'n2','n1',1)||mobAfter.phase!=='close')throw new Error('La segunda maniobra normal no cerró la fase');
 mobAfter.players[0].cards=['mobilize'];mobAfter.players[0].money=10;
 if(!playTacticalCard(mobAfter,'mobilize',null,0).ok||mobAfter.phase!=='fortify'||!fortify(mobAfter,'n2','n1',1))throw new Error('Movilización no habilitó una segunda maniobra después de la primera');
 
@@ -125,34 +126,33 @@ resolveCardChoice(lateReward,lateReward.pendingCardDraw.choices[0],0);
 if(!endTurn(lateReward)||lateReward.current===0)throw new Error('El turno no continuó después de elegir la recompensa tardía');
 console.log('OK: combate opcional, Sondeo, selección de dados y reacciones tácticas verificados.');
 
-// Reclutamiento reversible: varias colocaciones, unidad anterior y confirmación explícita.
+// Reclutamiento reversible sin tipos de unidad y confirmación explícita.
 const undoGame=createGame({players:2,seed:2040,human:true,rulesMode:'terrain'});
-const undoTerritory=ownedIds(undoGame,0)[0],undoBefore=undoGame.territories[undoTerritory].troops,undoPending=undoGame.pendingReinforcements,undoUnit=undoGame.territories[undoTerritory].unitType;
-if(!placeTroops(undoGame,undoTerritory,1,'artillery')||!placeTroops(undoGame,undoTerritory,2,'cavalry'))throw new Error('No se registraron colocaciones reversibles');
+const undoTerritory=ownedIds(undoGame,0)[0],undoBefore=undoGame.territories[undoTerritory].troops,undoPending=undoGame.pendingReinforcements;
+if(!placeTroops(undoGame,undoTerritory,1)||!placeTroops(undoGame,undoTerritory,2))throw new Error('No se registraron colocaciones reversibles');
 const undoTwo=undoReinforcement(undoGame);
-if(!undoTwo||undoTwo.amount!==2||undoGame.territories[undoTerritory].troops!==undoBefore+1||undoGame.territories[undoTerritory].unitType!=='artillery')throw new Error('Deshacer no restauró la colocación y unidad anteriores');
+if(!undoTwo||undoTwo.amount!==2||undoGame.territories[undoTerritory].troops!==undoBefore+1)throw new Error('Deshacer no restauró la colocación anterior');
 const undoOne=undoReinforcement(undoGame);
-if(!undoOne||undoGame.territories[undoTerritory].troops!==undoBefore||undoGame.territories[undoTerritory].unitType!==undoUnit||undoGame.pendingReinforcements!==undoPending)throw new Error('Deshacer no restauró el inicio de Reclutamiento');
+if(!undoOne||undoGame.territories[undoTerritory].troops!==undoBefore||undoGame.pendingReinforcements!==undoPending)throw new Error('Deshacer no restauró el inicio de Reclutamiento');
 if(undoReinforcement(undoGame)!==false||finishReinforcement(undoGame)!==false)throw new Error('Se permitió deshacer o terminar Reclutamiento en un estado inválido');
-while(undoGame.pendingReinforcements)placeTroops(undoGame,undoTerritory,1,'infantry');
+while(undoGame.pendingReinforcements)placeTroops(undoGame,undoTerritory,1);
 if(undoGame.phase!=='reinforce'||!finishReinforcement(undoGame)||undoGame.phase!=='attack'||undoGame.reinforcementHistory.length)throw new Error('La confirmación explícita de Reclutamiento falló');
 console.log('OK: Reclutamiento reversible y confirmación explícita verificados.');
 
-// Ventaja circular en modo terreno y ausencia de modificadores en clásico.
-const terrain=createGame({players:2,seed:505,human:true,mapId:'archipelago',rulesMode:'terrain',playerCommander:'industrial'});
-while(terrain.pendingReinforcements)placeTroops(terrain,ownedIds(terrain,0)[0],1,'infantry');
+// Defensa geográfica en modo terreno y ausencia de modificadores en clásico.
+const terrain=createGame({players:2,seed:505,human:true,mapId:'archipelago',rulesMode:'terrain',difficulty:'normal',playerCommander:'industrial'});
+while(terrain.pendingReinforcements)placeTroops(terrain,ownedIds(terrain,0)[0],1);
 finishReinforcement(terrain);
-const tFrom=ownedIds(terrain,0).find(id=>terrain.territories[id].troops>1&&enemiesOf(terrain,id).length),tTo=enemiesOf(terrain,tFrom)[0];
-terrain.territories[tFrom].unitType='infantry';terrain.territories[tTo].unitType='artillery';
+const tFrom=ownedIds(terrain,0).find(id=>terrain.territories[id].troops>1&&enemiesOf(terrain,id).some(to=>['forest','mountain'].includes(getTerritories(terrain).find(t=>t.id===to).terrain))),tTo=enemiesOf(terrain,tFrom).find(to=>['forest','mountain'].includes(getTerritories(terrain).find(t=>t.id===to).terrain));
 const terrainRoll=attackRound(terrain,tFrom,tTo,1);
-if(terrainRoll.bonus.attacker!==1||terrainRoll.attackerDice[0]!==terrainRoll.rawAttackerDice[0]+1)throw new Error('El bono circular +1 no se aplicó');
+if(terrainRoll.bonus.defender<1||terrainRoll.defenderDice[0]!==terrainRoll.rawDefenderDice[0]+terrainRoll.bonus.defender)throw new Error('El bono defensivo de terreno no se aplicó');
 const classic=createGame({players:2,seed:506,human:true,mapId:'rift',rulesMode:'classic',playerCommander:'industrial'});
 while(classic.pendingReinforcements)placeTroops(classic,ownedIds(classic,0)[0],1);
 finishReinforcement(classic);
 const cFrom=ownedIds(classic,0).find(id=>classic.territories[id].troops>1&&enemiesOf(classic,id).length),cTo=enemiesOf(classic,cFrom)[0];
 const classicRoll=attackRound(classic,cFrom,cTo,1);
 if(classicRoll.bonus.attacker||classicRoll.bonus.defender)throw new Error('El modo clásico aplicó modificadores');
-console.log('OK: 3 mapas, informes IA, modo clásico y rueda de terreno verificados.');
+console.log('OK: 3 mapas, informes IA y defensa de terreno verificados.');
 
 const allTerritoryNames=new Set(),allRegionNames=new Set();
 for(const map of Object.values(MAPS)){
@@ -166,28 +166,29 @@ for(const map of Object.values(MAPS)){
 }
 console.log('OK: conectividad, rutas simétricas y nombres únicos verificados en los 3 mapas.');
 
-// Economía: mayoría regional, control total, cobro único, gasto y continuidad del guardado anterior.
+// Economía: conectividad, control regional, cobro único, gasto y continuidad del guardado anterior.
 const economy=createGame({players:2,seed:314,human:true});
 for(const t of TERRITORIES)economy.territories[t.id].owner=1;
 economy.territories.n1.owner=economy.territories.n2.owner=0;
-if(territoryProduction(economy,'n1')!==2)throw new Error('La mayoría regional no aportó +1');
+if(territoryProduction(economy,'n1')!==1+Math.min(2,Math.floor(getTerritories(economy).find(t=>t.id==='n1').n.length/2)))throw new Error('La producción no refleja la conectividad');
 economy.territories.n3.owner=0;
-if(territoryProduction(economy,'n1')!==2)throw new Error('Se otorgó el bono total antes de controlar toda la región');
+const n1Production=territoryProduction(economy,'n1');
 economy.territories.n4.owner=0;
-if(territoryProduction(economy,'n1')!==4||productionTotal(economy,0)!==16)throw new Error('El control total no aportó +2 adicionales');
+const expectedRegionTotal=['n1','n2','n3','n4'].reduce((sum,id)=>sum+territoryProduction(economy,id,0),0)+2;
+if(territoryProduction(economy,'n1')!==n1Production||productionTotal(economy,0)!==expectedRegionTotal)throw new Error('El bono regional plano o la producción por conectividad fallaron');
 economy.players[0].money=0;economy.players[0].lastIncomeRound=0;
-if(collectIncome(economy,0)!==16||collectIncome(economy,0)!==0||economy.players[0].money!==16)throw new Error('El cobro económico se duplicó o calculó mal');
+if(collectIncome(economy,0)!==expectedRegionTotal||collectIncome(economy,0)!==0||economy.players[0].money!==expectedRegionTotal)throw new Error('El cobro económico se duplicó o calculó mal');
 const before=economy.pendingReinforcements;
-if(!buyReinforcements(economy)||economy.players[0].money!==6||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
+if(!buyReinforcements(economy)||economy.players[0].money!==expectedRegionTotal-10||economy.pendingReinforcements!==before+3||buyReinforcements(economy))throw new Error('La compra de refuerzos no respetó coste y saldo');
 const previousV3=createGame({players:2,seed:315});previousV3.version=3;for(const p of previousV3.players){delete p.money;delete p.lastIncomeRound;p.cards=2;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV3)?.version!==13||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v13 de forma estable');
+if(upgradeGame(previousV3)?.version!==14||previousV3.players[0].money!==productionTotal(previousV3,0)||previousV3.players[0].cards.length!==2||!previousV3.market?.offers||typeof previousV3.players[0].influence!=='number')throw new Error('La partida v3 no migró a v14 de forma estable');
 const previousV4=createGame({players:2,seed:316});previousV4.version=4;for(const p of previousV4.players){p.cards=3;delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV4)?.version!==13||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v13 de forma estable');
+if(upgradeGame(previousV4)?.version!==14||previousV4.players[0].cards.length!==3||!previousV4.market?.offers)throw new Error('La partida v4 no migró a v14 de forma estable');
 const previousV5=createGame({players:2,seed:317});previousV5.version=5;delete previousV5.market;delete previousV5.tempDefense;for(const p of previousV5.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV5)?.version!==13||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v13 de forma estable');
+if(upgradeGame(previousV5)?.version!==14||!previousV5.market?.offers)throw new Error('La partida v5 no migró a v14 de forma estable');
 const previousV6=createGame({players:2,seed:318});previousV6.version=6;delete previousV6.victoryType;delete previousV6.turnConquests;for(const p of previousV6.players){delete p.influence;delete p.completedObjectives;delete p.commander}
-if(upgradeGame(previousV6)?.version!==13||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v13 de forma estable');
-console.log('OK: producción, tesoro, compras y migración v13 verificados.');
+if(upgradeGame(previousV6)?.version!==14||typeof previousV6.players[0].influence!=='number'||!Array.isArray(previousV6.players[0].completedObjectives))throw new Error('La partida v6 no migró a v14 de forma estable');
+console.log('OK: producción, tesoro, compras y migración v14 verificados.');
 
 // Pruebas unitarias de Mercado:
 const mg=createGame({players:2,seed:404,human:true});
@@ -230,8 +231,8 @@ if(!buyDef.ok||mg.tempDefense[1]!==mg.turn)throw new Error('La defensa temporal 
 
 // Verificamos que al defender, el jugador 1 recibe +1 en su dado defensivo
 mg.current=0;mg.phase='attack';
-const aT=ownedIds(mg,0).find(id=>enemiesOf(mg,id).includes(ownedIds(mg,1)[0]));
-const dT=ownedIds(mg,1)[0];
+const aT=ownedIds(mg,0).find(id=>enemiesOf(mg,id).some(enemy=>mg.territories[enemy].owner===1));
+const dT=enemiesOf(mg,aT).find(id=>mg.territories[id].owner===1);
 mg.territories[aT].troops=10;mg.territories[dT].troops=5;
 const rollDefense=attackRound(mg,aT,dT,1);
 if(rollDefense.bonus.defender!==1)throw new Error('El bono de defensa temporal +1 no se aplicó en combate');
@@ -354,7 +355,8 @@ const regTerrs = getTerritories(testInd).filter(t => t.region === tObj.region);
 for (const rt of regTerrs) testInd.territories[rt.id].owner = 1;
 testInd.territories[indTerr].owner = 0;
 const indProd = territoryProduction(testInd, indTerr, 0);
-if (indProd !== 2) throw new Error(`El Industrial debe producir $2 base por territorio, obtenido: $${indProd}`);
+const indExpected=1+Math.min(2,Math.floor(getTerritories(testInd).find(t=>t.id===indTerr).n.length/2))+1;
+if (indProd !== indExpected) throw new Error(`El Industrial debe sumar $1 a la producción conectada, obtenido: $${indProd}`);
 
 // 4. Doctrina El Estratega: Costes reducidos en Bloqueo ($15) y Movilización ($0)
 const testStrat = createGame({players:2, seed:904, human:true, playerCommander:'strategist'});
@@ -383,24 +385,24 @@ const spyTarget = ownedIds(testSpy, 1)[0];
 const spyRes = playTacticalCard(testSpy, 'spy', spyTarget, 0);
 if (!spyRes.ok) throw new Error('El Espía debe poder usar Espía gratis sin dinero');
 
-// 7. Migración de partida guardada a v13:
+// 7. Migración de partida guardada a v14:
 const oldV7 = createGame({players:2, seed:907, human:true});
 oldV7.version = 7;
 delete oldV7.fronts;
 oldV7.players.forEach(p => delete p.commander);
 const upgraded = upgradeGame(oldV7);
-if (!upgraded || upgraded.version !== 13 || !upgraded.fronts || !upgraded.players[0].commander||!Array.isArray(upgraded.pendingReactions)) throw new Error('La migración a versión 13 falló');
+if (!upgraded || upgraded.version !== 14 || !upgraded.fronts || !upgraded.players[0].commander||!Array.isArray(upgraded.pendingReactions)) throw new Error('La migración a versión 14 falló');
 
 const oldV8 = createGame({players:2, seed:908, human:true});
 oldV8.version = 8;
 const upgradedV8 = upgradeGame(oldV8);
-if (!upgradedV8 || upgradedV8.version !== 13) throw new Error('La migración desde versión 8 a versión 13 falló');
+if (!upgradedV8 || upgradedV8.version !== 14) throw new Error('La migración desde versión 8 a versión 14 falló');
 
 const oldV12=createGame({players:2,seed:909,human:true});oldV12.version=12;oldV12.pendingCardDraw={pid:0,card:'spy'};const regionalFrontBefore=Object.keys(oldV12.fronts)[0];oldV12.fronts[regionalFrontBefore].state='war';
 const upgradedV12=upgradeGame(oldV12);
-if(upgradedV12.version!==13||upgradedV12.pendingCardDraw?.stage!=='discard'||upgradedV12.fronts[regionalFrontBefore].state!=='war')throw new Error('La migración v12 perdió el descarte o los frentes regionales');
+if(upgradedV12.version!==14||upgradedV12.pendingCardDraw?.stage!=='discard'||upgradedV12.fronts[regionalFrontBefore].state!=='war')throw new Error('La migración v12 perdió el descarte o los frentes regionales');
 
-console.log('OK: Doctrinas de Comandante (§9.1), Frentes regionales (§13) y Migración v8/v13 verificadas.');
+console.log('OK: Doctrinas de Comandante (§9.1), Frentes regionales (§13) y Migración v8/v14 verificadas.');
 
 // 8. Información Imperfecta (§10) y Rangos de Tropas
 if (approximateTroops(1) !== '1-2' || approximateTroops(2) !== '1-2') throw new Error('Rango 1-2 incorrecto');
@@ -433,8 +435,8 @@ const dist2 = distMap.find(x => x.dist === 2);
 if (dist2) {
   if (getTerritoryVisibility(fogGame, dist2.id, 0, 'normal') !== 'partial') throw new Error('Un territorio a distancia 2 debe tener visibilidad partial');
   const pIntel = getTerritoryIntel(fogGame, dist2.id, 0, 'normal');
-  if (pIntel.visibility !== 'partial' || pIntel.unitType !== null || pIntel.production !== null) {
-    throw new Error('Intel a distancia 2 no debe revelar unidad ni producción exacta');
+  if (pIntel.visibility !== 'partial' || 'unitType' in pIntel || pIntel.production !== null) {
+    throw new Error('Intel a distancia 2 no debe revelar producción exacta ni tipos de unidad');
   }
 }
 

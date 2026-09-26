@@ -21,6 +21,7 @@ for(const dice of [1,2,3]){
   const state=createGame({players:2,seed:5300,human:true}),from=getTerritories(state)[0],to=getTerritories(state).find(territory=>from.n.includes(territory.id));
   state.current=0;state.phase='fortify';state.territories[from.id]={...state.territories[from.id],owner:0,troops:7};state.territories[to.id]={...state.territories[to.id],owner:0,troops:2};
   assert.equal(fortify(state,from.id,to.id,7),false,'No debe vaciarse el origen');assert.equal(state.territories[from.id].troops,7);assert.equal(state.territories[to.id].troops,2);
-  assert.equal(fortify(state,from.id,to.id,4),true);assert.equal(state.territories[from.id].troops,3);assert.equal(state.territories[to.id].troops,6);assert.equal(state.phase,'close');
+  assert.equal(fortify(state,from.id,to.id,4),true);assert.equal(state.territories[from.id].troops,3);assert.equal(state.territories[to.id].troops,6);assert.equal(state.phase,'fortify','Normal permite una segunda maniobra');
+  assert.equal(fortify(state,to.id,from.id,1),true);assert.equal(state.phase,'close');
 }
 console.log('OK: dados/soldados, ataque rápido dinámico y límites/resultado de maniobra verificados.');
