@@ -8421,6 +8421,55 @@ body:has(#startModal:not(.hidden)) {
   }
 }
 
+/* Los fieldset conservan por defecto el ancho mínimo de su contenido.
+   Permitir que se contraigan evita que mapas, reglas o doctrinas salgan de la tarjeta. */
+.start-card .setup-section,
+.start-card .section-legend,
+.start-card .map-grid,
+.start-card .rules-grid,
+.start-card .commanders-grid,
+.start-card .map-card,
+.start-card .rule-card,
+.start-card .commander-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.start-card .setup-section {
+  width: 100%;
+}
+
+.start-card .map-grid,
+.start-card .commanders-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.start-card .rules-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.start-card .legend-main,
+.start-card .legend-hint {
+  min-width: 0;
+}
+
+.start-card .legend-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .start-card .map-grid,
+  .start-card .rules-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .start-card .commanders-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .combat-hud {
   position: static;
   z-index: auto;
