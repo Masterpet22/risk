@@ -40,4 +40,12 @@ assert.match(html,/id="telemetrySummary"/);assert.match(html,/id="exportTelemetr
 assert.match(css,/min-height:\s*44px/,'Los controles principales deben conservar objetivos táctiles de 44 px');
 assert.match(css,/@media \(max-width: 1200px\)[\s\S]*?#orderCard[\s\S]*?position:\s*fixed/,'El panel móvil debe ser una hoja inferior');
 assert.match(css,/\.context-action-panel\.combat-ready[\s\S]*?\.combat-matchup[\s\S]*?\.combat-dice-choice/,'El tema debe incluir el estado visual completo del asalto preparado');
+assert.match(html,/theme\.css\?v=34/,'La página debe invalidar la caché tras los ajustes visuales');
+assert.match(html,/app\.mjs\?v=41/,'La página debe invalidar la caché tras los ajustes de interacción');
+assert.match(css,/\.start-card \.setup-grid\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/,'La configuración móvil debe usar una sola columna sin desbordamiento');
+assert.match(css,/body:has\(\.modal-backdrop:not\(\.hidden\)\) \.mobile-orders-button,[\s\S]*?display:\s*none\s*!important/,'Los modales móviles deben ocultar el acceso flotante a Órdenes');
+assert.match(css,/body:has\(\.modal-backdrop:not\(\.hidden\)\) \.tutorial-coach[\s\S]*?display:\s*none\s*!important/,'La guía contextual no debe cubrir los modales móviles');
+assert.match(css,/\.context-action-panel\.resolving-combat \.context-action-body\s*\{[\s\S]*?display:\s*block\s*!important[\s\S]*?height:\s*auto\s*!important/,'La resolución integrada debe eliminar el espacio flexible sobrante');
+assert.match(app,/maneuversAfterMove>0\?'otra maniobra':'cierre'/,'La acción de maniobra debe anunciar el paso siguiente real');
+assert.match(app,/skippedAi[\s\S]*?setTimeout\(focusCurrentOrder,0\)/,'Al omitir turnos enemigos se debe restaurar un foco útil');
 console.log('OK: invariantes DOM/CSS de rutas, combate, maniobra, modales y controles táctiles verificadas.');

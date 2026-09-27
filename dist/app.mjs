@@ -19,6 +19,8 @@ import {chronicleCategory,chronicleModalMarkup,sidebarLogMarkup} from './chronic
 import {influenceModalMarkup,frontsModalMarkup} from './strategic-views.mjs?v=1';
 import {marketOffersListMarkup,marketModalMarkup} from './market-modal-view.mjs?v=1';
 import {orderPanelPhaseDetails,reinforcementUndoMarkup} from './order-panel-view.mjs?v=1';
+import {cardsBoxMarkup} from './cards-view.mjs?v=1';
+import {territorySvgMarkup,computeTerritoryVisuals} from './map-view.mjs?v=1';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
 let state=null,pendingAiState=null,difficulty='diplomatico',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
@@ -59,6 +61,12 @@ const announce=createLiveAnnouncer(els.announcements);
 const mobileLayout=()=>window.matchMedia('(max-width: 1200px)').matches;
 function openMobileOrders(){if(!mobileLayout())return;document.body.classList.add('order-open');$('#mobileOrdersBtn').setAttribute('aria-expanded','true');$('#orderCard').scrollTop=0;setTimeout(()=>{if(document.body.classList.contains('order-open'))$('#closeOrderSheet').focus()},360)}
 function closeMobileOrders(){const wasOpen=document.body.classList.contains('order-open');document.body.classList.remove('order-open');$('#mobileOrdersBtn').setAttribute('aria-expanded','false');if(wasOpen)restoreFocus($('#mobileOrdersBtn'))}
+function focusCurrentOrder(){
+  const target=mobileLayout()
+    ? (document.body.classList.contains('order-open')?$('#closeOrderSheet'):$('#mobileOrdersBtn'))
+    : (!els.phaseBtn.disabled?els.phaseBtn:document.querySelector('.territory[tabindex="0"]'));
+  restoreFocus(target,'#mobileOrdersBtn');
+}
 function updateMobileOrders(){if(!state)return;const label=state.winner!==null?'Resumen final':state.phase==='reinforce'?`${state.pendingReinforcements} refuerzos por colocar`:state.phase==='attack'?(selectedTo?'Ataque preparado':selectedFrom?'Elige objetivo':'Preparar ataque'):state.phase==='fortify'?'Maniobra o pasar':'Cerrar turno';$('#mobileOrdersLabel').textContent=label}
 function updateControlAccessibility(){
   if(!state)return;
@@ -145,7 +153,7 @@ function initMap(mapId='frontier'){
   const map=MAPS[mapId]||MAPS.frontier,T=map.territories;els.map.innerHTML=`<image class="map-art" href="./map-${map.id}.webp" x="0" y="0" width="1000" height="760" preserveAspectRatio="xMidYMid slice"/><rect class="map-art-shade" x="0" y="0" width="1000" height="760"/>`;
   const wrap=document.querySelector('.map-wrap');wrap.scrollLeft=0;wrap.classList.remove('overview');$('#mapOverviewBtn').setAttribute('aria-pressed','false');$('#mapOverviewBtn').textContent='⌕';
   const drawn=new Set();for(const t of T)for(const n of t.n){const k=[t.id,n].sort().join('-');if(drawn.has(k))continue;drawn.add(k);const b=T.find(x=>x.id===n),cross=t.region!==b.region?' cross':'',route=routeGeometry(t,b,T);els.map.insertAdjacentHTML('beforeend',`<path class="connection${cross}" data-a="${t.id}" data-b="${n}" data-routed="${route.curved}" d="${route.d}"/>`)}
-  for(const t of T){const x=t.x*10,y=t.y*8,r=50,points=Array.from({length:6},(_,i)=>{const a=-Math.PI/2+i*Math.PI/3;return`${(x+Math.cos(a)*r).toFixed(1)},${(y+Math.sin(a)*r).toFixed(1)}`}).join(' ');els.map.insertAdjacentHTML('beforeend',`<g class="territory" id="terr-${t.id}" data-id="${t.id}" tabindex="0" role="button"><polygon class="territory-shape" points="${points}" style="--region:${REGIONS[t.region].color}44"/><text class="territory-region" x="${x}" y="${y-25}">${regionShort(map,t.region)}</text><text class="territory-label" x="${x}" y="${y-7}">${t.name}</text><text class="terrain-mark" x="${x-35}" y="${y+24}">${TERRAINS[t.terrain].icon}</text><rect class="army-disc" x="${x-24}" y="${y+3}" width="48" height="31" rx="16"/><text class="troop-mark" x="${x-8}" y="${y+25}">♟</text><text class="army-count" x="${x+11}" y="${y+25}">1</text></g>`)}
+  for(const t of T){els.map.insertAdjacentHTML('beforeend',territorySvgMarkup(t,{regionShort:regionShort(map,t.region),regionColor:REGIONS[t.region].color,terrainIcon:TERRAINS[t.terrain].icon}))}
   els.map.insertAdjacentHTML('beforeend','<g id="mapFxLayer" class="map-fx-layer" pointer-events="none"></g>');
   els.map.onclick=e=>{const g=e.target.closest('.territory');if(g)territoryClick(g.dataset.id,e.shiftKey)};els.map.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.territory')){e.preventDefault();territoryClick(e.target.closest('.territory').dataset.id)}};els.map.onpointerover=e=>{const g=e.target.closest('.territory');if(g&&hoverId!==g.dataset.id){hoverId=g.dataset.id;updateHover(g.dataset.id)}};els.map.onpointerout=e=>{if(e.target.closest('.territory')&&!e.relatedTarget?.closest?.('.territory')){hoverId=null;renderMap()}};updateConnections();updateMobileMapOverlay();
 }
@@ -438,47 +446,38 @@ function renderMap(){
     const d=state.territories[t.id],p=state.players[d.owner],g=$(`#terr-${t.id}`);
     if(!g)continue;
     const intel=getTerritoryIntel(state,t.id,0,difficulty);
-    g.style.setProperty('--owner',intel.visibility==='hidden'?'#526a7b':p.color);
-    g.style.setProperty('--terrain',TERRAINS[t.terrain].color);
-    g.classList.toggle('owned',d.owner===state.current);
-    g.classList.toggle('selected',t.id===selectedFrom||t.id===selectedTo);
-    g.classList.toggle('target',selectedFrom&&state.phase==='attack'&&enemiesOf(state,selectedFrom).includes(t.id));
-    g.classList.toggle('dimmed',!!hoverId&&hoverId!==t.id&&!t.n.includes(hoverId));
-
-    g.classList.toggle('intel-full',intel.visibility==='full');
-    g.classList.toggle('intel-partial',intel.visibility==='partial');
-    g.classList.toggle('intel-hidden',intel.visibility==='hidden');
-    g.classList.toggle('spied',!!intel.isSpied);
-
     const isSabotaged=state.sabotagedTerritories?.[t.id]>=state.turn;
-    g.classList.toggle('sabotaged',!!isSabotaged);g.classList.toggle('event-threatened',state.rulesMode==='terrain'&&state.announcedEvent?.region===t.region);g.classList.toggle('event-active',state.rulesMode==='terrain'&&state.activeEvent?.region===t.region);
-
+    const isThreatened=state.rulesMode==='terrain'&&state.announcedEvent?.region===t.region;
+    const isActiveEvent=state.rulesMode==='terrain'&&state.activeEvent?.region===t.region;
+    let cardValidTarget=false;
     if(cardTargeting){
-      if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage')g.classList.toggle('card-valid-target',d.owner!==state.current);
+      if(cardTargeting.cardId==='spy'||cardTargeting.cardId==='sabotage')cardValidTarget=d.owner!==state.current;
       else if(cardTargeting.cardId==='blockade'){
-        if(!cardTargeting.from)g.classList.toggle('card-valid-target',true);
-        else g.classList.toggle('card-valid-target',t.n.includes(cardTargeting.from));
+        if(!cardTargeting.from)cardValidTarget=true;
+        else cardValidTarget=t.n.includes(cardTargeting.from);
       }
-    }else{
-      g.classList.remove('card-valid-target');
     }
-
+    const vis=computeTerritoryVisuals({
+      t,territoryData:d,player:p,intel,
+      isCurrentOwner:d.owner===state.current,
+      isSelected:t.id===selectedFrom||t.id===selectedTo,
+      isTarget:Boolean(selectedFrom&&state.phase==='attack'&&enemiesOf(state,selectedFrom).includes(t.id)),
+      isDimmed:Boolean(hoverId&&hoverId!==t.id&&!t.n.includes(hoverId)),
+      isSabotaged,isThreatened,isActiveEvent,cardValidTarget,
+      rulesMode:state.rulesMode,terrainColor:TERRAINS[t.terrain].color
+    });
+    g.style.setProperty('--owner',vis.ownerColor);
+    g.style.setProperty('--terrain',vis.terrainColor);
+    Object.entries(vis.classes).forEach(([cls,active])=>g.classList.toggle(cls,Boolean(active)));
     const countEl=g.querySelector('.army-count');
-    countEl.textContent=intel.troopsDisplay;
-    countEl.classList.toggle('army-range',intel.visibility==='partial');
-    countEl.classList.toggle('army-hidden',intel.visibility==='hidden');
-
+    countEl.textContent=vis.troopsDisplay;
+    countEl.classList.toggle('army-range',vis.isRange);
+    countEl.classList.toggle('army-hidden',vis.isHidden);
     const troopEl=g.querySelector('.troop-mark');
-    troopEl.textContent=intel.visibility==='full'?'♟':'?';
-
+    troopEl.textContent=vis.troopMark;
     const terrMarkEl=g.querySelector('.terrain-mark');
-    terrMarkEl.style.display=(state.rulesMode==='terrain'&&intel.visibility!=='hidden')?'block':'none';
-
-    let descr=`${t.name}, `;
-    if(intel.visibility==='full')descr+=`${d.troops} tropas, ${p.name}`;
-    else if(intel.visibility==='partial')descr+=`aprox. ${intel.troopsDisplay} tropas, ${p.name}`;
-    else descr+='fuerza y propietario desconocidos';
-    g.setAttribute('aria-label',descr);
+    terrMarkEl.style.display=vis.showTerrain?'block':'none';
+    g.setAttribute('aria-label',vis.ariaLabel);
   }
   updateConnections();
 }
@@ -493,30 +492,14 @@ function renderGuide(){if(state.winner!==null){setGuide('✓','Mapa conquistado'
 
 function renderCards(){
   const p=state.players[state.current];
-  if(!p.human){
-    els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / ${cardHandLimit(state,p.id)}</strong></div>`;
-    return;
-  }
-  let targetingNotice='';
-  if(cardTargeting){
-    const cDef=TACTICAL_CARDS[cardTargeting.cardId];
-    targetingNotice=`<div class="card-targeting-bar"><span>🎯 Seleccionando objetivo para <b>${cDef.name}</b>${cardTargeting.from?` (desde ${tById(cardTargeting.from).name})`:''}</span><button id="cancelTargetingBtn" class="cancel-card-btn">Cancelar</button></div>`;
-  }
-  let rewardNotice='',discardNotice='';
-  if(state.pendingCardDraw&&state.pendingCardDraw.pid===state.current){
-    if(state.pendingCardDraw.stage==='choose'){
-      rewardNotice=`<div class="card-discard-box card-reward-choice"><strong>🏆 Elige tu recompensa</strong><p>Conquistaste este turno. Escoge una de estas dos cartas:</p><div class="discard-options">${state.pendingCardDraw.choices.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="reward-choice-btn" data-reward-card="${cId}"><b>${c.icon} ${c.name}</b><small>${c.desc}</small></button>`}).join('')}</div></div>`;
-    }else{
-      const drawn=TACTICAL_CARDS[state.pendingCardDraw.card];
-      discardNotice=`<div class="card-discard-box"><strong>⚠️ Mano llena (${cardHandLimit(state,p.id)} cartas)</strong><p>Elegiste <b>${drawn.icon} ${drawn.name}</b>. Decide qué carta descartar:</p><div class="discard-options">${p.cards.map(cId=>{const c=TACTICAL_CARDS[cId];return`<button class="discard-btn" data-discard="${cId}">Descartar ${c.icon} ${c.name}</button>`}).join('')}<button class="discard-btn discard-new" data-discard="${drawn.id}">Descartar la elegida (${drawn.name})</button></div></div>`;
-    }
-  }
-  const cardsHtml=p.cards.length===0?`<div class="empty-hand">No tienes cartas tácticas en mano (máximo ${cardHandLimit(state,p.id)}). Se roban al conquistar territorios.</div>`:`<div class="cards-list">${p.cards.map(cId=>{
-    const c=TACTICAL_CARDS[cId],isReactive=c.type==='reaction',costStr=isReactive?'Reacción sin coste':'Uso sin coste',isSelected=cardTargeting?.cardId===cId;
-    return`<article class="card-item ${isSelected?'active-targeting':''}" tabindex="0" aria-label="${c.name}. ${c.desc}. ${costStr}"><span class="card-icon" aria-hidden="true">${c.icon}</span><div class="card-copy"><div class="card-name-row"><strong class="card-title">${c.name}</strong><span class="card-cost">${costStr}</span></div><p class="card-desc">${c.desc}</p></div><div class="card-action">${isReactive?'<span class="card-passive-badge">Elegible</span>':`<button class="play-card-btn" data-card="${cId}" aria-label="Jugar ${c.name}">${isSelected?'Seleccionando…':'Jugar'}</button>`}</div></article>`;
-  }).join('')}</div>`;
-
-  els.cardsBox.innerHTML=`<div class="cards-head"><span>CARTAS TÁCTICAS</span><strong>${p.cards.length} / ${cardHandLimit(state,p.id)}</strong></div>${targetingNotice}${rewardNotice}${discardNotice}${cardsHtml}`;
+  els.cardsBox.innerHTML=cardsBoxMarkup({
+    player:p,
+    handLimit:cardHandLimit(state,p.id),
+    cardTargeting,
+    pendingCardDraw:state.pendingCardDraw,
+    catalog:TACTICAL_CARDS,
+    originTerritoryName:cardTargeting?.from?tById(cardTargeting.from)?.name:''
+  });
 
   if($('#cancelTargetingBtn'))$('#cancelTargetingBtn').onclick=()=>{cardTargeting=null;render()};
   document.querySelectorAll('.reward-choice-btn').forEach(btn=>{
@@ -824,8 +807,9 @@ function renderFortifyControls(){
   const origin=state.territories[selectedFrom],destination=state.territories[selectedTo],max=origin.troops-1;
   if(max<1)return;
   selectedMove=clampMoveAmount(selectedMove,max);
+  const maneuversAfterMove=Math.max(0,maneuverLimit(state,state.current)+(state.extraFortifies||0)-(state.fortifiesUsedThisTurn||0)-1);
   els.selection.innerHTML+=`<div class="selection-item"><span>Destino · ${tById(selectedTo).name}</span><strong>${destination.troops} ${destination.troops===1?'tropa':'tropas'}</strong></div>`;
-  els.controls.innerHTML=`<div class="move-picker"><label for="moveAmount">Tropas a mover</label><div class="move-stepper"><button type="button" data-move-delta="-1" aria-label="Mover una tropa menos">−</button><input id="moveAmount" type="number" inputmode="numeric" min="1" max="${max}" value="${selectedMove}" aria-label="Cantidad de tropas a mover"><button type="button" data-move-delta="1" aria-label="Mover una tropa más">+</button></div><div class="move-presets" role="group" aria-label="Cantidades rápidas"><button type="button" data-move-value="1" aria-label="Mover 1 tropa">1</button><button type="button" data-move-value="${Math.max(1,Math.ceil(max/2))}" aria-label="Mover la mitad disponible">Mitad</button><button type="button" data-move-value="${max}" aria-label="Mover el máximo disponible, ${max} tropas">Máximo</button></div><div class="move-preview" id="movePreview"></div></div><button class="primary-btn" id="moveBtn">Confirmar movimiento → ${state.extraFortifies>0?'otra maniobra':'cierre'}</button>`;
+  els.controls.innerHTML=`<div class="move-picker"><label for="moveAmount">Tropas a mover</label><div class="move-stepper"><button type="button" data-move-delta="-1" aria-label="Mover una tropa menos">−</button><input id="moveAmount" type="number" inputmode="numeric" min="1" max="${max}" value="${selectedMove}" aria-label="Cantidad de tropas a mover"><button type="button" data-move-delta="1" aria-label="Mover una tropa más">+</button></div><div class="move-presets" role="group" aria-label="Cantidades rápidas"><button type="button" data-move-value="1" aria-label="Mover 1 tropa">1</button><button type="button" data-move-value="${Math.max(1,Math.ceil(max/2))}" aria-label="Mover la mitad disponible">Mitad</button><button type="button" data-move-value="${max}" aria-label="Mover el máximo disponible, ${max} tropas">Máximo</button></div><div class="move-preview" id="movePreview"></div></div><button class="primary-btn" id="moveBtn">Confirmar movimiento → ${maneuversAfterMove>0?'otra maniobra':'cierre'}</button>`;
   const input=$('#moveAmount'),moveBtn=$('#moveBtn'),preview=$('#movePreview');
   const paintPreview=()=>{const content=movementPreview({originName:tById(selectedFrom).name,destinationName:tById(selectedTo).name,originTroops:origin.troops,destinationTroops:destination.troops,amount:selectedMove});preview.innerHTML=content.html;input.setAttribute('aria-valuetext',content.accessible)};
   const setAmount=(value,shouldAnnounce=false)=>{const amount=clampMoveAmount(value,max);if(amount===null){moveBtn.disabled=true;return}selectedMove=amount;input.value=selectedMove;moveBtn.disabled=false;paintPreview();if(shouldAnnounce)announce(input.getAttribute('aria-valuetext'))};
@@ -1256,7 +1240,7 @@ els.phaseBtn.onclick=()=>{
   }
 };
 async function waitForAiPresentation(){for(let elapsed=0;elapsed<650&&!skipAiRequested;elapsed+=50)await pause(50)}
-async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary();else{if(state.players[state.current].human)setTimeout(()=>triggerIncomeFloat(state.current),250);await promptPendingCounterReactions()}}}
+async function runAiTurns(){if(!state||state.winner!==null||state.players[state.current].human||aiBusy)return;aiBusy=true;try{while(state.winner===null&&!state.players[state.current].human){render();await waitForAiPresentation();const report=aiTurn(state,state.current,difficulty);pendingAiState=state;save();if(!skipAiRequested){for(const battle of report.battles.filter(b=>b.defenderId===0)){if(skipAiRequested)break;await showDefenseAttack(battle)}}state=pendingAiState;pendingAiState=null;render();if(report.ok&&!skipAiRequested)await showAiSummary(report)}}finally{const skippedAi=skipAiRequested;if(pendingAiState){state=pendingAiState;pendingAiState=null}aiBusy=false;skipAiRequested=false;render();if(state.winner!==null)showEndSummary();else{if(state.players[state.current].human)setTimeout(()=>triggerIncomeFloat(state.current),250);await promptPendingCounterReactions();if(skippedAi&&state.players[state.current].human&&!reactionPromptActive)setTimeout(focusCurrentOrder,0)}}}
 function chosen(name){return document.querySelector(`input[name="${name}"]:checked`)?.value}
 function renderDifficultySummary(){const select=$('#difficulty'),summary=$('#difficultySummary');if(!select||!summary)return;const profile=difficultyProfile(select.value);summary.innerHTML=`<strong>${profile.name}.</strong> ${profile.summary}`}
 function startNew(){difficulty=$('#difficulty').value;state=createGame({players:+$('#playerCount').value,seed:Date.now(),human:true,mapId:chosen('mapChoice'),rulesMode:chosen('rulesMode'),difficulty,playerCommander:chosen('commanderChoice')||'conqueror',playerColor:chosen('colorChoice')||'#4ecdc4'});startTelemetryCampaign(state,difficulty);selectedFrom=selectedTo=inspectedTerritory=null;selectedMove=1;skipAiRequested=false;closeMobileOrders();initMap(state.mapId);els.startModal.classList.add('hidden');closeEndSummary();render();restoreFocus(mobileLayout()?$('#mobileOrdersBtn'):els.phaseBtn);showToast('Paso 1: coloca tus refuerzos');setTimeout(()=>triggerIncomeFloat(0),350)}

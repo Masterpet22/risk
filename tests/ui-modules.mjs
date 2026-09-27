@@ -79,5 +79,38 @@ const atDetails=orderPanelPhaseDetails({state:{phase:'attack',attackMadeThisTurn
 assert.equal(atDetails.badge,'Combate');assert.match(atDetails.statusHtml,/Combate opcional/);
 const ftDetails=orderPanelPhaseDetails({state:{phase:'fortify'},human:true,remainingManeuvers:2});
 assert.equal(ftDetails.badge,'Maniobra');assert.match(ftDetails.statusHtml,/2 maniobras disponibles/);
+// Pruebas de cards-view
+import {cardsHeadMarkup,cardTargetingBarMarkup,cardRewardChoiceMarkup,cardDiscardChoiceMarkup,cardItemMarkup,cardsBoxMarkup} from '../dist/cards-view.mjs';
+import {TACTICAL_CARDS} from '../dist/engine.mjs';
+assert.match(cardsHeadMarkup(2,5),/2 \/ 5/);
+assert.match(cardTargetingBarMarkup({name:'Espía'},'Castillo Norte'),/Castillo Norte/);
+assert.match(cardRewardChoiceMarkup(['spy','sabotage'],TACTICAL_CARDS),/Elige tu recompensa/);
+assert.match(cardDiscardChoiceMarkup(['spy'],TACTICAL_CARDS.sabotage,5,TACTICAL_CARDS),/Mano llena/);
+assert.match(cardItemMarkup('spy',TACTICAL_CARDS),/Espía/);
+const testCardsBox=cardsBoxMarkup({player:state.players[0],handLimit:4,catalog:TACTICAL_CARDS});
+assert.match(testCardsBox,/CARTAS TÁCTICAS/);
 
-console.log('OK: módulos de persistencia, rutas, combate, controles, tutorial, crónica, vistas estratégicas, mercado y panel de órdenes verificados de forma aislada.');
+// Pruebas de map-view
+import {hexPoints,territorySvgMarkup,computeTerritoryVisuals,computeConnectionVisuals} from '../dist/map-view.mjs';
+const pts=hexPoints(100,100,50);
+assert.equal(pts.split(' ').length,6);
+const terrSvg=territorySvgMarkup({id:'t_test',x:10,y:10,name:'Fortaleza'},{regionShort:'NOR',regionColor:'#ff0000',terrainIcon:'🏔'});
+assert.match(terrSvg,/id="terr-t_test"/);assert.match(terrSvg,/Fortaleza/);
+const terrVis=computeTerritoryVisuals({
+  t:{id:'t1',name:'Tierras Altas'},
+  territoryData:{troops:3},
+  player:{name:'Jugador 1',color:'#ff4444'},
+  intel:{visibility:'full',troopsDisplay:'3'},
+  isCurrentOwner:true
+});
+assert.equal(terrVis.ownerColor,'#ff4444');assert.equal(terrVis.classes.owned,true);
+assert.match(terrVis.ariaLabel,/Tierras Altas, 3 tropas/);
+const connVis=computeConnectionVisuals({
+  a:'t1',b:'t2',ownerA:0,ownerB:1,regions:['north'],
+  getFrontState:()=>'war',
+  frontLabels:{war:{color:'#ff0000'}},
+  isBlocked:false
+});
+assert.equal(connVis.frontState,'war');assert.equal(connVis.frontColor,'#ff0000');
+
+console.log('OK: módulos de persistencia, rutas, combate, controles, tutorial, crónica, vistas estratégicas, mercado, órdenes, cartas y mapa verificados de forma aislada.');

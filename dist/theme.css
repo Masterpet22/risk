@@ -8336,23 +8336,89 @@ body:has(#startModal:not(.hidden)) {
 .context-action-panel.resolving-combat .battle-result,
 .context-action-panel.resolving-combat .action-controls,
 .context-action-panel.resolving-combat>.context-action-body>.context-phase-btn {
-  display: none;
+  display: none !important;
 }
 
 .context-action-panel.resolving-combat {
-  min-height: 0;
-  height: auto;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
 }
 
 .context-action-panel.resolving-combat .context-action-body {
-  display: block;
-  min-height: 0;
+  display: block !important;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
 }
 
 .context-action-panel.resolving-combat .phase-indicator-pill {
   color: #ffaaa4;
   border-color: #ff7b7280;
   background: #351b22;
+}
+
+/* Ajustes finales de interacción móvil; deben quedar después del tema general. */
+@media (max-width: 1200px) {
+  body:has(.modal-backdrop:not(.hidden)) .mobile-orders-button,
+  body:has(.modal-backdrop:not(.hidden)) .tutorial-coach {
+    display: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .start-layout,
+  .start-backdrop .start-card,
+  .start-card .setup-grid,
+  .start-card .setup-group,
+  .start-card .setup-section,
+  .start-hero {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .start-card .setup-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar {
+    gap: 7px;
+    padding-inline: 10px;
+  }
+
+  .brand {
+    flex: 0 0 auto;
+    gap: 0;
+  }
+
+  .brand h1,
+  .brand p {
+    display: none;
+  }
+
+  .round-pill {
+    position: static;
+    min-width: 102px;
+    margin-left: auto;
+    padding: 4px 7px;
+    transform: none;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+
+  .header-actions .icon-btn,
+  .header-actions .text-btn {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 
 .combat-hud {

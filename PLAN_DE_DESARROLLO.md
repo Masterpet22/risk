@@ -16,7 +16,7 @@ Este plan resume el estado de implementación del proyecto. El detalle de priori
 | 7. Experiencia y accesibilidad | Completada | Tutorial contextual, modales estratégicos (Crónica, Influencia, Mercado), interfaz responsive con hoja inferior, controles táctiles ≥44 px y foco accesible. |
 | 8. Medición y pruebas | Completada | Telemetría local v1 con exportación/borrado; suite de pruebas separada de motor, DOM/CSS e interacción. |
 | 9. Balance (P4.2) | En curso | Reducir la correlación territorio/victoria de 0,77 a ≤0,60, elevar remontadas de 15,3% a ≥25% y recuperar una mediana de 12–24 rondas. |
-| 10. Modularización (P5.1) | En curso | Persistencia, rutas, combate, controles de maniobra, tutorial, crónica, vistas estratégicas (influencia/frentes), accesibilidad y telemetría ya extraídos; desacoplar gradualmente los renderizadores de órdenes y mapa. |
+| 10. Modularización (P5.1) | En curso | Persistencia, rutas, combate, maniobra, tutorial, crónica, vistas estratégicas, mercado, panel de órdenes, cartas tácticas y mapa ya desacoplados en módulos independientes con pruebas aisladas. |
 | 11. Multijugador | Futuro | Requiere servidor autoritativo; pospuesto formalmente hasta estabilizar el balance individual. |
 
 ## Próxima iteración recomendada

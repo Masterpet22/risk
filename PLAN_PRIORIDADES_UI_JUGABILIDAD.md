@@ -58,15 +58,16 @@ Habiéndose cerrado las fases P0 a P3 y las pruebas base, el esfuerzo actual del
 * **Objetivo:** Desacoplar progresivamente las responsabilidades aún centralizadas en `dist/app.mjs` hacia módulos independientes con contratos pequeños y pruebas aisladas.
 * **Módulos consolidados y probados:**
   * `dist/order-controls.mjs`: Límites y vista previa de Maniobra.
-  * `dist/combat-view.mjs`: Presentación de dados, figuras de soldados y comparación de bajas.
+  * `dist/combat-view.mjs`: Presentación de dados, figuras de soldados, emparejamientos y bajas.
   * `dist/map-routes.mjs`: Geometría de conexiones rectas y curvas.
   * `dist/campaign-storage.mjs`: Persistencia local y migraciones.
   * `dist/tutorial-controller.mjs`: Gestión de estado, pasos, avance y almacenamiento del tutorial.
   * `dist/chronicle-modal-view.mjs`: Clasificación de eventos, registro lateral y modal de Crónica.
   * `dist/strategic-views.mjs`: Plantillas modales de Influencia y Frentes de Guerra.
-* **Próximas extracciones previstas:**
-  1. `dist/order-panel-view.mjs`: Renderizado específico de órdenes por fase y gestión de estados vacíos.
-  2. `dist/map-renderer.mjs`: Renderizado SVG, capas de conexiones, niebla y marcadores territoriales.
+  * `dist/market-modal-view.mjs`: Catálogo rotativo y modal del Mercado táctico.
+  * `dist/order-panel-view.mjs`: Encabezados, insignias y avisos por fase en el panel de órdenes.
+  * `dist/cards-view.mjs`: Mano de cartas tácticas, selección de objetivos, descarte y recompensas.
+  * `dist/map-view.mjs`: Geometría hexagonal, nodos territoriales y cálculo visual de rutas y niebla.
 
 ---
 
