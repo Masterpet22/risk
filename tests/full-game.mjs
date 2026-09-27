@@ -1,3 +1,10 @@
+/**
+ * @file full-game.mjs
+ * @description Suite principal de integración del motor de simulación de Fronteras de Acero.
+ * Ejecuta 60 campañas deterministas completas cubriendo los tres mapas, ambos modos de combate,
+ * doctrinas, IA, frentes, eventos, niebla de guerra, economía, mercado y migraciones v14.
+ */
+
 import {createGame,aiTurn,validateState,TERRITORIES,MAPS,REGIONS,getRegion,getTerritories,DIFFICULTY_PROFILES,cardHandLimit,maneuverLimit,marketPrice,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,setPhase,attackRound,probeTerritory,endTurn,fortify,tradeCards,territoryProduction,productionTotal,collectIncome,reinforcementCount,upgradeGame,drawTacticalCard,resolveCardChoice,resolvePendingCardDraw,playTacticalCard,resolveCounterReaction,tacticalCardCost,isConnectionBlocked,TACTICAL_CARDS,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,rotateTemporaryObjectives,OBJECTIVES_CATALOG,INFLUENCE_TARGET,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,updateFrontTension,coolDownFronts,isTerritoryInWarFront,VISIBILITY_LEVELS,approximateTroops,minDistanceToOwned,isTerritorySpied,getTerritoryVisibility,getTerritoryIntel,EVENT_CATALOG,EVENT_IDS,announceEvent,triggerEvent,checkEventCycle} from '../dist/engine.mjs';
 
 let maxTurns=0;

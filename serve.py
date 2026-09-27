@@ -1,4 +1,9 @@
-"""Serve the static game locally with the correct MIME type for ES modules."""
+"""
+@file serve.py
+@description Servidor HTTP local para Fronteras de Acero.
+Sirve los archivos estáticos de la carpeta `dist/` asegurando el tipo MIME
+adecuado ('text/javascript') para los módulos ECMAScript (.mjs).
+"""
 
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer

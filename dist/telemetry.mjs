@@ -1,3 +1,11 @@
+/**
+ * @file telemetry.mjs
+ * @description Módulo de telemetría y analítica local (P4.1).
+ * Registra en localStorage el uso de cartas, ofertas del mercado, comandantes y resultados
+ * de campaña bajo un esquema versionado (v1), garantizando privacidad absoluta (sin llamadas
+ * de red) y proporcionando utilidades para inspección, exportación en JSON y borrado.
+ */
+
 export const TELEMETRY_VERSION=1;
 export const TELEMETRY_KEY='fronteras-acero-telemetry-v1';
 

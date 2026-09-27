@@ -1,3 +1,10 @@
+/**
+ * @file balance-analysis.mjs
+ * @description Benchmark factorial de simulación determinista para análisis de balance (P4.2).
+ * Ejecuta campañas automáticas cruzando mapas, doctrinas y modos para medir la correlación
+ * territorial de ronda 8, tasa de victorias tempranas, remontadas y duración mediana.
+ */
+
 import {createGame,aiTurn,MAPS,COMMANDER_IDS,ownedIds,productionTotal,reinforcementCount,influenceBreakdown} from '../dist/engine.mjs';
 
 const GAMES=Number(process.env.BALANCE_GAMES||120),EARLY_ROUND=8;

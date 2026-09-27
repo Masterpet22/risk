@@ -1,3 +1,11 @@
+/**
+ * @file ui-regression.mjs
+ * @description Suite de pruebas de regresión DOM/CSS para la interfaz de usuario (P4.3).
+ * Inspecciona los contratos estáticos de app.mjs, index.html, theme.css y order-controls.mjs
+ * para certificar que las rutas SVG, clases de frentes, modales, etiquetas aria y dimensiones
+ * tácticas mínimas (≥44px) se conserven sin regresiones visuales.
+ */
+
 import {strict as assert} from 'node:assert';
 import {readFileSync} from 'node:fs';
 

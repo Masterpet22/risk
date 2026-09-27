@@ -1,3 +1,10 @@
+/**
+ * @file campaign-storage.mjs
+ * @description Módulo de persistencia local para guardar y reanudar partidas.
+ * Encapsula el acceso a localStorage con clave versionada, validación de integridad
+ * y llamada automática al proceso de migración de esquemas hacia la versión actual.
+ */
+
 import {upgradeGame,validateState,normalizeDifficulty} from './engine.mjs?v=22';
 
 export const CAMPAIGN_SAVE_KEY='fronteras-acero-save-v3';

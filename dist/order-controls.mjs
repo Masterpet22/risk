@@ -1,3 +1,10 @@
+/**
+ * @file order-controls.mjs
+ * @description Módulo de control para la fase de Maniobra (P0.2).
+ * Gestiona la validación segura de cantidades de tropas a mover y genera la vista previa
+ * en tiempo real de los totales resultantes tanto en formato HTML como para lectores de pantalla.
+ */
+
 export function clampMoveAmount(value,max){const parsed=Number.parseInt(value,10);return Number.isInteger(parsed)?Math.max(1,Math.min(max,parsed)):null}
 
 export function movementPreview({originName,destinationName,originTroops,destinationTroops,amount}){

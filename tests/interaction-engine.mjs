@@ -1,3 +1,10 @@
+/**
+ * @file interaction-engine.mjs
+ * @description Suite de pruebas para las reglas de interacción directa (P0).
+ * Comprueba la equivalencia exacta 1:1 entre dados atacantes seleccionados y soldados desplegados,
+ * el comportamiento del ataque rápido (blitz) y los límites y traslados de maniobra.
+ */
+
 import {strict as assert} from 'node:assert';
 import {createGame,getTerritories,attackRound,blitz,fortify} from '../dist/engine.mjs';
 

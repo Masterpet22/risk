@@ -2,7 +2,7 @@
 
 Juego web de estrategia territorial por turnos. Incluye 24 territorios por mapa, tres topologías, economía, Mercado táctico, cartas, seis comandantes, objetivos, Influencia, niebla de guerra, Frentes de Guerra y eventos exclusivos del Modo terreno.
 
-Estado documental: versión 0.4, revisada el 25 de septiembre de 2026. El juego individual está completo y en fase de ajuste de balance; el multijugador sigue fuera del alcance actual.
+Estado documental: versión 0.4, revisada el 27 de septiembre de 2026. El juego individual está completo y en fase de ajuste de balance; el multijugador sigue fuera del alcance actual.
 
 ## Jugar y editar en local
 
@@ -21,12 +21,17 @@ Después abre <http://localhost:8000>.
 - `dist/campaign-storage.mjs`: guardado y recuperación de campaña.
 - `dist/map-routes.mjs`: geometría de conexiones rectas y curvas.
 - `dist/order-controls.mjs`: límites y vista previa de maniobra.
+- `dist/order-panel-view.mjs`: textos contextuales por fase y controles reversibles de órdenes.
 - `dist/combat-view.mjs`: presentación pura de dados y resultados.
+- `dist/market-modal-view.mjs`: catálogo y plantilla interactiva del Mercado táctico.
+- `dist/tutorial-controller.mjs`: gestión de estado, pasos y progreso del tutorial.
+- `dist/chronicle-modal-view.mjs`: clasificación y renderizado de la Crónica y registro lateral.
+- `dist/strategic-views.mjs`: plantillas modales de Influencia y Frentes de Guerra.
 - `dist/ui-accessibility.mjs` y `dist/modal-service.mjs`: foco, anuncios y modales.
 - `dist/telemetry.mjs`: estadísticas locales versionadas; nunca envía datos a servidores.
 - `dist/styles.css` y `dist/theme.css`: estilos base y capa visual actual.
 
-`app.mjs` continúa siendo el orquestador y todavía contiene renderizado específico del mapa, panel de órdenes, tutorial y animaciones. Las extracciones nuevas mantienen contratos pequeños y pruebas aisladas para evitar una reescritura monolítica.
+`app.mjs` continúa siendo el orquestador principal. Las extracciones mantienen contratos pequeños y pruebas aisladas para evitar una reescritura monolítica.
 
 ## Controles y comportamiento
 

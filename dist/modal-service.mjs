@@ -1,3 +1,10 @@
+/**
+ * @file modal-service.mjs
+ * @description Servicio de modales estratégicos basados en SweetAlert2.
+ * Estandariza la paleta cromática, tipografía y accesibilidad de los diálogos,
+ * asegurando la captura y devolución automática del foco al cerrar.
+ */
+
 import {restoreFocus} from './ui-accessibility.mjs?v=1';
 
 export function openStrategicModal(options,{onUnavailable=()=>{},fallbackSelector='#helpBtn'}={}){

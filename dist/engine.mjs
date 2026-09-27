@@ -1,3 +1,13 @@
+/**
+ * @file engine.mjs
+ * @description Motor central de simulación y reglas de Fronteras de Acero.
+ * Contiene el modelo determinista de juego independiente de la interfaz gráfica:
+ * definición de topologías (3 mapas, 24 territorios, 6 regiones), perfiles de dificultad de la IA,
+ * combate clásico y con terreno, resolución de sondeos, cálculo económico y Mercado táctico,
+ * cartas tácticas y reacciones, doctrinas de comandantes, Frentes regionales de guerra,
+ * niveles de niebla de guerra, eventos dinámicos, cálculo de Influencia v2 y evaluación de victoria.
+ */
+
 export const REGIONS={north:{name:'Norte',bonus:2,color:'#70b7c7'},west:{name:'Occidente',bonus:3,color:'#c89e68'},crown:{name:'Corona',bonus:3,color:'#aa83bd'},ember:{name:'Brasa',bonus:2,color:'#da7867'},sun:{name:'Sol',bonus:3,color:'#d6bd57'},isles:{name:'Jade',bonus:2,color:'#64ae8b'}};
 export const TERRAINS={plain:{name:'Llanura',icon:'◌',color:'#d6bd57'},forest:{name:'Bosque',icon:'♠',color:'#64ae8b'},mountain:{name:'Montaña',icon:'▲',color:'#9aa8b5'}};
 export const DIFFICULTY_PROFILES={

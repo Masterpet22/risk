@@ -1,3 +1,11 @@
+/**
+ * @file app.mjs
+ * @description Orquestador principal de la interfaz de usuario de Fronteras de Acero.
+ * Conecta el estado del motor (engine.mjs) con el DOM del navegador: inicializa el mapa SVG,
+ * despacha las interacciones de cada fase (Reclutamiento, Combate, Maniobra, Cierre), coordina
+ * los modales estratégicos, gestiona el flujo de turnos y enlaza los módulos desacoplados de UI.
+ */
+
 import {REGIONS,MAPS,TERRAINS,getMap,getRegion,getTerritories,createGame,ownedIds,enemiesOf,placeTroops,undoReinforcement,finishReinforcement,attackRound,probeTerritory,blitz,fortify,setPhase,endTurn,aiTurn,canPlayerAttack,territoryProduction,productionTotal,marketPrice,cardHandLimit,maneuverLimit,difficultyProfile,TACTICAL_CARDS,isConnectionBlocked,playTacticalCard,resolveCounterReaction,resolveCardChoice,resolvePendingCardDraw,buyMarketItem,generateMarket,MARKET_CATALOG,calculateInfluence,influenceBreakdown,influenceVictoryEligibility,checkObjectives,chooseObjective,objectiveProgress,OBJECTIVES_CATALOG,COMMANDERS,COMMANDER_IDS,FRONT_STATES,FRONT_STATE_LABELS,getFrontState,isTerritoryInWarFront,getTerritoryIntel,getTerritoryVisibility,approximateTroops,EVENT_CATALOG,frontKey} from './engine.mjs?v=22';
 import {startTelemetryCampaign,ensureTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from './telemetry.mjs?v=1';
 import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs?v=2';
@@ -6,29 +14,18 @@ import {createLiveAnnouncer,restoreFocus,escapeHtml} from './ui-accessibility.mj
 import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1';
 import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=1';
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
+import {getTutorialStatus,resetTutorialStatus,dismissTutorialStatus,advanceTutorialStatus,findNextTutorialStep,getTutorialProgress} from './tutorial-controller.mjs?v=1';
+import {chronicleCategory,chronicleModalMarkup,sidebarLogMarkup} from './chronicle-modal-view.mjs?v=1';
+import {influenceModalMarkup,frontsModalMarkup} from './strategic-views.mjs?v=1';
+import {marketOffersListMarkup,marketModalMarkup} from './market-modal-view.mjs?v=1';
+import {orderPanelPhaseDetails,reinforcementUndoMarkup} from './order-panel-view.mjs?v=1';
 
 const $=s=>document.querySelector(s),els={map:$('#map'),players:$('#players'),regions:$('#regions'),round:$('#round'),phaseTitle:$('#phaseTitle'),turnLabel:$('#turnLabel'),reinforcements:$('#reinforcements'),reinforceBox:$('#reinforceBox'),orderTitle:$('#orderTitle'),orderText:$('#orderText'),turnStatus:$('#turnStatus'),cardsBox:$('#cardsBox'),terrainPanel:$('#terrainPanel'),selection:$('#selectionInfo'),battle:$('#battleResult'),controls:$('#actionControls'),phaseBtn:$('#phaseBtn'),log:$('#log'),startModal:$('#startModal'),helpModal:$('#helpModal'),diceModal:$('#diceModal'),aiModal:$('#aiModal'),endModal:$('#endModal'),summaryBtn:$('#summaryBtn'),mapGuide:$('#mapGuide'),mapTooltip:$('#mapTooltip'),routesBtn:$('#routesBtn'),toast:$('#toast'),eventBanner:$('#eventBanner'),announcements:$('#gameAnnouncements')};
 let state=null,pendingAiState=null,difficulty='diplomatico',selectedFrom=null,selectedTo=null,inspectedTerritory=null,selectedDice=3,selectedMove=1,toastTimer=null,aiBusy=false,rolling=false,routesAll=false,hoverId=null,aiResolve=null,cardTargeting=null,skipAiRequested=false,reactionPromptActive=false;
 let objectivesModalHtml='',marketModalHtml='',chronicleModalHtml='',frontsModalHtml='',eventModalData=null;
 let lastRenderedPhase=null;
 let helpReturnFocus=null,diceReturnFocus=null,aiReturnFocus=null,endReturnFocus=null;
-const TUTORIAL_KEY='fronteras-acero-tutorial-v1';
 let tutorialActive=false,tutorialCurrent=null;
-const tutorialSteps=[
-  {id:'recruit',title:'Recluta y corrige',text:'Pulsa un territorio propio para colocar tropas. Si te equivocas, usa “Deshacer” antes de comenzar el combate.',target:'#orderCard',when:()=>state?.phase==='reinforce'},
-  {id:'influence',title:'Entiende tu Influencia',text:'Pulsa tu total de Influencia para ver cuánto aporta cada fuente y cuánto falta para ganar.',target:'.metric-influence-btn',when:()=>state?.phase==='reinforce'},
-  {id:'objectives',title:'Consulta tus objetivos',text:'La bandera abre tus objetivos y su progreso sin ocupar espacio permanente en el tablero.',target:'#objectivesMapBtn',when:()=>state?.phase==='reinforce'},
-  {id:'fronts',title:'Lee los Frentes regionales',text:'Cada región registra su propia tensión. Una guerra en el norte no convierte automáticamente los demás límites en guerra.',target:'#frontsMapBtn',when:()=>state?.phase==='reinforce'},
-  {id:'market',title:'Compra con intención',text:'El Mercado concentra tropas, cartas y efectos. Las cartas se pagan al comprarlas y se juegan sin coste.',target:'#marketModalBtn',when:()=>state?.phase==='reinforce'},
-  {id:'attack-origin',title:'Elige quién ataca',text:'Selecciona un territorio propio con al menos 2 tropas. Sus objetivos válidos quedarán destacados.',target:'#map',when:()=>state?.phase==='attack'&&!selectedFrom},
-  {id:'attack-target',title:'Elige un vecino enemigo',text:'Ahora selecciona un territorio enemigo conectado. Las rutas visibles corresponden al origen elegido.',target:'#map',when:()=>state?.phase==='attack'&&!!selectedFrom&&!selectedTo},
-  {id:'attack-dice',title:'Sondea o compromete tropas',text:'Sondeo revela la guarnición con 1 dado y nunca conquista. Atacar es opcional; puedes pasar a Maniobra.',target:'#actionControls',when:()=>state?.phase==='attack'&&!!selectedTo},
-  {id:'fortify',title:'Maniobra con vista previa',text:'Elige origen y destino propios; ajusta con −/+, escribe una cantidad o usa 1, Mitad y Máximo.',target:'#orderCard',when:()=>state?.phase==='fortify'},
-  {id:'cards',title:'Cartas tácticas',text:'Las cartas se ganan conquistando. Sus iconos muestran la mano y el detalle aparece al pasar o enfocar.',target:'#cardsSection',when:()=>state?.phase==='close'},
-  {id:'terrain-events',title:'Eventos del terreno',text:'En Modo terreno, este acceso anuncia terremotos, tsunamis o temporales antes de que se activen.',target:'#eventBanner',terrainOnly:true,when:()=>state?.rulesMode==='terrain'&&!!(state?.announcedEvent||state?.activeEvent)}
-];
-function tutorialStatus(){try{return{version:1,seen:[],dismissed:false,completed:false,...JSON.parse(localStorage.getItem(TUTORIAL_KEY)||'{}')}}catch{return{version:1,seen:[],dismissed:false,completed:false}}}
-function saveTutorialStatus(status){localStorage.setItem(TUTORIAL_KEY,JSON.stringify(status))}
 function clearTutorialFocus(){document.querySelectorAll('.tutorial-focus').forEach(element=>element.classList.remove('tutorial-focus'))}
 function positionTutorialCoach(target){
   const coach=$('#tutorialCoach');if(!coach||!target)return;
@@ -37,24 +34,22 @@ function positionTutorialCoach(target){
 }
 function renderTutorial(){
   const coach=$('#tutorialCoach');if(!coach)return;clearTutorialFocus();
-  const status=tutorialStatus();tutorialActive=tutorialActive||(!status.dismissed&&!status.completed);
+  const status=getTutorialStatus();tutorialActive=tutorialActive||(!status.dismissed&&!status.completed);
   if(!tutorialActive||!state||!state.players[state.current]?.human){coach.classList.add('hidden');return}
-  if(tutorialCurrent&&!tutorialSteps.find(step=>step.id===tutorialCurrent)?.when())tutorialCurrent=null;
-  const available=tutorialSteps.filter(step=>(!step.terrainOnly||state.rulesMode==='terrain')&&!status.seen.includes(step.id)&&step.when());
-  const step=available.find(item=>item.id===tutorialCurrent)||available[0];
+  const step=findNextTutorialStep({status,state,selectedFrom,selectedTo,currentStepId:tutorialCurrent});
   if(!step){coach.classList.add('hidden');return}
   const target=$(step.target);if(!target||target.classList.contains('hidden')){coach.classList.add('hidden');return}
   const changed=tutorialCurrent!==step.id;tutorialCurrent=step.id;target.classList.add('tutorial-focus');
   $('#tutorialTitle').textContent=step.title;$('#tutorialText').textContent=step.text;
-  const relevant=tutorialSteps.filter(item=>!item.terrainOnly||state.rulesMode==='terrain');
-  $('#tutorialProgress').textContent=`${Math.min(relevant.length,status.seen.length+1)} de ${relevant.length}`;
+  const prog=getTutorialProgress(status,state.rulesMode);
+  $('#tutorialProgress').textContent=prog.label;
   coach.classList.remove('hidden');
   if(changed&&['market','cards'].includes(step.id))target.scrollIntoView({block:'nearest',behavior:'smooth'});
   positionTutorialCoach(target);
 }
-function advanceTutorial(){const status=tutorialStatus();if(tutorialCurrent&&!status.seen.includes(tutorialCurrent))status.seen.push(tutorialCurrent);const required=tutorialSteps.filter(step=>!step.terrainOnly||state?.rulesMode==='terrain');status.completed=required.every(step=>status.seen.includes(step.id));saveTutorialStatus(status);tutorialCurrent=null;if(status.completed)tutorialActive=false;renderTutorial()}
-function skipTutorial(){const status=tutorialStatus();status.dismissed=true;saveTutorialStatus(status);tutorialActive=false;tutorialCurrent=null;clearTutorialFocus();$('#tutorialCoach')?.classList.add('hidden');showToast('Tutorial omitido. Puedes reiniciarlo desde Ayuda.')}
-function restartTutorial(){saveTutorialStatus({version:1,seen:[],dismissed:false,completed:false});tutorialActive=true;tutorialCurrent=null;els.helpModal.classList.add('hidden');renderTutorial();restoreFocus($('#nextTutorialBtn'),'#mobileOrdersBtn');showToast('Tutorial contextual reiniciado')}
+function advanceTutorial(){const status=getTutorialStatus();const next=advanceTutorialStatus(status,tutorialCurrent,state?.rulesMode);tutorialCurrent=null;if(next.completed)tutorialActive=false;renderTutorial()}
+function skipTutorial(){dismissTutorialStatus();tutorialActive=false;tutorialCurrent=null;clearTutorialFocus();$('#tutorialCoach')?.classList.add('hidden');showToast('Tutorial omitido. Puedes reiniciarlo desde Ayuda.')}
+function restartTutorial(){resetTutorialStatus();tutorialActive=true;tutorialCurrent=null;els.helpModal.classList.add('hidden');renderTutorial();restoreFocus($('#nextTutorialBtn'),'#mobileOrdersBtn');showToast('Tutorial contextual reiniciado')}
 const ts=()=>state?getTerritories(state):MAPS.frontier.territories,tById=id=>ts().find(t=>t.id===id);
 const regionShort=(map,key)=>getRegion(map,key).short||getRegion(map,key).name.toUpperCase();
 function save(){if(state)saveCampaign(pendingAiState||state,difficulty)}
@@ -239,27 +234,8 @@ function openObjectivesModal(){if(objectivesModalHtml)openStrategicModal({title:
 function openInfluenceModal(pid=0){
   const p=state?.players?.[pid];
   if(!p?.human)return;
-  const b=influenceBreakdown(state,pid),eligibility=influenceVictoryEligibility(state,pid),pct=Math.min(100,(b.total/b.target)*100);
-  const diplomat=b.objectives.multiplier>1?`<div class="influence-row influence-bonus"><span>Bonificación de El Diplomático <small>+40% sobre objetivos</small></span><strong>+${b.objectives.bonusPoints}</strong></div>`:'';
-  openStrategicModal({title:'✦ Desglose de Influencia',width:520,html:`<div class="influence-breakdown">
-    <div class="influence-total"><div><small>${escapeHtml(p.name)}</small><strong>${b.total} / ${b.target}</strong></div><span>Faltan ${b.remaining} para la victoria</span></div>
-    <div class="influence-progress"><i style="width:${pct}%"></i></div>
-    <div class="influence-row"><span>Presencia territorial <small>${b.territories.capped}/${b.territories.cap} territorios puntuables</small></span><strong>+${b.territories.points}</strong></div>
-    <div class="influence-row"><span>Regiones completas <small>${b.regions.capped}/${b.regions.cap} × 3</small></span><strong>+${b.regions.points}</strong></div>
-    <div class="influence-row"><span>Objetivos completados <small>${b.objectives.count} objetivos</small></span><strong>+${b.objectives.basePoints}</strong></div>
-    ${diplomat}
-    <div class="influence-row influence-final"><span>Total calculado ahora</span><strong>${b.total}</strong></div>
-    <div class="influence-row"><span>Objetivo principal completado</span><strong>${eligibility.hasMain?'✓':'Pendiente'}</strong></div>
-    <div class="influence-row"><span>Objetivo no militar completado</span><strong>${eligibility.hasNonMilitary?'✓':'Pendiente'}</strong></div>
-    <p class="influence-hint">La Hegemonía exige 60 puntos, un objetivo principal y uno no militar. Producción y tropas aumentan tu capacidad de actuar, pero no conceden Influencia.</p>
-  </div>`});
-}
-function chronicleCategory(text){
-  const value=String(text).toLowerCase();
-  if(/conquist|atac|combate|baja|elimin|defend|frente|guerra/.test(value))return'combat';
-  if(/compr|mercado|producci|\$|fondos|refuerzo|subsidio/.test(value))return'economy';
-  if(/evento|terremoto|tsunami|temporal|alerta|geol|desastre|rutas cortadas/.test(value))return'events';
-  return'campaign';
+  const b=influenceBreakdown(state,pid),eligibility=influenceVictoryEligibility(state,pid);
+  openStrategicModal({title:'✦ Desglose de Influencia',width:520,html:influenceModalMarkup({player:p,breakdown:b,eligibility})});
 }
 function openChronicleModal(){
   if(!chronicleModalHtml)return;
@@ -287,11 +263,7 @@ function renderFronts(){
   }
   rows.sort((a,b)=>severity[b.data.state]-severity[a.data.state]||getRegion(state,a.region).name.localeCompare(getRegion(state,b.region).name));
   const active=rows.filter(row=>row.data.state!=='stable').length;
-  frontsModalHtml=`<div class="fronts-modal"><div class="front-legend">
-    ${FRONT_STATES.map(key=>{const item=FRONT_STATE_LABELS[key];return`<span class="front-legend-item front-${key}"><i style="--front:${item.color}"></i>${item.name}</span>`}).join('')}
-  </div><p class="front-explainer">Cada región mantiene una tensión independiente entre comandantes. Las rutas toman el nivel más alto de las regiones que conectan; una ruta bloqueada conserva una marca adicional.</p>
-  <div class="front-list">${rows.map(({rival,region,data,label})=>`<div class="front-summary front-${data.state}"><span class="front-rival-dot" style="--rival:${rival.color}"></span><div><strong>${escapeHtml(getRegion(state,region).name)} · ${escapeHtml(human.name)} ↔ ${escapeHtml(rival.name)}</strong><small>${data.lastHostilityTurn?`Última hostilidad: ronda ${data.lastHostilityTurn}`:'Contacto estable'}${data.battlesThisTurn?` · ${data.battlesThisTurn} combate${data.battlesThisTurn===1?'':'s'} este turno`:''}</small></div><b style="--front:${label.color}">${label.icon} ${label.name}</b></div>`).join('')||'<p class="chronicle-empty">No hay contacto regional con rivales.</p>'}</div>
-  <p class="front-cooling">Sondear o usar operaciones encubiertas tensa una región; combatir y conquistar la escala. Sin hostilidades, se enfría un nivel por ronda.</p></div>`;
+  frontsModalHtml=frontsModalMarkup({rows,state,human});
   button.classList.remove('hidden');
   button.classList.toggle('has-active-fronts',active>0);
   button.setAttribute('aria-label',`Ver Frentes de Guerra; ${active} activos`);
@@ -512,10 +484,8 @@ function renderMap(){
 }
 function renderLog(){
   const entries=Array.isArray(state.log)?state.log.slice(0,60):[];
-  els.log.innerHTML=entries.slice(0,8).map(l=>`<div class="log-item" style="--lc:${l.p===null?'#788896':state.players[l.p]?.color||'#788896'}"><i class="log-dot"></i><span>${escapeHtml(l.text)}</span></div>`).join('');
-  let lastRound=null;
-  const list=entries.map(item=>{const round=Number(item.turn)||1,heading=round!==lastRound?`<div class="chronicle-round">Ronda ${round}</div>`:'';lastRound=round;const player=item.p===null||item.p===undefined?null:state.players[item.p],category=chronicleCategory(item.text);return`${heading}<div class="chronicle-entry category-${category}" style="--chronicle-color:${player?.color||'#788896'}"><i></i><div><small>${player?escapeHtml(player.name):'Campaña'} · R${round}</small><p>${escapeHtml(item.text)}</p></div></div>`}).join('');
-  chronicleModalHtml=`<div class="chronicle-modal"><div class="chronicle-filters"><button class="active" data-chronicle-filter="all">Todos</button><button data-chronicle-filter="combat">Combate</button><button data-chronicle-filter="economy">Economía</button><button data-chronicle-filter="events">Eventos</button></div><div class="chronicle-list">${list||'<p class="chronicle-empty">La campaña todavía no tiene acontecimientos.</p>'}</div></div>`;
+  els.log.innerHTML=sidebarLogMarkup(entries,state.players);
+  chronicleModalHtml=chronicleModalMarkup(entries,state.players);
   const count=$('#chronicleCount');if(count)count.textContent=String(entries.length);
 }
 function setGuide(step,title,text){els.mapGuide.innerHTML=`<span>${step}</span><strong>${title}</strong><small>${text}</small>`}
@@ -703,51 +673,8 @@ function renderMarket(){
   const nextRotationRound=(state.market.cycle+1)*3+1;
   const roundsLeft=nextRotationRound-state.turn;
   const hasTempDef=state.tempDefense?.[p.id]>=state.turn;
-
-  const offersHtml=state.market.offers.map(offer=>{
-    const alreadyBought=offer.boughtBy?.includes(p.id);
-    const actualCost=marketPrice(state,offer,p.id);
-    const canAfford=p.money>=actualCost;
-    const handLimit=cardHandLimit(state,p.id),isFullCards=offer.type==='card'&&p.cards.length>=handLimit;
-    const canBuy=p.human&&state.phase==='reinforce'&&!alreadyBought&&canAfford&&!isFullCards;
-
-    let buttonOrBadge='';
-    if(alreadyBought){
-      buttonOrBadge=`<span class="market-badge bought">Adquirido</span>`;
-    }else if(p.human&&state.phase==='reinforce'){
-      const reasonDisabled=!canAfford?`Requiere $${actualCost}`:isFullCards?`Mano llena (máx ${handLimit})`:`Comprar ${offer.name}`;
-      buttonOrBadge=`<button class="secondary-btn market-buy-btn" data-offer="${offer.id}" ${canBuy?'':'disabled'} title="${reasonDisabled}">Comprar · $${actualCost}</button>`;
-    }else{
-      buttonOrBadge=`<span class="market-price-tag">$${actualCost}</span>`;
-    }
-
-    const typeMeta=offer.type==='troops'?['RESERVA','market-type-reserve']:offer.type==='card'?['CARTA','market-type-card']:['EFECTO','market-type-effect'];
-    return `<div class="market-offer ${alreadyBought?'offer-bought':''}">
-      <div class="market-offer-info">
-        <span class="market-offer-icon">${offer.icon||'📦'}</span>
-        <div>
-          <div class="market-offer-title"><b>${offer.name}</b><span class="market-type-badge ${typeMeta[1]}">${typeMeta[0]}</span></div>
-          <small class="market-offer-desc">${offer.desc}</small>
-        </div>
-      </div>
-      <div class="market-offer-action">
-        ${buttonOrBadge}
-      </div>
-    </div>`;
-  }).join('');
-
-  marketModalHtml=`
-    <div class="market-box modal-market-box">
-    <div class="market-head">
-      <div class="market-head-title">
-        <span>OFERTAS ROTATORIAS</span>
-        </div>
-      ${hasTempDef?`<span class="temp-def-active-pill">🛡 Defensa +1 activa</span>`:''}
-    </div>
-    <p class="market-separation-note"><strong>Fondos: $${p.money}</strong> · Producción al inicio del turno: +$${productionTotal(state,p.id)}. Tropas, cartas y efectos se compran únicamente aquí; las cartas no vuelven a cobrar al jugarlas.</p>
-    <div class="market-offers-list">${offersHtml}</div>
-    <p class="market-rotation-note">Rota en la ronda ${nextRotationRound} · ${roundsLeft} ${roundsLeft===1?'ronda':'rondas'} restantes</p>
-    </div>`;
+  const offersHtml=marketOffersListMarkup({offers:state.market.offers,player:p,state,marketPriceFn:marketPrice,cardHandLimitFn:cardHandLimit});
+  marketModalHtml=marketModalMarkup({offersHtml,player:p,nextRotationRound,roundsLeft,hasTempDef,totalProd:productionTotal(state,p.id)});
   const launch=$('#marketModalBtn');
   if(launch)launch.innerHTML=`<span aria-hidden="true">🛒</span> Mercado táctico <small>$${p.money}</small>`;
 }
@@ -811,91 +738,51 @@ function renderPanel(){
   const subEl = $('#contextActionSubtitle') || els.orderText;
   const badgeEl = $('#contextPhaseBadge');
 
-  if (state.phase === 'gameover') {
-    const won = state.winner === 0;
-    const vType = state.victoryType;
-    let title = won ? '¡Victoria Hegemónica!' : 'Campaña Concluida';
-    let subtitle = won ? 'Todos los estandartes rivales han caído.' : 'Tus últimos territorios fueron conquistados.';
-    if (badgeEl) badgeEl.textContent = won ? 'Victoria' : 'Derrota';
-    headingEl.textContent = title;
-    subEl.textContent = subtitle;
-    els.turnStatus.innerHTML = won
-      ? '<strong>Objetivo cumplido.</strong> ¡Victoria por ' + (vType==='influence'?'Hegemonía de Influencia':vType==='round_limit'?'puntuación en Ronda 40':'Dominio territorial') + '!'
-      : 'Puedes revisar el mapa o ver el resumen final.';
-    els.phaseBtn.textContent = 'Nueva partida';
-    els.phaseBtn.disabled = false;
-    return;
-  }
+  const originName = selectedFrom ? tById(selectedFrom)?.name : '';
+  const targetName = selectedTo ? tById(selectedTo)?.name : '';
+  const remainingManeuvers = Math.max(0, (maneuverLimit(state,state.current)+(state.extraFortifies||0)) - (state.fortifiesUsedThisTurn||0));
+  const details = orderPanelPhaseDetails({
+    state,
+    human,
+    selectedFrom,
+    selectedTo,
+    canAttack: canPlayerAttack(state),
+    originName,
+    targetName,
+    remainingManeuvers,
+    skipAiRequested
+  });
 
-  if (!human) {
-    if (badgeEl) badgeEl.textContent = 'Turno IA';
-    headingEl.textContent = state.players[state.current].name + ' está actuando';
-    subEl.textContent = skipAiRequested ? 'Resolviendo el resto del turno sin animaciones.' : 'Procesando órdenes de combate y refuerzos.';
-    els.turnStatus.innerHTML = skipAiRequested ? '<strong>Avance rápido activo.</strong>' : '<strong>Espera:</strong> puedes omitir la presentación de este turno.';
-    els.phaseBtn.textContent = skipAiRequested ? 'Avance rápido activo…' : 'Saltar turno enemigo →';
-    els.phaseBtn.disabled = skipAiRequested;
-    return;
-  }
+  if (badgeEl) badgeEl.textContent = details.badge;
+  headingEl.textContent = details.heading;
+  subEl.textContent = details.subtitle;
+  els.turnStatus.innerHTML = details.statusHtml;
+  els.phaseBtn.textContent = details.phaseBtnText;
+  els.phaseBtn.disabled = details.phaseBtnDisabled;
 
-  els.phaseBtn.disabled = false;
+  if (state.phase === 'gameover' || !human) return;
 
   if (state.phase === 'reinforce') {
-    if (badgeEl) badgeEl.textContent = 'Reclutamiento';
-    headingEl.textContent = state.pendingReinforcements > 0 
-      ? (state.pendingReinforcements + ' tropas por desplegar')
-      : 'Despliegue completado';
-    subEl.textContent = 'Pulsa un territorio propio para añadir tropas.';
-    els.turnStatus.innerHTML = '<strong>Objetivo:</strong> coloca todas las tropas; después comienza el combate.';
-    els.phaseBtn.textContent = state.pendingReinforcements > 0 ? 'Coloca todos tus refuerzos' : 'Comenzar combate →';
-    els.phaseBtn.disabled = state.pendingReinforcements > 0;
-    const undoCount=state.reinforcementHistory?.length||0;
-    if(undoCount){
-      const last=state.reinforcementHistory.at(-1),lastName=tById(last.id)?.name||'territorio';
-      els.controls.innerHTML=`<button class="secondary-btn undo-reinforcement-btn" id="undoReinforcementBtn">↶ Deshacer ${last.amount>1?`${last.amount} tropas`:'última tropa'} · ${lastName}</button><small class="undo-hint">${undoCount} ${undoCount===1?'colocación reversible':'colocaciones reversibles'}</small>`;
-      $('#undoReinforcementBtn').onclick=()=>{const undone=undoReinforcement(state);if(undone){showToast(`${undone.amount} ${undone.amount===1?'tropa devuelta':'tropas devueltas'} a la reserva`);render()}};
+    const undoCount = state.reinforcementHistory?.length || 0;
+    if (undoCount) {
+      const last = state.reinforcementHistory.at(-1);
+      const lastName = tById(last.id)?.name || 'territorio';
+      els.controls.innerHTML = reinforcementUndoMarkup(last, lastName, undoCount);
+      $('#undoReinforcementBtn').onclick = () => {
+        const undone = undoReinforcement(state);
+        if (undone) {
+          showToast(`${undone.amount} ${undone.amount === 1 ? 'tropa devuelta' : 'tropas devueltas'} a la reserva`);
+          render();
+        }
+      };
     }
-  }
-  else if (state.phase === 'attack') {
-    if (badgeEl) badgeEl.textContent = 'Combate';
-    const possible = canPlayerAttack(state);
-    if (selectedTo) {
-      headingEl.textContent = 'Asalto preparado';
-      subEl.textContent = 'Configura los dados y pulsa lanzar o ataque rápido.';
-    } else if (selectedFrom) {
-      headingEl.textContent = 'Atacando desde ' + tById(selectedFrom).name;
-      subEl.textContent = 'Selecciona un territorio enemigo adyacente con borde rojo.';
-    } else {
-      headingEl.textContent = 'Fase de Combate';
-      subEl.textContent = 'Elige un territorio propio con 2 o más tropas para atacar.';
-    }
-    els.turnStatus.innerHTML = state.attackMadeThisTurn
-      ? '<strong>Combate resuelto.</strong> Puedes continuar o pasar a Maniobra.'
-      : possible
-      ? '<strong>Combate opcional:</strong> ataca, realiza un Sondeo o pasa sin combatir.'
-      : '<strong>Sin ataques posibles:</strong> puedes avanzar a Maniobra.';
-    els.phaseBtn.textContent = state.attackMadeThisTurn ? 'Terminar combate →' : 'Pasar combate → maniobra';
-    els.phaseBtn.disabled = false;
+  } else if (state.phase === 'attack') {
     if (selectedFrom) {
       const a = state.territories[selectedFrom];
       els.selection.innerHTML = '<div class="selection-item"><span>Origen · ' + tById(selectedFrom).name + '</span><strong>' + a.troops + ' tropas</strong></div>';
     }
     if (selectedTo) renderAttackControls();
-  }
-  else if (state.phase === 'fortify') {
-    if (badgeEl) badgeEl.textContent = 'Maniobra';
-    if (selectedTo) {
-      headingEl.textContent = 'Transferencia de tropas';
-      subEl.textContent = 'Elige la cantidad de tropas y confirma el movimiento.';
-    } else if (selectedFrom) {
-      headingEl.textContent = 'Moviendo desde ' + tById(selectedFrom).name;
-      subEl.textContent = 'Selecciona el territorio destino conectado.';
-    } else {
-      headingEl.textContent = 'Fase de Maniobra';
-      subEl.textContent = 'Mueve tropas por una ruta continua o pasa al cierre.';
-    }
-    const total=maneuverLimit(state,state.current)+(state.extraFortifies||0),remaining=Math.max(0,total-(state.fortifiesUsedThisTurn||0));
-    els.turnStatus.innerHTML = remaining?`<strong>${remaining} ${remaining===1?'maniobra disponible':'maniobras disponibles'}.</strong> Puedes mover o pasar.`:'<strong>Sin maniobras base.</strong> Una carta de Movilización habilita una.';
-    els.phaseBtn.textContent = 'Pasar maniobra → cierre';
+  } else if (state.phase === 'fortify') {
     if (selectedFrom) {
       els.selection.innerHTML = '<div class="selection-item"><span>Origen · ' + tById(selectedFrom).name + '</span><strong>' + state.territories[selectedFrom].troops + ' tropas</strong></div>';
     }

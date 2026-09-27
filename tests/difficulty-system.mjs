@@ -1,3 +1,10 @@
+/**
+ * @file difficulty-system.mjs
+ * @description Suite de pruebas para los cuatro perfiles de dificultad de la IA.
+ * Valida que Pacífico, Diplomático, Bélico y Aniquilación modulen agresividad, sesgos
+ * de combate, límites de cartas, maniobras base y precios sin adulterar los dados.
+ */
+
 import {strict as assert} from 'node:assert';
 import {
   createGame,aiTurn,ownedIds,getTerritories,cardHandLimit,maneuverLimit,

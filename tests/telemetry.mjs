@@ -1,3 +1,10 @@
+/**
+ * @file telemetry.mjs
+ * @description Suite de pruebas para la telemetría local de Fronteras de Acero.
+ * Valida el esquema v1, registro de eventos (campaña, cartas, compras, comandante),
+ * agregación de resumen estadístico, exportación determinista en JSON y borrado seguro.
+ */
+
 import {strict as assert} from 'node:assert';
 import {createGame} from '../dist/engine.mjs';
 import {TELEMETRY_VERSION,TELEMETRY_KEY,startTelemetryCampaign,observeTelemetryState,recordCardPlayed,recordCardDiscarded,recordOfferBought,finishTelemetryCampaign,telemetrySummary,exportTelemetry,clearTelemetry} from '../dist/telemetry.mjs';

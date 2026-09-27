@@ -1,1 +1,240 @@
-FRONTERAS DE ACEROGame Design Document — Versión 0.2Esta versión reemplaza a la v0.1. Se conserva la visión y los pilares originales, pero se cierran los cuatro elementos que quedaban pendientes (ronda, dinero, influencia, victoria) y se concilia el documento con el prototipo ya construido en masterpet22.github.io/risk. Esta versión es el norte del proyecto: donde el prototipo se desvíe de aquí, debe adaptarse a este documento, no al revés.0. Registro de cambios respecto a v0.1Se resuelve (antes pendiente)Estructura exacta de la ronda (§3).Obtención y uso del dinero (§7).Fórmula de Influencia (§8).Condición de victoria (§16).Se elimina del prototipoCanje clásico de cartas por tríos (3 cartas → tropas, canje obligatorio con 5). Es la mecánica genérica de Risk que el propio §11 original quería evitar ("una carta debe proporcionar una herramienta, no garantizar una victoria"). Se reemplaza por el sistema de Cartas Tácticas ya descrito conceptualmente, ahora con costes y efectos concretos (§11).Selector de dificultad como ajuste de IA genérico sin efecto documentado. Pasa a definirse como modificador de producción/percepción de la IA (§9.3), no como un simple multiplicador de dados.Se incorpora (no estaba en v0.1, ya existe en el prototipo)Modo Terreno (Infantería/Artillería/Caballería): se formaliza como variante de reglas opcional, no como el modo base (§6.1).Múltiples mapas (Fronteras de Acero, Archipiélago Quebrado, La Gran Grieta): se documentan como variantes de conectividad, no como contenido nuevo por sí mismo (§4.4).Guardado automático: se documenta como requisito técnico, no de diseño (§20).Se mantiene sin cambiosPilares (§2), tablero de 24 territorios / 6 regiones (§4), información imperfecta (§10), objetivos (§12), frentes de guerra (§13), eventos dinámicos (§14), eliminación del sistema de Legado (§15), filosofía de diseño (§17) y prueba de calidad de mecánicas (§18).1. Visión generalFronteras de Acero es un juego de estrategia territorial por turnos para web, con posibilidad de multijugador a futuro. Toma como punto de partida la conquista de territorios, pero se diferencia mediante economía territorial, influencia como medida de poder, comandantes con doctrinas distintas, información imperfecta, cartas tácticas, objetivos dinámicos, frentes de guerra y eventos que modifican el mapa.La experiencia no debe reducirse a conquistar hasta eliminar a los demás. El prototipo actual ya cumple el núcleo de conquista; el trabajo desde aquí es hacer que el resto de pilares (economía, información, adaptación) tengan el mismo nivel de solidez que el dominio territorial.2. Pilares de diseñoSin cambios respecto a v0.1. Todo sistema nuevo debe justificar su existencia dentro de uno o más de:Dominio territorial — ¿Dónde tengo poder?Economía — ¿Qué puedo permitirme hacer?Información — ¿Qué sé realmente del enemigo?Adaptación — ¿Cómo reacciono cuando cambia la situación?3. La ronda — RESUELTOEl prototipo ya implementa una estructura de turno de 4 fases. Se adopta esa estructura como oficial, ampliándola con los ganchos de economía e influencia que faltaban:3.1. Estructura de un turno (por jugador)Fase 1 — ReclutamientoSe cobra la producción económica de todos los territorios propios (ver §7).Se calculan refuerzos: Refuerzos = max(3, ⌊territorios propios ÷ 3⌋) + bonos regionales.El jugador puede gastar dinero en el Mercado (si está disponible esa ronda) antes o después de recibir refuerzos.Se colocan los refuerzos.Fase 2 — CombateAl menos un ataque es obligatorio si existe un origen válido (2+ tropas) con un vecino enemigo, tal como ya funciona.El jugador puede jugar Cartas Tácticas antes, durante o después de un ataque, según el efecto de la carta (§11).Fase 3 — ManiobraUna sola operación de movimiento entre territorios propios conectados, o pasar. Sin cambios.Fase 4 — CierreSi se conquistó al menos un territorio, se roba una Carta Táctica (reemplaza el robo de carta clásica).Se recalcula la Influencia del jugador (§8) y se actualiza el estado de los Frentes de Guerra afectados por sus acciones (§13).Se resuelven objetivos completados esa ronda (§12).Pasa el turno al siguiente jugador.3.2. Ronda completaUna ronda termina cuando todos los jugadores vivos han tomado su turno. Al cierre de la ronda (no de cada turno):Se resuelven eventos anunciados si corresponde (§14).Se verifica la condición de victoria (§16).El Mercado rota cada 3 rondas (§7.1).4. Estructura del mapa4.1–4.3Sin cambios: 24 territorios, 6 regiones, conectividad como eje transversal a economía, influencia, movimiento, frentes, objetivos y eventos.4.4. Variantes de mapa — NUEVO (formaliza lo ya construido)El mapa base de 24 territorios puede presentarse en distintas topologías de conexión, todas usando las mismas reglas:MapaEnfoqueFronteras de AceroEquilibrado, muchas rutasArchipiélago QuebradoIslas, puentes estratégicos (cuellos de botella)La Gran GrietaPasos estrechos, favorece juego defensivoEstas variantes son una herramienta de rejugabilidad, no mecánicas nuevas: no deben introducir reglas propias más allá de qué territorios están conectados entre sí. Un mapa nuevo debe poder describirse únicamente como una matriz de conexiones distinta.5. TerritoriosSin cambios de fondo respecto a v0.1 (propietario, tropas, producción, región, conexiones). La especialización territorial (industria, fortaleza, puerto, centro de inteligencia) sigue pendiente de fase posterior y no se aborda en esta versión.6. Tropas6.1. Modo Terreno — NUEVO (formaliza lo ya construido)El prototipo ya implementa un modo alternativo de combate con tipos de unidad. Se documenta como variante de reglas, seleccionable al iniciar partida, no como parte del modo base:Infantería vence a Artillería, Artillería vence a Caballería, Caballería vence a Infantería.La ventaja de tipo suma +1 al dado más alto del combate.El defensor obtiene +1 adicional si su unidad coincide con el tipo de terreno del territorio.Este modo sirve al pilar de Adaptación: obliga a leer la composición del rival, no solo la cantidad de tropas. Es coherente con la filosofía "posicionamiento sobre acumulación" (§17) y por eso se conserva, pero no debe ser el modo por defecto hasta validar que no rompe el balance de combate del modo clásico.6.2. Modo ClásicoCombate por dados sin tipos de unidad, tal como ya está implementado (atacante 1–3 dados dejando una tropa atrás, defensor hasta 2, empates favorecen al defensor).7. Dinero — RESUELTO7.1. ProducciónCada territorio produce dinero al inicio de la Fase de Reclutamiento de su dueño:Producción del territorio = 1 (base)                           + 1 si pertenece a una región con control mayoritario propio (≥50% de sus territorios)                           + 2 si el jugador controla el 100% de la regiónDinero de la ronda = Σ producción de todos los territorios propiosNo hay tope de acumulación de dinero entre rondas: el dinero no gastado se conserva.7.2. Usos del dineroUsoCoste+3 tropas de refuerzo$10Jugar una Carta Táctica (algunas tienen coste, ver §11)VariableComprar en el MercadoVariable7.3. MercadoCada 3 rondas aparece un mercado con 3–4 ofertas aleatorias, ejemplo:+3 tropas          $30Carta de Espionaje $35Defensa temporal   $40Movilización       $45Solo se puede comprar en el propio turno, durante la Fase de Reclutamiento. Las ofertas no persisten a la siguiente aparición del mercado.Nota de balance: estos precios son un punto de partida para prototipo, no valores finales. Deben probarse en la Fase 6 (Balance) del roadmap (§20).8. Influencia — RESUELTO8.1. FórmulaINFLUENCIA = (Territorios controlados × 2)           + (Regiones controladas al 100% × 8)           + (Producción económica total de la ronda × 1)           + (min(Tropas totales, 30) × 0.3)           + (Suma de valor de Objetivos completados)El tope de 30 tropas en el cálculo es deliberado: evita que amontonar tropas sea la forma dominante de subir Influencia, en línea con el pilar "posicionamiento sobre acumulación" (§17). Más allá de 30 tropas, seguir acumulando ejércitos ayuda a ganar combates, pero deja de ayudar a ganar la partida por Influencia.8.2. FunciónSin cambios: mide posición, recompensa objetivos, representa progreso y alimenta la condición de victoria (§16). Se reafirma la regla de diseño: la Influencia no se gasta como recurso operativo; es un marcador, no una moneda.9. Comandantes9.1. Primer borrador de doctrinas — AVANZA (de 🟡 a borrador jugable)Para que dejen de ser solo nombres, cada comandante recibe un efecto concreto ligado a un pilar. Esto es un primer borrador para prototipo, sujeto a Fase 6 (Balance):ComandanteEfecto de borradorEl Conquistador+1 al dado de ataque en el primer combate de cada turnoEl GuardiánEl defensor gana empates en territorios con Frente en estado "Guerra"El Industrial+1 de producción en todos sus territorios (antes de bonos regionales)El EstrategaCoste de Movilización y Bloqueo reducido en $10El EspíaLas Cartas de Espía y Contrainteligencia no cuestan dineroEl Diplomático+20% de Influencia obtenida por Objetivos completados9.2. Principio de diseñoSin cambios. Si dos comandantes se juegan prácticamente igual, deben rediseñarse.9.3. Dificultad de la IA — NUEVO (formaliza lo ya construido)El selector de dificultad ya existe en el prototipo. Se define su efecto de diseño para que no sea un simple "dado con trampa":Fácil: la IA tiene información imperfecta más agresiva sobre el jugador (ve menos) y prioriza mal sus objetivos.Normal: reglas de información simétricas a las del jugador.Difícil: la IA reacciona más rápido a eventos anunciados (§14.3) y prioriza mejor el Mercado.La dificultad no debe alterar las tiradas de dados directamente; alterar el acceso a información y la calidad de decisión es más consistente con el pilar de Información.10. Información imperfectaSin cambios respecto a v0.1: información completa, parcial (rango aproximado) y oculta (solo presencia). Pendiente de implementar en el prototipo — hoy el modo clásico no muestra evidencia de niveles de información distintos.11. Cartas tácticas — RESUELTO (reemplaza el canje clásico)Se elimina el canje de tríos por tropas. El robo de carta al conquistar (Fase de Cierre) entrega ahora una Carta Táctica de esta lista:CartaEfectoCosteEspíaRevela información completa de un territorio durante 1 rondaGratisSabotajeReduce a la mitad la producción de un territorio enemigo durante 2 rondas$15BloqueoCierra una conexión durante 2 rondas$25MovilizaciónPermite una segunda operación de movimiento este turno$10ContrainteligenciaAnula el efecto de una carta Espía o Sabotaje jugada contra tiGratis (reactiva)Reglas de mano: máximo 3 cartas en mano. Si se robaría una cuarta, el jugador elige una para descartar antes de añadir la nueva.Principio sin cambios: una carta debe ser una herramienta, no garantizar una victoria.12. ObjetivosSin cambios respecto a v0.1: objetivo principal de largo plazo + objetivos temporales rotativos. Ambos otorgan Influencia (ahora con valores concretos a definir en prototipo, sugerido 5–15 puntos de Influencia según dificultad del objetivo). Pendiente de implementación.13. Frentes de GuerraSin cambios conceptuales (Estable → Tenso → Conflicto → Guerra). Se conecta ahora con §9.1: el estado "Guerra" en un Frente ya tiene un efecto concreto de ejemplo (bono de El Guardián). Pendiente de implementación general.14. Eventos dinámicos del mapaSin cambios respecto a v0.1 (Terremoto, Tsunami, eventos anunciados con una ronda de aviso). Pendiente de implementación.15. Eliminación y recuperaciónSin cambios: el sistema de Legado sigue eliminado. El problema de fondo (evitar que un jugador en desventaja se quede sin opciones) se delega al diseño combinado de Mercado + Objetivos + Información imperfecta, que ya tienen valores concretos en esta versión y pueden probarse en Fase 6.16. Condición de victoria — RESUELTODos caminos posibles, el que ocurra primero termina la partida:A. Victoria por Dominio totalSi un jugador controla los 24 territorios, gana de inmediato. (Ya implementado en el prototipo como "Campaña concluida".)B. Victoria por InfluenciaSi un jugador alcanza 150 puntos de Influencia y los mantiene al cierre de una ronda completa (no solo de su turno), gana.C. Límite de rondas (desempate)Si nadie cumple A o B antes de la ronda 40, gana quien tenga más Influencia en ese momento. Esto evita partidas interminables y le da peso real a Influencia incluso en partidas de tablero disperso.Nota de diseño: el camino A (dominio total) sigue existiendo porque ya está construido y es un final claro, pero el objetivo a mediano plazo es que la mayoría de partidas terminen por B o C, no por A — eso es justamente lo que el §1 pide evitar ("no reducirse a conquistar hasta eliminar a los demás").17. Filosofía de diseñoSin cambios: decisiones sobre cantidad de acciones, posicionamiento sobre acumulación, información sobre certeza, adaptación sobre guiones, profundidad sobre cantidad de sistemas.18. Prueba de calidad de cada mecánicaSin cambios. Las siete preguntas (propósito, decisión, frecuencia, recompensa, contrajuego, coste, interacción) se mantienen como filtro antes de añadir cualquier sistema, incluyendo los propuestos en esta versión (Mercado, Cartas Tácticas, doctrinas de Comandantes).19. Arquitectura conceptual del juegoSin cambios respecto a v0.1 (ver diagrama original). Los nuevos sistemas resueltos en esta versión (Dinero, Influencia, Cartas, Victoria) encajan en los nodos que ya existían en el diagrama; no se añaden nodos nuevos.20. Orden de desarrollo recomendado — ACTUALIZADOFase 1 — Núcleo ✅ CompletaMapa, territorios, regiones, conexiones, tropas, movimiento, combate básico. Ya implementado.Fase 1.5 — Migración de cartas (NUEVA, prioridad inmediata)Eliminar el canje clásico de tríos.Implementar las 5 Cartas Tácticas de §11 con sus costes.Fase 2 — Poder (siguiente prioridad)Dinero y producción (§7).Influencia (§8).Control regional ya existe parcialmente ("BONOS REGIONALES" en la UI); conectarlo a la fórmula de producción.Condición de victoria por Influencia y límite de rondas (§16).Fase 3 — ConflictoDoctrinas de Comandantes con efectos reales (§9.1).Frentes de Guerra.Fase 4 — IncertidumbreInformación imperfecta (§10).Fase 5 — Mundo dinámicoEventos y modificaciones de conexiones (§14).Fase 6 — BalanceProbar duración de partida, remontadas, snowball, precios del Mercado, umbral de 150 de Influencia, límite de 40 rondas, y equilibrio de las seis doctrinas.Validar si el Modo Terreno debe seguir siendo opcional o pasar a ser el modo base.Fase 7 — MultijugadorSin cambios respecto a v0.1: el servidor es la autoridad sobre el estado de la partida.Requisito técnico transversal: mantener el guardado automático en navegador que ya existe, extendiéndolo para incluir dinero, cartas en mano e Influencia cuando se implementen.21. Estado actual del diseño — ACTUALIZADOSistemaEstadoTerritorios🟢 ImplementadoRegiones / bonos regionales🟢 Implementado (parcial, falta conectar a producción)Tropas / combate clásico🟢 ImplementadoModo Terreno🟢 Implementado (validar en Fase 6)Múltiples mapas🟢 ImplementadoDinero🟡 Diseñado, falta implementarMercado🟡 Diseñado, falta implementarInfluencia🟡 Diseñado, falta implementarCartas Tácticas🟡 Diseñado, falta reemplazar canje clásicoComandantes (doctrinas)🟡 Borrador de efectos, falta implementar y balancearDificultad de IA🟡 Definido conceptualmente, falta verificar implementación actualFrentes🟡 En diseñoObjetivos🟡 En diseñoInformación imperfecta🟡 En diseñoEventos🟡 En diseñoCondición de victoria🟢 Definida (A/B/C), falta implementar B y CLegado⚪ EliminadoMultijugador⚪ Fase futura22. Próximo objetivo de diseño — ACTUALIZADOLos cuatro elementos que bloqueaban el avance en v0.1 ya están resueltos en este documento. El siguiente cuello de botella real es de implementación, en este orden:Retirar el canje clásico de cartas e implementar las Cartas Tácticas (§11) — es el cambio más pequeño con más impacto en la identidad del juego.Implementar Dinero y Producción (§7), porque Influencia y Mercado dependen de esto.Implementar Influencia (§8) y conectarla a la condición de victoria B/C (§16).Dar a los seis Comandantes sus efectos reales (§9.1), aunque sea en versión borrador, para empezar a probar si "se juegan distinto" (§9.2).Principio rectorCada partida debe obligar al jugador a elegir entre varias buenas opciones, no simplemente a encontrar una única acción correcta.La profundidad de Fronteras de Acero debe surgir de la interacción entre territorio, economía, información, objetivos y adaptación; no de acumular mecánicas. Esta versión no añade pilares nuevos: cierra los que ya existían para que el prototipo pueda por fin apoyarse en los cuatro, no solo en el dominio territorial.
+# FRONTERAS DE ACERO — Game Design Document (GDD)
+Versión documental 0.4 · 27 de septiembre de 2026.
+
+Este documento unifica y define el diseño oficial de *Fronteras de Acero* conforme al código implementado en `dist/` y las pruebas de `tests/`. Establece las reglas, sistemas, interfaces y directrices de equilibrio para el juego individual.
+
+---
+
+## 0. Registro de versiones y cambios
+
+* **v0.1 – v0.2:** Definición conceptual de los 4 pilares, mapa de 24 territorios, canje preliminar de cartas y propuestas de economía.
+* **v0.3:** Eliminación del canje de tríos, formalización de las Cartas Tácticas, integración de Mercado unificado, introducción de Doctrinas de Comandante, Frentes de Guerra, niebla de guerra y eventos de terreno.
+* **v0.4 (Actual):**
+  * **Influencia v2:** Producción y tropas aportan 0 puntos a la victoria; presencia limitada a un máximo de 17 puntos (8 por territorios y 9 por regiones completas). El progreso recae en objetivos dinámicos. Umbral de Hegemonía fijado provisionalmente en 60 puntos, exigiendo al menos un objetivo principal y uno no militar al cierre de la ronda.
+  * **Mercado Táctico unificado:** Centralización de compras (tropas, cartas y efectos) en un catálogo rotativo cada 3 rondas con garantía de al menos una oferta de tropas. Las cartas se pagan al adquirirlas y su uso posterior es gratuito.
+  * **Claridad en Combate y Maniobra (P0):** Equivalencia exacta 1:1 entre dados seleccionados y soldados desplegados; resolución visual explícita; Sondeo táctico 1v1 sin conquista para explorar bajo niebla; sustitución de la barra de maniobra por un control numérico con botones `−`/`+`, accesos directos y vista previa de origen/destino; botón para deshacer colocaciones accidentales durante Reclutamiento.
+  * **Retroalimentación y Navegación (P1 - P3):** Desglose modal interactivo de Influencia; Crónica de campaña filtrable; Frentes regionales visibles en mapa y fichas de comandantes; panel de órdenes estable a 1366×768; tutorial contextual de primera partida; accesibilidad integral (foco visible, regiones `aria-live`, botones ≥44px y adaptación a `prefers-reduced-motion`).
+  * **Telemetría local (P4.1):** Registro determinista en `localStorage` de cartas, compras, comandantes y resultados sin transmisión remota ni datos personales, con visor, exportación JSON y borrado desde Ayuda.
+  * **Diagnóstico de balance (P4.2):** Medición factorial de 600 campañas para regular la bola de nieve militar y potenciar las rutas de remontada.
+
+---
+
+## 1. Visión general y pilares de diseño
+
+*Fronteras de Acero* es un juego de estrategia territorial por turnos para entorno web. Aunque toma como punto de partida la mecánica clásica de conquista por dados, amplía la experiencia estratégica mediante cuatro pilares interconectados:
+
+1. **Dominio territorial:** Posicionamiento en el mapa, cuellos de botella, conexiones críticas y defensa de fronteras.
+2. **Economía:** Producción de suministros basada en la red territorial para financiar refuerzos, cartas y efectos en el Mercado.
+3. **Información:** Niebla de guerra, niveles de visibilidad, espionaje y sondeos para tomar decisiones bajo incertidumbre.
+4. **Adaptación:** Reacción ante eventos dinámicos del terreno, doctrinas enemigas, tensión en frentes y objetivos tácticos cambiantes.
+
+---
+
+## 2. Tablero y variantes de mapa
+
+El juego se disputa sobre un mapa de **24 territorios** organizados en **6 regiones** (4 territorios por región). La topología se define mediante matrices de conexiones simétricas:
+
+* **Fronteras de Acero (Mapa estándar):** Distribución equilibrada de rutas transversales, centros neurálgicos y flancos marítimos.
+* **Archipiélago Quebrado:** Alta fragmentación insular conectada mediante puentes navales estrechos; favorece tácticas de bloqueo y control de cuellos de botella.
+* **La Gran Grieta:** Gran fractura central con escasos pasos terrestres; favorece doctrinas defensivas y fortificación de frentes.
+
+Cada territorio posee un nombre propio, una región de pertenencia, un tipo de terreno asociado (Llanura, Bosque, Montaña) y un conjunto de fronteras directas.
+
+---
+
+## 3. Flujo del turno y ciclo de ronda
+
+La partida progresa en rondas completas. En cada ronda, los jugadores activos toman su turno en orden consecutivo a través de cuatro fases estrictas:
+
+```
+[ 1. Reclutamiento ] ➔ [ 2. Combate ] ➔ [ 3. Maniobra ] ➔ [ 4. Cierre ]
+```
+
+### Fase 1: Reclutamiento
+1. **Cobro de producción:** Se suman los ingresos de todos los territorios propios y los bonos regionales completos.
+2. **Cálculo de refuerzos base:** $\max(3, \lfloor \text{territorios propios} / 3 \rfloor)$ más refuerzos adicionales por control regional.
+3. **Mercado táctico:** Si el Mercado está activo, el jugador puede comprar tropas inmediatas, cartas o defensas temporales.
+4. **Despliegue:** El jugador asigna sus tropas de refuerzo a sus territorios. Se dispone de la opción **Deshacer** para revertir colocaciones erróneas antes de confirmar o cambiar de fase.
+
+### Fase 2: Combate (Opcional)
+* **Ataque normal:** Desde un territorio con 2+ tropas hacia un vecino enemigo no bloqueado. El atacante compromete de 1 a 3 dados (dejando siempre al menos 1 tropa en el origen); el defensor lanza 1 o 2 dados. Los empates favorecen al defensor (salvo doctrina del Guardián en Guerra).
+* **Equivalencia 1:1:** Cada dado atacante representa exactamente un soldado desplegado en el asalto.
+* **Sondeo de combate:** Una vez por turno, es posible lanzar un ataque exploratorio de 1 dado contra 1 dado. Permite revelar la guarnición enemiga bajo niebla de guerra sin riesgo de conquistar ni perder el territorio origen.
+* **Escalada de tensión:** Todo combate eleva el Frente regional a estado de *Conflicto*; una conquista lo escala a *Guerra*.
+
+### Fase 3: Maniobra
+* Traslado de tropas entre dos territorios propios conectados a través de una ruta ininterrumpida de posesiones aliadas.
+* Se gestiona mediante un selector con botones `−`/`+`, campo numérico editable, accesos directos (`1`, `Mitad`, `Máximo`) y vista previa en tiempo real.
+* El territorio de origen siempre debe conservar al menos 1 tropa.
+* La cantidad de maniobras por turno depende de la dificultad (3 en Pacífico, 2 en Diplomático, 1 en Bélico, 0 en Aniquilación; ampliable con la carta *Movilización*).
+
+### Fase 4: Cierre de turno
+1. Si el jugador conquistó al menos un territorio durante el turno, se le presentan **dos Cartas Tácticas aleatorias** y escoge una. Si su mano supera el límite de dificultad, descarta una carta a su elección.
+2. Se evalúan y resuelven los objetivos dinámicos completados.
+3. Se recalcula la Influencia del jugador.
+4. El turno pasa al siguiente comandante con vida.
+
+### Cierre de ronda completa
+Una vez finalizados los turnos de todos los comandantes:
+1. **Eventos de terreno:** Se materializan los desastres anunciados previamente y se anuncian nuevos eventos si aplica (solo en Modo Terreno).
+2. **Enfriamiento de Frentes:** Las regiones sin incidentes reducen paulatinamente su nivel de tensión.
+3. **Rotación del Mercado:** El catálogo se renueva automáticamente cada 3 rondas.
+4. **Verificación de victoria:** Se evalúan las tres condiciones de fin de partida.
+
+---
+
+## 4. Economía y Mercado táctico
+
+La economía premia la conectividad y la estabilidad regional sin generar inflación desmedida:
+
+* **Producción por territorio:** Cada territorio genera dinero ($) según su nivel de desarrollo y conexiones seguras con vecinos aliados.
+* **Bono regional:** Controlar el 100% de una región otorga un ingreso adicional plano de **+$2** por ronda.
+* **Mercado táctico:**
+  * Aparece en la interfaz durante Reclutamiento y rota su catálogo cada 3 rondas.
+  * Garantiza en cada rotación al menos una oferta directa de refuerzos militares.
+  * Permite adquirir cartas tácticas, paquetes de tropas y fortificaciones de defensa temporal.
+  * Las cartas se abonan íntegramente al momento de la compra en el Mercado; ejecutarlas durante las fases correspondientes no requiere desembolso adicional.
+
+---
+
+## 5. Cartas Tácticas y Reacciones
+
+El mazo táctico sustituye por completo los canjes de cartas tradicionales:
+
+| Carta | Tipo | Efecto |
+|---|---|---|
+| **Espía** | Táctica | Revela de forma completa la guarnición y datos de un territorio enemigo durante 1 ronda. |
+| **Sabotaje** | Táctica | Reduce a la mitad la producción de un territorio enemigo durante 2 rondas consecutivas. |
+| **Bloqueo** | Operativa | Inhabilita una ruta de conexión entre dos territorios durante 2 rondas, impidiendo ataques y maniobras. |
+| **Movilización** | Operativa | Concede una operación de maniobra adicional en el turno actual. |
+| **Contrainteligencia** | Reacción | Permite interceptar y anular un *Espía* o *Sabotaje* enemigo. El defensor decide voluntariamente si consumir la carta o conservarla en mano. |
+
+*Límites de mano según dificultad:* Pacífico (4), Diplomático (3), Bélico (3), Aniquilación (2).
+
+---
+
+## 6. Comandantes y Doctrinas
+
+Cada jugador asume el mando de un líder militar con una doctrina pasiva especializada:
+
+1. **El Conquistador:** Recibe **+1 en su dado más alto** durante el primer combate de cada turno.
+2. **El Guardián:** El defensor gana los empates en territorios pertenecientes a una región cuyo Frente esté en estado de **Guerra**.
+3. **El Industrial:** Obtiene **+1 de producción adicional** en todos sus territorios al inicio de la ronda.
+4. **El Estratega:** Disfruta de un descuento de **$10** al adquirir cartas operativas (*Movilización* y *Bloqueo*).
+5. **El Espía:** Las cartas de *Espía* y *Contrainteligencia* no consumen dinero en el Mercado.
+6. **El Diplomático:** Aumenta en un **+40%** el rendimiento de Influencia obtenido al completar objetivos dinámicos.
+
+---
+
+## 7. Frentes de Guerra
+
+Las relaciones bélicas se monitorizan por parejas de comandantes y de forma desagregada por cada una de las 6 regiones:
+
+* **Estable:** Sin hostilidades recientes; permite libre tránsito y comercio óptimo.
+* **Tenso:** Provocado por acciones encubiertas (Sondeos, Espionaje o Sabotajes).
+* **Conflicto:** Desencadenado por batallas directas y escaramuzas fronterizas.
+* **Guerra:** Desatado por la conquista efectiva de un territorio. Activa bonificaciones defensivas y alertas militares.
+
+Los frentes que no registran nuevas agresiones se enfrían un nivel al cierre de cada ronda.
+
+---
+
+## 8. Información imperfecta y Niebla de guerra
+
+El jugador no posee omnisciencia sobre el continente. La visibilidad de cada territorio enemigo se clasifica en tres niveles:
+
+1. **Completa:** Territorios adyacentes a posiciones propias con guarnición suficiente o revelados mediante *Espía* o *Sondeo*. Se muestra la cifra exacta de tropas y dueño.
+2. **Parcial:** Territorios en el radio de observación periférico. La fuerza militar se comunica en rangos aproximados: `1-2`, `3-5`, `6-9` o `10+`.
+3. **Oculta (Niebla total):** Territorios distantes sin cobertura de inteligencia. Solo se percibe la bandera del propietario; la guarnición permanece incógnita (`?`).
+
+---
+
+## 9. Eventos dinámicos del mapa (Modo Terreno)
+
+En el **Modo Terreno**, el continente está sujeto a fenómenos naturales que obligan a reorganizar planes:
+
+* **Terremoto:** Destruye infraestructuras y causa bajas inmediatas en la guarnición del epicentro y adyacencias.
+* **Tsunami:** Inunda regiones costeras e interrumpe temporalmente pasos marítimos e insulares.
+* **Temporal:** Impide el movimiento y penaliza la ofensiva en los territorios afectados.
+
+*Regla de preaviso:* Todo evento meteorológico o sísmico se anuncia con **1 ronda de anticipación**, permitiendo maniobrar o evacuar tropas antes del impacto.
+
+---
+
+## 10. Modos de juego
+
+1. **Modo Clásico:** Resolución estándar por dados d6 (1–3 atacante vs 1–2 defensor; empates favorables a la defensa). No incluye eventos naturales destructivos.
+2. **Modo Terreno:** Introduce modificadores tácticos geográficos sin añadir tipos de unidad:
+   * **Bosques y Montañas:** Otorgan bonificación defensiva al dado más alto de la defensa según el perfil de dificultad configurado (`humanTerrainBonus` / `aiTerrainBonus`).
+   * **Eventos dinámicos del mapa:** Habilita la aparición de terremotos, tsunamis y temporales anunciados con una ronda de preaviso.
+   * **Bloqueos de ruta:** Los fenómenos geológicos pueden colapsar temporalmente conexiones territoriales clave.
+
+---
+
+## 11. Perfiles de Dificultad de la IA
+
+La dificultad modula la toma de decisiones, la percepción y la economía de los rivales, **sin falsear los dados**:
+
+* **Pacífico:** La IA evita confrontaciones con el jugador humano mientras existan expansiones neutrales; concede 3 maniobras y precios accesibles en el Mercado.
+* **Diplomático:** Comportamiento simétrico y equilibrado entre todas las facciones; concede 2 maniobras.
+* **Bélico:** La IA prioriza la contención activa del jugador humano, disputando sus fronteras; concede 1 maniobra.
+* **Aniquilación:** Coordinación agresiva de las IAs para cercar al jugador humano; 0 maniobras base (requiere *Movilización*), precios elevados y mano máxima de 2 cartas.
+
+---
+
+## 12. Influencia v2 y Condiciones de Victoria
+
+El sistema de victoria desacopla el poder militar bruto del triunfo final:
+
+### Fórmula de Influencia v2
+$$\text{Influencia} = \text{Presencia territorial (máx 8)} + \text{Presencia regional (máx 9)} + \sum \text{Valor de Objetivos completados} \times \text{Modificador de Doctrina}$$
+
+* **Tropas y Producción:** Aportan **0 puntos** de Influencia directa. Sirven exclusivamente para operar en el tablero.
+* **Tope de presencia:** Un jugador solo puede obtener hasta 17 puntos por mera ocupación geográfica (8 por territorios y 9 por regiones completas).
+* **Objetivos dinámicos:** Son la fuente del 65%–80% de la Influencia. Incluyen rutas de posición, táctica militar, logística, economía, inteligencia, defensa y misiones de recuperación para facciones rezagadas.
+
+### Condiciones de Fin de Partida
+La partida concluye inmediatamente cuando se cumple cualquiera de las siguientes tres condiciones:
+
+* **Condición A — Dominio Total:** Un jugador conquista los 24 territorios del mapa.
+* **Condición B — Hegemonía Continental (Influencia):** Al cierre de una ronda completa, un jugador alcanza **al menos 60 puntos de Influencia**, habiendo completado al menos **un Objetivo Principal** y **un Objetivo No Militar**.
+* **Condición C — Límite de Campaña:** Al término de la ronda 40, se proclama vencedor al comandante con mayor puntuación acumulada de Influencia.
+
+---
+
+## 13. Accesibilidad e Interfaz de Usuario
+
+* **Panel de órdenes estable:** En pantalla de escritorio (1366×768 o superior), el panel reserva un área consistente donde las acciones principales no requieren desplazamiento vertical.
+* **Interfaz adaptable a móviles:** En anchos inferiores a 1200 px, los controles se despliegan mediante una hoja inferior accesible que no obstaculiza la vista general del mapa.
+* **Ergonomía táctil:** Botones interactivos con áreas mínimas de contacto de 44×44 px.
+* **Accesibilidad asistiva:** Foco visible en todos los elementos interactivos, etiquetas descriptivas de estado (`aria-pressed`, `aria-label`) y avisos de combate mediante regiones `aria-live`.
+* **Movimiento reducido:** Respeto estricto del parámetro `prefers-reduced-motion` del sistema operativo, suprimiendo transiciones bruscas y animaciones superfluas.
+
+---
+
+## 14. Telemetría y Privacidad
+
+El sistema de analítica de juego opera bajo los siguientes principios éticos y técnicos:
+
+* **100% Local:** Registra campañas, elecciones de cartas, comandantes y compras exclusivamente en el `localStorage` del navegador.
+* **Cero llamadas de red:** No existe ningún componente, script de terceros ni endpoint de telemetría remota.
+* **Control total del usuario:** Desde la ventana de **Ayuda**, el jugador puede inspeccionar las estadísticas agregadas, descargarlas en formato JSON o eliminarlas definitivamente en cualquier momento.
+
+---
+
+## 15. Arquitectura Técnica y Entorno de Ejecución
+
+* **Pila web estándar:** Vanilla JavaScript moderno (módulos ES6), HTML5 semántico y CSS nativo con variables de diseño.
+* **Sin compiladores ni dependencias:** Se distribuye y ejecuta directamente desde la carpeta `dist/`. No requiere Node.js para jugar (solo para pruebas) ni herramientas de empaquetado como Vite o Webpack.
+* **Servidor local:** Archivo ligero `serve.py` para suministrar los módulos con el MIME type correcto (`text/javascript`).
+* **Despliegue automático:** Integración continua mediante GitHub Actions (`.github/workflows/pages.yml`) con publicación directa en GitHub Pages.
+
+---
+
+## 16. Estado de Balance y Próximos Pasos
+
+El estado actual del juego individual se resume en:
+
+1. **Sistemas base cerrados:** P0 (controles), P1 (retroalimentación), P2 (jerarquía visual), P3 (accesibilidad/responsive), P4.1 (telemetría), P4.3 (batería de pruebas) y P5.2/P5.3 (optimización y documentación).
+2. **Prioridad activa P4.2 (Balance y Remontadas):** Ajustar la economía regional y los refuerzos operativos para reducir la tasa de victoria del líder temprano (actualmente 84,7%) e impulsar las remontadas a $\ge 25\%$, manteniendo la correlación territorial en $\le 0,60$.
+3. **Prioridad activa P5.1 (Modularización gradual):** Desacoplar gradualmente los renderizadores de interfaz de `dist/app.mjs` hacia submódulos con contratos acotados.

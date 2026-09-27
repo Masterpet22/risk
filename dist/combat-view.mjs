@@ -1,3 +1,11 @@
+/**
+ * @file combat-view.mjs
+ * @description Módulo de presentación visual para la resolución de combates (P0.1).
+ * Renderiza los dados atacantes y defensores con desglose de bonificaciones,
+ * la comparación directa de tiradas, el cálculo de bajas y las figuras SVG
+ * proporcionales al despliegue real de tropas.
+ */
+
 export function diceMarkup(values,raw=[]){return values.map((value,index)=>{const base=raw[index],hasBonus=base!==undefined&&value!==base,difference=value-(base??value);return hasBonus?`<i class="big-die die-with-bonus" title="Tirada base: ${base} + bonificación: ${difference} = ${value}"><span class="die-num">${value}</span><small class="die-calc-tag">${base} +${difference}</small></i>`:`<i class="big-die"><span class="die-num">${value}</span></i>`}).join('')}
 
 export function comparisonMarkup(round){

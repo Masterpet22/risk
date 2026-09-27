@@ -1,307 +1,78 @@
 # Plan de prioridades de interfaz y jugabilidad
 
-Versión documental 0.3 · última revisión 25 de septiembre de 2026.
-
-Este plan toma como punto de partida el estado jugable actual. El orden prioriza primero la comprensión de las decisiones y la fiabilidad de los controles; después, la presentación y el refinamiento general.
-
-## Principios de trabajo
-
-- Cada acción debe mostrar **qué va a ocurrir antes de confirmarla**.
-- Un mismo concepto debe conservar la misma representación en controles, mapa, animación y resultado.
-- Los controles principales deben funcionar igual de bien con ratón, teclado y pantalla táctil.
-- Ninguna mejora visual debe revelar información oculta ni modificar silenciosamente las reglas.
-- Cada bloque se cierra con pruebas de lógica, una revisión visual en 1366×768 y otra en móvil/tableta.
-
-## P0 — Claridad del ataque y maniobra práctica
-
-Es la prioridad inmediata porque afecta decisiones realizadas en cada turno.
-
-**Estado: completado.** Implementado con pruebas del motor y validación de interacción en navegador.
-
-### P0.1 Representar soldados desplegados en el ataque
-
-Actualmente el jugador selecciona dados, pero la animación siempre muestra un grupo fijo de tres soldados. Esto rompe la relación entre decisión y representación.
-
-Cambios propuestos:
-
-- Renombrar las opciones como:
-  - `1 soldado · 1 dado`
-  - `2 soldados · 2 dados`
-  - `3 soldados · 3 dados`
-- Añadir un resumen previo visible: `Despliegue de esta ronda: 2 soldados`.
-- Mostrar en la animación exactamente tantos soldados atacantes como dados seleccionados.
-- Mostrar defensores según los dados que realmente lanza la defensa, con un máximo de dos.
-- En la resolución, indicar claramente:
-  - soldados desplegados;
-  - bajas de cada bando;
-  - soldados que regresan o permanecen en el territorio de origen;
-  - soldados trasladados si se conquista el territorio.
-- En `Ataque rápido`, explicar que se usan automáticamente todos los soldados permitidos en cada tirada. La animación y el resumen deberán utilizar el número real de dados de cada ronda, no un valor fijo.
-
-Criterios de aceptación:
-
-- Seleccionar dos dados muestra dos soldados en el resumen previo y en la animación.
-- La cantidad nunca supera `tropas del origen - 1`.
-- Una conquista muestra la cantidad real trasladada al territorio conquistado.
-- Ataque normal, ataque rápido y ataques de la IA utilizan el mismo lenguaje visual.
-
-Archivos principales: `dist/app.mjs`, `dist/theme.css` y pruebas de combate en `tests/full-game.mjs`.
-
-### P0.2 Sustituir la barra de maniobra
-
-La barra deslizante es imprecisa, especialmente en móvil, y no permite anticipar con claridad el resultado.
-
-Control recomendado:
-
-```text
-Tropas a mover
-             ┌─────┐
-    [ − ]    │  3  │    [ + ]
-             └─────┘
-       [ 1 ] [ Mitad ] [ Máximo ]
-
-Origen: 8 → 5        Destino: 2 → 5
-[ Confirmar movimiento ]
-```
-
-Comportamiento:
-
-- Botones grandes `−` y `+` para ajustar una unidad.
-- Campo numérico editable con límites seguros.
-- Accesos rápidos `1`, `Mitad` y `Máximo`.
-- Vista previa en tiempo real de las tropas finales en origen y destino.
-- El origen siempre conserva al menos una tropa.
-- `Confirmar movimiento` queda desactivado ante una cantidad inválida.
-- La selección se conserva al abrir o cerrar la hoja de órdenes móvil.
-- Mensaje específico cuando no existe una ruta propia continua.
-
-Criterios de aceptación:
-
-- Puede elegirse cualquier cantidad válida sin arrastrar un control.
-- El control funciona con clic, toque, teclado y flechas del campo numérico.
-- Los valores previstos coinciden exactamente con el estado posterior a la maniobra.
-- Funciona correctamente con una tropa transferible y con cantidades grandes.
-
-Archivos principales: `dist/app.mjs`, `dist/theme.css` y pruebas de maniobra en `tests/full-game.mjs`.
-
-### P0.3 Añadir deshacer durante Reclutamiento
-
-Colocar una tropa por error no debería obligar a reiniciar la partida ni dejar una decisión accidental permanente.
-
-Cambios propuestos:
-
-- Registrar cada colocación realizada durante la fase actual de Reclutamiento.
-- Mostrar `Deshacer última colocación` mientras exista al menos una acción reversible.
-- Devolver la tropa al contador de refuerzos pendientes y restaurar el territorio afectado.
-- Permitir deshacer varias colocaciones, una por una, hasta regresar al inicio de la fase.
-- Vaciar el historial al terminar Reclutamiento, comprar refuerzos, cargar otra partida o cambiar de jugador.
-- No permitir deshacer acciones de la IA ni acciones pertenecientes a turnos anteriores.
-
-Criterios de aceptación:
-
-- Deshacer restaura exactamente las tropas y refuerzos pendientes anteriores.
-- Guardar y cargar no crea un historial inválido ni permite duplicar tropas.
-- El botón no aparece cuando no hay acciones reversibles.
-- La función se prueba con colocaciones consecutivas en uno y varios territorios.
-
-## P1 — Retroalimentación táctica consistente
-
-Después de corregir los controles, la siguiente prioridad es que el mapa explique mejor el estado de la partida.
-
-**Estado: completado.** Se incorporaron el desglose calculado de Influencia, la Crónica filtrable, el resumen de Frentes de Guerra y las compras unificadas en el Mercado táctico. También se corrigió el recorte vertical del área de ataque para que su contenido determine la altura del panel.
-
-### P1.1 Mejorar la visibilidad de los Frentes de Guerra
-
-- Incorporar una leyenda compacta para los estados de frontera: Estable, Tenso, Conflicto y Guerra.
-- Mostrar el nombre y estado de una frontera al seleccionar cualquiera de sus territorios, sin recuperar cuadros flotantes sobre el mapa.
-- Unificar los colores de frontera entre mapa, ficha del comandante y mensajes de combate.
-- Señalar con claridad rutas bloqueadas, diferenciándolas de una frontera en guerra.
-- Mantener visibles únicamente las rutas relevantes al territorio seleccionado, salvo cuando el usuario active `Rutas: todas`.
-- Añadir un resumen de los frentes activos en la información del comandante, ordenado por gravedad.
-- Explicar qué acción aumentó o redujo la tensión y cuándo puede enfriarse el frente.
-
-Criterio de cierre: el jugador puede explicar por qué una ruta tiene determinado color o patrón sin consultar las reglas externas.
-
-### P1.2 Hacer visible el desglose de Influencia
-
-- Convertir el total de Influencia en un elemento interactivo que abra un desglose compacto.
-- Separar claramente las fuentes: territorios, regiones, objetivos, economía, comandantes y bonificaciones temporales.
-- Mostrar topes, multiplicadores y penalizaciones aplicadas, no solo el resultado final.
-- Indicar cuánto falta para la victoria por Influencia y qué fuentes pueden aumentar en el turno actual.
-- Usar la misma función de cálculo del motor para producir el desglose, evitando duplicar fórmulas en la interfaz.
-
-Criterio de cierre: la suma de todas las filas coincide siempre con `calculateInfluence` y el jugador puede identificar la causa de cualquier cambio.
-
-### P1.3 Recuperar la Crónica de la campaña como modal
-
-- Añadir un botón compacto `Crónica` cerca de la información global de la partida.
-- Abrir un modal con eventos agrupados por ronda y jugador.
-- Registrar conquistas, pérdidas, objetivos, compras, cartas, cambios de frente, eventos naturales y eliminaciones.
-- Ofrecer filtros sencillos: `Todos`, `Combate`, `Economía` y `Eventos`.
-- Conservar un límite razonable de entradas y mantener compatibilidad con partidas guardadas anteriores.
-- Evitar que la Crónica ocupe permanentemente espacio del panel de órdenes.
-
-Criterio de cierre: cualquier cambio importante del estado puede rastrearse desde el modal sin saturar la pantalla principal.
-
-### P1.4 Unificar las compras en el Mercado táctico
-
-- Eliminar la compra básica separada y ofrecer tropas junto con cartas y efectos.
-- Garantizar al menos una oferta de tropas en cada rotación del Mercado.
-- Mostrar fondos y producción dentro del Mercado para centralizar la decisión económica.
-- Mostrar claramente si una oferta del Mercado entrega tropas inmediatas, reserva, una carta o un efecto temporal.
-- Cobrar las cartas al adquirirlas y permitir jugarlas sin un segundo coste.
-- Revisar los mensajes de saldo insuficiente y fase no válida.
-
-Criterio de cierre: en una prueba sin explicación previa, el jugador entiende que toda compra ocurre en el Mercado y que usar una carta ya adquirida es gratuito.
-
-## P2 — Jerarquía del panel de órdenes
-
-**Estado: completado.** `Orden actual` conserva una altura de referencia común en escritorio y solo crece cuando el contenido lo exige; las acciones principales permanecen visibles a 1366×768. La primera campaña incorpora una guía contextual no bloqueante, persistente en almacenamiento local, con opciones para omitirla y reiniciarla desde Ayuda.
-
-### P2.1 Estabilizar el panel de órdenes
-
-- Reservar una altura estable para `Orden actual`, evitando cambios de tamaño entre fases.
-- Colocar siempre la acción principal dentro del primer viewport del panel.
-- Reducir textos repetidos y trasladar explicaciones secundarias a ayudas breves.
-- Mantener separados visualmente: selección, configuración, resultado y avance de fase.
-- Revisar estados vacíos para que no consuman espacio de combate o maniobra.
-
-Criterio de cierre: en 1366×768 nunca es necesario desplazar el panel para ejecutar la acción principal de la fase.
-
-### P2.2 Tutorial contextual para la primera partida
-
-- Activarlo únicamente en la primera campaña, con opción de omitirlo y reiniciarlo desde Ayuda.
-- Explicar cada concepto cuando se vuelve relevante: Reclutamiento, selección de territorios, ataque, soldados/dados, maniobra, cartas, Mercado, Influencia, objetivos y Frentes.
-- Destacar un único elemento por paso sin bloquear acciones ajenas innecesariamente.
-- Guardar el progreso del tutorial localmente y no repetir pasos ya completados.
-- Adaptar la colocación de mensajes a escritorio, tableta y hoja de órdenes móvil.
-- No mostrar eventos de terreno en el tutorial cuando la partida usa modo clásico.
-
-Criterio de cierre: un jugador nuevo completa un turno entero sin depender del documento de reglas y puede omitir el tutorial en cualquier momento.
-
-## P3 — Responsive, accesibilidad y controles táctiles
-
-**Estado: completado.** La interfaz fue validada en las cinco resoluciones objetivo y en equivalentes de zoom de navegador al 125% y 150%, sin desbordamiento horizontal. El panel de órdenes pasa a hoja inferior hasta 1200 px, mantiene visible su acceso y devuelve el foco al cerrarse. Los controles principales alcanzan al menos 44 px, los estados activos exponen `aria-pressed`, los valores dinámicos se anuncian sin repetición y el foco es visible y se restaura en modales.
-
-- Revisar 1920×1080, 1366×768, 1024×768, 768×1024 y 390×844.
-- Garantizar objetivos táctiles de al menos 44 px para `+`, `−`, dados y botones principales.
-- Añadir estados de foco visibles y etiquetas accesibles con valores actuales.
-- Anunciar cambios de cantidad y resultados mediante regiones `aria-live` sin duplicar mensajes.
-- Confirmar que modales y hojas móviles recuperen el foco al cerrarse.
-- Comprobar que el zoom del navegador al 125% y 150% no produzca controles ocultos ni doble scroll.
-
-## P4 — Medición, balance y pruebas de regresión
-
-### P4.1 Telemetría local de uso
-
-**Estado: completado.** El esquema local v1 registra campañas, cartas, descartes, ofertas y comandante sin información personal ni solicitudes de red. Ayuda permite consultar un resumen, exportarlo como JSON y borrarlo.
-
-- Registrar únicamente en el dispositivo, sin enviar información a servidores:
-  - cartas jugadas y descartadas;
-  - ofertas compradas o ignoradas;
-  - comandantes elegidos;
-  - mapa, modo, dificultad, duración y resultado de cada campaña.
-- No almacenar nombres introducidos, identificadores personales ni historial de navegación.
-- Añadir en Ayuda opciones para ver un resumen, exportar los datos como JSON y borrarlos.
-- Versionar el esquema para que futuras actualizaciones no rompan estadísticas anteriores.
-- Usar estos datos solo como apoyo para detectar contenido ignorado o dominante; no modificar el balance automáticamente.
-
-Criterio de cierre: todas las métricas permanecen en almacenamiento local, pueden borrarse y no provocan solicitudes de red.
-
-### P4.2 Revisar la bola de nieve territorial y la Influencia alternativa
-
-**Estado: Influencia v2 implementada; balance operativo pendiente.** La simulación reproducible de 600 campañas y sus umbrales están documentados en `INFORME_BALANCE_P4.md`. La fórmula elimina producción y tropas, limita la presencia a 17 puntos y convierte los objetivos elegibles en la fuente principal. Con Hegemonía provisional a 60, la correlación territorial queda en 0,74 y la mediana baja a 10 rondas.
-
-- Medir la correlación entre ventaja territorial temprana y victoria final.
-- Comparar producción, refuerzos, control regional e Influencia obtenidos por el líder frente al resto.
-- Revisar si conquistar territorios proporciona simultáneamente demasiada economía, seguridad e Influencia.
-- Evaluar fuentes alternativas para jugadores rezagados: objetivos, diplomacia, frentes estabilizados, cartas y especialización regional.
-- Simular cambios antes de modificar valores del juego principal.
-- Definir umbrales de balance: duración, remontadas, variedad de comandantes y distribución de tipos de victoria.
-
-Criterio de cierre: el informe de simulación demuestra que una ventaja temprana no vuelve trivialmente inevitable la victoria y que existen rutas competitivas no basadas solo en expansión territorial.
-
-### P4.3 Pruebas visuales, funcionales y de interacción
-
-**Estado: completado.** Se añadieron pruebas independientes para telemetría, reglas de interacción y contratos DOM/CSS, además de conservar la simulación integral del motor.
-
-- Añadir pruebas para la equivalencia `dados seleccionados = soldados desplegados`.
-- Verificar límites del nuevo selector de maniobra.
-- Probar vista previa y resultado final de origen/destino.
-- Cubrir ataque rápido cuando el número máximo de dados cambia entre tiradas.
-- Añadir comprobaciones DOM para:
-  - ausencia de relleno en rutas curvas;
-  - fronteras regionales discontinuas;
-  - colores según estado de frontera;
-  - controles principales visibles sin solapamiento.
-- Cubrir secuencias completas de interacción: reclutar y deshacer, comprar, atacar, maniobrar, abrir modales y cerrar turno.
-- Probar navegación por teclado, foco de modales y controles táctiles equivalentes.
-- Separar pruebas puras del motor de las pruebas DOM para identificar rápidamente el origen de una regresión.
-
-## P5 — Pulido posterior
-
-### P5.1 Dividir la lógica de interfaz
-
-**Estado: primera extracción completada; trabajo gradual restante.** Persistencia, rutas, presentación de combate, controles de Maniobra, accesibilidad, modales y telemetría tienen módulos independientes con pruebas aisladas. `app.mjs` conserva la orquestación y los renderizadores específicos del mapa, panel de órdenes, Mercado, Crónica y tutorial para evitar una reescritura monolítica.
-
-- Separar `app.mjs` en módulos con responsabilidades acotadas:
-  - estado y persistencia;
-  - mapa y rutas;
-  - panel de órdenes;
-  - combate y animaciones;
-  - modales, Mercado, Crónica y tutorial;
-  - telemetría local.
-- Evitar estado global duplicado y definir interfaces claras entre motor e interfaz.
-- Reducir duplicación y reglas antiguas acumuladas entre `styles.css` y `theme.css`.
-- Centralizar textos, colores y etiquetas de estado.
-- Mantener una prueba de arranque después de cada extracción para no realizar una reescritura monolítica.
-
-### P5.2 Sincronizar GDD, README y planes
-
-**Estado: completado.** El GDD v0.3, README y ambos planes describen los sistemas implementados, la arquitectura actual, las pruebas, el diagnóstico de balance y el alcance futuro con fecha común de revisión.
-
-- Actualizar el GDD con las reglas realmente implementadas, modos, economía, cartas, Frentes, eventos e Influencia.
-- Actualizar `README.md` con arquitectura, controles actuales, pruebas y flujo de publicación.
-- Conciliar `PLAN_DE_DESARROLLO.md` con este plan de prioridades, eliminando estados contradictorios.
-- Añadir una pequeña tabla de versión documental y fecha de última revisión.
-- Tratar cualquier cambio de reglas como incompleto hasta que código, pruebas y documentación coincidan.
-
-### P5.3 Optimización posterior
-
-**Estado: completado para el alcance individual actual.** Las animaciones se reducen mediante `prefers-reduced-motion` y también en dispositivos que declaran actualización lenta; se eliminan filtros costosos en ese perfil. El multijugador permanece explícitamente pospuesto.
-
-- Optimizar animaciones para `prefers-reduced-motion` y dispositivos de bajo rendimiento.
-- Dejar multijugador para después de estabilizar estos flujos, como ya establece el plan general del proyecto.
-
-## Orden de implementación recomendado
-
-1. P0.2 — Nuevo selector de maniobra y vista previa.
-2. P0.1 — Soldados desplegados, animación y resolución de combate.
-3. P0.3 — Deshacer durante Reclutamiento.
-4. P1.4 — Unificar las compras en el Mercado táctico.
-5. P1.2 — Desglose visible de Influencia.
-6. P1.1 — Visibilidad y explicación de los Frentes de Guerra.
-7. P1.3 — Crónica de campaña como modal.
-8. P2 — Panel estable y tutorial contextual de primera partida.
-9. P3 — Auditoría responsive y accesibilidad.
-10. P4.1 — Telemetría exclusivamente local.
-11. P4.2 — Estudio de bola de nieve y fuentes alternativas de Influencia.
-12. P4.3 — Ampliar pruebas visuales, funcionales y de interacción.
-13. P5.1 — Dividir gradualmente la lógica de interfaz.
-14. P5.2 — Sincronizar GDD, README y planes.
-15. P5.3 — Optimización y preparación para trabajo futuro.
-
-Se recomienda comenzar por **P0.2** porque sustituye un control que actualmente dificulta una acción básica y puede implementarse sin modificar las reglas del motor. A continuación, **P0.1** unifica selección, animación y resultado de combate. El bloque P0 se cierra con **P0.3**, que hace reversible la única decisión repetitiva de Reclutamiento antes de abordar mejoras informativas más amplias.
-
-## Estado final y trabajo restante
-
-Los bloques P0, P1, P2, P3, P4.1, P4.3, P5.2 y P5.3 están cerrados para el alcance individual actual. P5.1 cuenta con una primera extracción estable y debe continuar únicamente cuando se modifiquen las áreas implicadas.
-
-Queda pendiente, en este orden:
-
-1. **Balance P4.2:** revisar economía regional, refuerzos y prioridad de las misiones de recuperación hasta elevar las remontadas de 19,2% a 25%, bajar la correlación de 0,74 a 0,60 y recuperar una mediana mínima de 12 rondas.
-2. **Simulación factorial:** repetir la muestra de 600 campañas después de cada cambio operativo y separar el efecto real de doctrina, posición, mapa y cantidad de comandantes.
-3. **Modularización gradual P5.1:** extraer tutorial, panel de órdenes, mapa, Mercado y Crónica de `app.mjs` cuando haya una necesidad funcional, manteniendo pruebas de arranque e interacción después de cada extracción.
-4. **Multijugador:** permanece fuera del alcance hasta estabilizar el balance individual; requerirá servidor autoritativo y un plan propio.
-
-No quedan ajustes visuales, de accesibilidad, telemetría o documentación pendientes dentro de las fases ya cerradas.
+Versión documental 0.4 · 27 de septiembre de 2026.
+
+Este documento establece las prioridades de desarrollo, los contratos de interacción consolidados y las áreas activas de mejora en *Fronteras de Acero*.
+
+---
+
+## 1. Principios de interacción y diseño
+
+1. **Claridad previa:** Toda acción muestra exactamente qué ocurrirá y qué recursos se comprometen antes de solicitar confirmación.
+2. **Consistencia 1:1:** Cada concepto mantiene la misma representación entre controles, mapa, animaciones y resúmenes de resultados.
+3. **Paridad de dispositivos:** Los controles esenciales funcionan con idéntica fiabilidad con ratón, teclado y pantalla táctil.
+4. **Información fidedigna:** Las mejoras visuales jamás revelan información oculta bajo niebla de guerra ni alteran silenciosamente las reglas.
+5. **Cero dependencias remotas:** Toda persistencia y telemetría operan de forma local en el navegador del usuario.
+
+---
+
+## 2. Estado de sistemas consolidados
+
+Los siguientes bloques han sido completamente implementados, verificados en navegador y respaldados por la suite de pruebas automatizadas:
+
+| Bloque | Sistema | Contrato funcional consolidado |
+|---|---|---|
+| **P0.1** | Despliegue de combate | Correspondencia exacta 1:1 entre dados atacantes seleccionados (1–3) y soldados desplegados. Animación y resolución muestran tropas reales, bajas y traslados sin grupos fijos arbitrarios. Sondeo táctico 1v1 para exploración sin conquista. |
+| **P0.2** | Selector de maniobra | Sustitución de la barra deslizante por botones `−` / `+`, campo numérico editable, accesos rápidos (`1`, `Mitad`, `Máximo`) y cálculo en tiempo real de tropas finales en origen y destino (el origen siempre retiene al menos 1 tropa). |
+| **P0.3** | Deshacer en reclutamiento | Historial reversible de colocación de tropas durante la fase actual de Reclutamiento. Permite devolver refuerzos individualmente hasta el estado inicial de la fase. |
+| **P1.1** | Frentes de Guerra | Indicadores visuales unificados para los 4 estados (Estable, Tenso, Conflicto, Guerra) en mapa, ficha de comandante y avisos. Explicación explícita de escalada y enfriamiento. |
+| **P1.2** | Desglose de Influencia | Modal interactivo que expone el desglose exacto de la fórmula v2: presencia territorial (máx 8), regional (máx 9), producción (0), tropas (0) y objetivos dinámicos ponderados por doctrina. |
+| **P1.3** | Crónica de campaña | Modal de historial cronológico estructurado por rondas y jugadores, con filtros rápidos (`Todos`, `Combate`, `Economía`, `Eventos`) y bajo consumo de memoria. |
+| **P1.4** | Mercado táctico unificado | Centralización económica durante Reclutamiento. Catálogo rotativo cada 3 rondas con al menos una oferta garantizada de tropas. Compra única de cartas tácticas sin coste adicional al jugarlas. |
+| **P2.1** | Jerarquía del panel | Panel de órdenes con altura estable a 1366×768 que evita desplazamientos forzados para ejecutar la acción principal de cada fase. |
+| **P2.2** | Tutorial contextual | Guía progresiva y no bloqueante para la primera campaña. Se activa según la fase, almacena su progreso en `localStorage` y puede omitirse o reiniciarse desde Ayuda. |
+| **P3** | Responsive y accesibilidad | Hoja de órdenes inferior para anchos $\le 1200\text{ px}$. Controles táctiles $\ge 44\text{ px}$, estados `aria-pressed`, anuncios `aria-live` sin duplicidad, gestión de foco modal y soporte para `prefers-reduced-motion`. |
+| **P4.1** | Telemetría local | Esquema versionado v1 que almacena métricas de uso (cartas, comandantes, compras, resultados) exclusivamente en el cliente. Interfaz en Ayuda para consultar, descargar JSON y borrar. |
+| **P4.3** | Suite de pruebas | Pruebas unitarias y de integración para motor, DOM/CSS, telemetría, dificultad y regresión visual (`tests/*.mjs`). |
+| **P5.2** | Sincronización documental | GDD, README y planes alineados en versión 0.4 con idéntica terminología. |
+| **P5.3** | Optimización | Supresión de filtros pesados y simplificación de transiciones en dispositivos con perfil de movimiento reducido o baja tasa de refresco. |
+
+---
+
+## 3. Prioridades activas de desarrollo
+
+Habiéndose cerrado las fases P0 a P3 y las pruebas base, el esfuerzo actual del proyecto se concentra en las dos prioridades siguientes:
+
+### P4.2 — Calibración de balance y mitigación de bola de nieve
+* **Diagnóstico actual (600 campañas simuladas):**
+  * Tasa de victoria del líder territorial de ronda 8: **84,7%** (meta: $\le 75\%$).
+  * Tasa de remontadas: **15,3%** (meta: $\ge 25\%$).
+  * Correlación territorio/victoria: **0,77** (meta: $\le 0,60$).
+  * Duración mediana: **10 rondas** (meta: 12–24 rondas).
+* **Plan de acción:**
+  1. Aumentar la probabilidad y prioridad de aparición de misiones de recuperación para comandantes que queden rezagados en territorio.
+  2. Ajustar la economía regional y el coste de refuerzos operativos para amortiguar la aceleración militar de quien lidera, sin reintroducir producción ni tropas en la fórmula de Influencia.
+  3. Ejecutar la batería determinista de 600 partidas (`tests/balance-analysis.mjs`) para verificar que las métricas converjan a la zona saludable.
+
+### P5.1 — Modularización gradual de la interfaz
+* **Objetivo:** Desacoplar progresivamente las responsabilidades aún centralizadas en `dist/app.mjs` hacia módulos independientes con contratos pequeños y pruebas aisladas.
+* **Módulos consolidados y probados:**
+  * `dist/order-controls.mjs`: Límites y vista previa de Maniobra.
+  * `dist/combat-view.mjs`: Presentación de dados, figuras de soldados y comparación de bajas.
+  * `dist/map-routes.mjs`: Geometría de conexiones rectas y curvas.
+  * `dist/campaign-storage.mjs`: Persistencia local y migraciones.
+  * `dist/tutorial-controller.mjs`: Gestión de estado, pasos, avance y almacenamiento del tutorial.
+  * `dist/chronicle-modal-view.mjs`: Clasificación de eventos, registro lateral y modal de Crónica.
+  * `dist/strategic-views.mjs`: Plantillas modales de Influencia y Frentes de Guerra.
+* **Próximas extracciones previstas:**
+  1. `dist/order-panel-view.mjs`: Renderizado específico de órdenes por fase y gestión de estados vacíos.
+  2. `dist/map-renderer.mjs`: Renderizado SVG, capas de conexiones, niebla y marcadores territoriales.
+
+---
+
+## 4. Criterios de entrega y validación
+
+* Todo ajuste en las reglas del juego debe incluir su prueba en `tests/full-game.mjs` o `tests/interaction-engine.mjs`.
+* Todo cambio en la interfaz debe verificarse en resoluciones de escritorio (1366×768) y móviles (390×844) garantizando usabilidad por teclado y accesibilidad de foco.
+* Todo ajuste de balance debe validarse mediante `$env:BALANCE_GAMES='600'; node tests/balance-analysis.mjs`.
+* El modo multijugador permanece fuera del alcance hasta culminar satisfactoriamente el balance individual del juego.

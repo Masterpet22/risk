@@ -1,3 +1,10 @@
+/**
+ * @file map-routes.mjs
+ * @description Módulo de cálculo geométrico para conexiones entre territorios en el mapa SVG.
+ * Evalúa si una línea recta entre dos puntos interseca otros territorios; si existe
+ * interferencia, genera una curva cuadrática de Bézier para bordear el obstáculo.
+ */
+
 export function routeGeometry(a,b,territories){
   const x1=a.x*10,y1=a.y*8,x2=b.x*10,y2=b.y*8,dx=x2-x1,dy=y2-y1,length=Math.hypot(dx,dy)||1;
   const segmentDistance=p=>{const u=Math.max(0,Math.min(1,((p.x*10-x1)*dx+(p.y*8-y1)*dy)/(length*length)));return Math.hypot(p.x*10-(x1+dx*u),p.y*8-(y1+dy*u))};
