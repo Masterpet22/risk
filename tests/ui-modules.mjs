@@ -8,7 +8,7 @@
 
 import {strict as assert} from 'node:assert';
 import {routeGeometry} from '../dist/map-routes.mjs';
-import {diceMarkup,comparisonMarkup,roundTone,soldierFigures} from '../dist/combat-view.mjs';
+import {diceMarkup,matchupMarkup,casualtyBarMarkup,comparisonMarkup,roundTone,soldierFigures} from '../dist/combat-view.mjs';
 import {clampMoveAmount,movementPreview} from '../dist/order-controls.mjs';
 import {saveCampaign,loadCampaign,hasSavedCampaign,CAMPAIGN_SAVE_KEY} from '../dist/campaign-storage.mjs';
 import {createGame} from '../dist/engine.mjs';
@@ -21,6 +21,8 @@ const preview=movementPreview({originName:'Norte',destinationName:'Sur',originTr
 assert.match(diceMarkup([7],[6]),/6 \+1/);assert.match(soldierFigures(3),/translate\(14 3\)/);assert.equal(roundTone({attackerLosses:0,defenderLosses:1},false),'victory');
 assert.equal(comparisonMarkup({attackerDice:[6],defenderDice:[5],rawAttackerDice:[6],rawDefenderDice:[5],bonus:{attacker:0,defender:0,attackerReasons:[],defenderReasons:[]}}),'');
 assert.match(comparisonMarkup({attackerDice:[7],defenderDice:[5],rawAttackerDice:[6],rawDefenderDice:[5],bonus:{attacker:1,defender:0,attackerReasons:['Doctrina ofensiva'],defenderReasons:[]}}),/Doctrina ofensiva/);
+assert.match(matchupMarkup({attackerDice:[4],defenderDice:[5]}),/5 wins/);
+assert.match(casualtyBarMarkup(2,0),/Bajas:[\s\S]*-2 Atacante \| 0 Defensor/);
 const storage=new MemoryStorage(),state=createGame({players:2,seed:6100,human:true});assert.equal(saveCampaign(state,'belico',storage),true);assert.equal(hasSavedCampaign(storage),true);assert.ok(storage.getItem(CAMPAIGN_SAVE_KEY));const loaded=loadCampaign(storage);assert.equal(loaded.difficulty,'belico');assert.equal(loaded.state.mapId,state.mapId);
 
 // Pruebas de tutorial-controller

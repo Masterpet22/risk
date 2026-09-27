@@ -12,7 +12,7 @@ import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs
 import {routeGeometry} from './map-routes.mjs?v=1';
 import {createLiveAnnouncer,restoreFocus,escapeHtml} from './ui-accessibility.mjs?v=1';
 import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1';
-import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=2';
+import {diceMarkup,matchupMarkup,casualtyBarMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=3';
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 import {getTutorialStatus,resetTutorialStatus,dismissTutorialStatus,advanceTutorialStatus,findNextTutorialStep,getTutorialProgress} from './tutorial-controller.mjs?v=1';
 import {chronicleCategory,chronicleModalMarkup,sidebarLogMarkup} from './chronicle-modal-view.mjs?v=1';
@@ -955,39 +955,68 @@ function setBattleTone(tone){
   card.classList.remove('outcome-victory','outcome-defeat','outcome-neutral');
   card.classList.add(`outcome-${tone}`);
 }
+function updateRoutedConnector(round){
+  const overlay=$('#arenaRoutesOverlay');
+  if(!overlay)return;
+  overlay.innerHTML='';
+  if(!round||!round.attackerDice||!round.defenderDice||round.attackerDice.length<2||round.defenderDice.length<2)return;
+  const arena=els.diceModal.querySelector('.dice-arena');
+  const aDice=$('#attackerDice');
+  const dDice=$('#defenderDice');
+  if(!arena||!aDice||!dDice||!aDice.children[1]||!dDice.children[1])return;
+  try{
+    const aBox=aDice.children[1].getBoundingClientRect(),dBox=dDice.children[1].getBoundingClientRect(),arenaBox=arena.getBoundingClientRect();
+    if(!arenaBox.width||!arenaBox.height)return;
+    const x1=Math.round(aBox.left+aBox.width/2-arenaBox.left),y1=Math.round(aBox.bottom-arenaBox.top);
+    const x2=Math.round(dBox.left+dBox.width/2-arenaBox.left),y2=Math.round(dBox.bottom-arenaBox.top);
+    const yFloor=Math.max(y1,y2)+14;
+    const win2=round.attackerDice[1]>round.defenderDice[1];
+    const arrowX=win2?x1:x2,arrowY=(win2?y1:y2)+3,startX=win2?x2:x1,startY=(win2?y2:y1)+2;
+    const strokeColor='#38d9c8',arrowColor=win2?'#38d9c8':'#ff7b72';
+    const pathD=`M ${startX} ${startY} V ${yFloor} H ${arrowX} V ${arrowY}`;
+    overlay.innerHTML=`<svg width="100%" height="100%" viewBox="0 0 ${arenaBox.width} ${arenaBox.height}" style="position:absolute;inset:0;pointer-events:none;overflow:visible"><path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/><polygon points="${arrowX},${arrowY-4} ${arrowX-4},${arrowY+4} ${arrowX+4},${arrowY+4}" fill="${arrowColor}"/></svg>`;
+  }catch(e){}
+}
+
 async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fast=false,attackerColor='#4ecdc4',defenderColor='#ff6b6b'}){
   if(!rounds.length)return;
   diceReturnFocus=document.activeElement;
   const title=$('#diceTitle'),comparison=$('#comparison'),close=$('#closeDice'),skip=$('#skipAiDice');
   els.diceModal.style.setProperty('--attacker-dice-color',attackerColor);
   els.diceModal.style.setProperty('--defender-dice-color',defenderColor);
-  $('#battleRoute').textContent=rounds[0]?.probe?`${from} sondea ${to}`:`${from} ataca ${to}`;
+  $('#battleRoute').textContent=rounds[0]?.probe?`${from} sondea ${to}`:`${from} vs ${to}`;
+  title.textContent=rounds[0]?.probe?'SONDEO TÁCTICO':(defending?'DEFENSA TERRITORIAL':'BATALLA TERRITORIAL');
+  $('#attackerForceLabel').textContent='ATACANTE';
+  $('#defenderForceLabel').textContent='DEFENSOR';
   close.classList.remove('visible');
   skip.classList.add('hidden-control');
   close.textContent=defending?'Continuar turno enemigo':'Continuar';
   els.diceModal.classList.remove('hidden');
   for(let i=0;i<rounds.length;i++){
-    const round=rounds[i],label=`Tirada ${i+1} de ${rounds.length}`;
+    const round=rounds[i];
     setBattleTone('neutral');
-    title.textContent=`${label} · dados en juego`;
+    title.textContent=rounds.length>1?`BATALLA TERRITORIAL · TIRADA ${i+1}/${rounds.length}`:'BATALLA TERRITORIAL';
     comparison.innerHTML='';
     const attackerCount=round.rawAttackerDice.length,defenderCount=round.rawDefenderDice.length;
-    $('#attackerForceLabel').textContent=`ATACANTE · ${attackerCount} ${attackerCount===1?'SOLDADO':'SOLDADOS'}`;
-    $('#defenderForceLabel').textContent=`DEFENSOR · ${defenderCount} ${defenderCount===1?'SOLDADO':'SOLDADOS'}`;
     const draw=()=>{
-      $('#attackerDice').innerHTML=Array.from({length:attackerCount},()=>`<i class="big-die rolling">${1+Math.floor(Math.random()*6)}</i>`).join('');
-      $('#defenderDice').innerHTML=Array.from({length:defenderCount},()=>`<i class="big-die rolling">${1+Math.floor(Math.random()*6)}</i>`).join('');
+      $('#attackerDice').innerHTML=Array.from({length:attackerCount},()=>`<i class="big-die rolling"><span class="die-num">${1+Math.floor(Math.random()*6)}</span></i>`).join('');
+      $('#defenderDice').innerHTML=Array.from({length:defenderCount},()=>`<i class="big-die rolling"><span class="die-num">${1+Math.floor(Math.random()*6)}</span></i>`).join('');
     };
+    $('#arenaMatchup').innerHTML='<div class="vs-container"><div class="vs-badge"><div class="vs-slashes"><span></span><span></span><span></span></div><span class="vs-v">V</span><span class="vs-s">S</span></div></div>';
+    $('#arenaRoutesOverlay').innerHTML='';
     draw();
     const ticker=setInterval(draw,95);
     await pause(420);
     clearInterval(ticker);
-    $('#attackerDice').innerHTML=diceMarkup(round.attackerDice,round.rawAttackerDice);
-    $('#defenderDice').innerHTML=diceMarkup(round.defenderDice,round.rawDefenderDice);
-    title.textContent=label;
+    const comparedCount=Math.min(round.attackerDice.length,round.defenderDice.length);
+    $('#attackerDice').innerHTML=diceMarkup(round.attackerDice,round.rawAttackerDice,false,comparedCount);
+    $('#defenderDice').innerHTML=diceMarkup(round.defenderDice,round.rawDefenderDice,true,comparedCount);
+    $('#arenaMatchup').innerHTML=matchupMarkup(round);
+    updateRoutedConnector(round);
     setBattleTone(roundTone(round,defending));
-    const showIntermediate=rounds.length>1&&i<rounds.length-1;
-    comparison.innerHTML=`${comparisonMarkup(round)}${showIntermediate?`<div class="battle-summary">Tirada ${i+1} de ${rounds.length}: ${round.attackerLosses} atacante · ${round.defenderLosses} defensor</div>`:''}`;
+    const roundLabel=rounds.length>1?`Tirada ${i+1}/${rounds.length}`:'';
+    const casualtyBar=casualtyBarMarkup(round.attackerLosses,round.defenderLosses,roundLabel);
+    comparison.innerHTML=`${casualtyBar}${comparisonMarkup(round)}`;
     if(round.attackerLosses>0)spawnTerritoryFloat(fromId,`-${round.attackerLosses}`,'float-casualty',-18-(i%2)*10);
     if(round.defenderLosses>0)spawnTerritoryFloat(toId,`-${round.defenderLosses}`,'float-casualty',-18-(i%2)*10);
     if(round.probe&&Number.isFinite(round.revealedTroops))spawnTerritoryFloat(toId,`👁 ${round.revealedTroops}`,'float-intel',-34);
@@ -1000,11 +1029,12 @@ async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fas
   const finalTone=defending?(conquered?'defeat':'victory'):(conquered?'victory':fast?'defeat':roundTone(rounds.at(-1),false));
   setBattleTone(finalTone);
   const isProbe=!!rounds[0]?.probe;
-  title.textContent=isProbe?'Sondeo completado':defending?(conquered?'Perdiste el territorio':'Tu territorio resistió'):(conquered?'¡Territorio conquistado!':fast?'Ataque detenido':'Resultado de la tirada');
+  title.textContent=isProbe?'SONDEO COMPLETADO':defending?(conquered?'TERRITORIO PERDIDO':'TERRITORIO DEFENDIDO'):(conquered?'¡TERRITORIO CONQUISTADO!':fast?'ATAQUE DETENIDO':'BATALLA FINALIZADA');
   const moved=rounds.at(-1).movedTroops||0;
   const probeInfo=isProbe?` Guarnición revelada: <b>${rounds[0]?.revealedTroops} tropa${rounds[0]?.revealedTroops===1?'':'s'}</b>. El Sondeo nunca conquista.`:'' ;
-  const roundsPrefix=rounds.length>1?`${rounds.length} tiradas · `:'' ;
-  comparison.insertAdjacentHTML('beforeend',`<div class="battle-total"><strong>${roundsPrefix}Resultado:</strong> ${totalA} bajas del atacante y ${totalD} del defensor.${probeInfo}${conquered?` <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b>`:''}</div>`);
+  const totalBar=casualtyBarMarkup(totalA,totalD);
+  const conquestNote=conquered?`<div class="battle-conquest-note">⚔ <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b></div>`:(probeInfo?`<div class="battle-conquest-note">${probeInfo}</div>`:'');
+  comparison.innerHTML=`${totalBar}${conquestNote}${comparisonMarkup(rounds.at(-1))}`;
   close.classList.add('visible');
   if(defending)skip.classList.remove('hidden-control');
   close.focus();

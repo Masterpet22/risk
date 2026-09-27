@@ -6,7 +6,31 @@
  * proporcionales al despliegue real de tropas.
  */
 
-export function diceMarkup(values,raw=[]){return values.map((value,index)=>{const base=raw[index],hasBonus=base!==undefined&&value!==base,difference=value-(base??value);return hasBonus?`<i class="big-die die-with-bonus" title="Tirada base: ${base} + bonificación: ${difference} = ${value}"><span class="die-num">${value}</span><small class="die-calc-tag">${base} +${difference}</small></i>`:`<i class="big-die"><span class="die-num">${value}</span></i>`}).join('')}
+export function diceMarkup(values,raw=[],isDefender=false,comparedCount=Infinity){
+  return values.map((value,index)=>{
+    const base=raw[index],hasBonus=base!==undefined&&value!==base,difference=value-(base??value);
+    const isDiscarded=index>=comparedCount;
+    const discardedClass=isDiscarded?' die-discarded':'';
+    const defenderClass=isDefender?' defender':'';
+    const bonusClass=hasBonus?' die-with-bonus':'';
+    const badgeMarkup=hasBonus?`<span class="die-badge" title="Tirada base: ${base} + bonificación: ${difference} = ${value}">+${difference}<small class="die-calc-tag sr-only" style="display:none">${base} +${difference}</small></span>`:'';
+    return`<i class="big-die${defenderClass}${bonusClass}${discardedClass}" data-index="${index}"><span class="die-num">${value}</span>${badgeMarkup}</i>`;
+  }).join('');
+}
+
+export function matchupMarkup(round){
+  const vsBadge=`<div class="vs-badge"><div class="vs-slashes"><span></span><span></span><span></span></div><span class="vs-v">V</span><span class="vs-s">S</span></div>`;
+  if(!round||!round.attackerDice?.length||!round.defenderDice?.length)return`<div class="vs-container">${vsBadge}</div>`;
+  const a0=round.attackerDice[0],d0=round.defenderDice[0],win0=a0>d0,winnerVal0=win0?a0:d0;
+  const rightArrows=`<div class="matchup-indicators"><svg width="38" height="6" viewBox="0 0 38 6" fill="none"><path d="M0 3h34m0 0l-3-3m3 3l-3 3" stroke="#ff7b72" stroke-width="1.8" stroke-linecap="round"/></svg><span class="matchup-winner-tag winner-defender">${winnerVal0} wins</span><svg width="38" height="6" viewBox="0 0 38 6" fill="none"><path d="M0 3h34m0 0l-3-3m3 3l-3 3" stroke="#ff7b72" stroke-width="1.8" stroke-linecap="round"/></svg></div>`;
+  const leftArrows=`<div class="matchup-indicators"><svg width="38" height="6" viewBox="0 0 38 6" fill="none"><path d="M38 3H4m0 0l3-3m-3 3l3 3" stroke="#38d9c8" stroke-width="1.8" stroke-linecap="round"/></svg><span class="matchup-winner-tag winner-attacker">${winnerVal0} wins</span><svg width="38" height="6" viewBox="0 0 38 6" fill="none"><path d="M38 3H4m0 0l3-3m-3 3l3 3" stroke="#38d9c8" stroke-width="1.8" stroke-linecap="round"/></svg></div>`;
+  return`<div class="vs-container">${win0?leftArrows:''}${vsBadge}${!win0?rightArrows:''}</div>`;
+}
+
+export function casualtyBarMarkup(lossesA,lossesD,roundLabel=''){
+  const labelSuffix=roundLabel?` <small class="casualty-round">(${roundLabel})</small>`:'';
+  return`<div class="battle-casualty-bar"><strong class="casualty-label">Bajas:</strong> <span class="casualty-val">-${lossesA} Atacante | ${lossesD===0?'0':`-${lossesD}`} Defensor</span>${labelSuffix}</div>`;
+}
 
 export function comparisonMarkup(round){
   const attackerBonuses=round.bonus?.attackerReasons||[],defenderBonuses=round.bonus?.defenderReasons||[];

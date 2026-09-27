@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101722'/%3E%3Cpath d='M14 45 22 16l10 9 10-9 8 29-18 7z' fill='%23e9b949' stroke='%23fff4cf' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="./styles.css?v=10">
-  <link rel="stylesheet" href="./theme.css?v=31">
+  <link rel="stylesheet" href="./theme.css?v=32">
   <style>
     *, *::before, *::after, html, body {
       user-select: none !important;
@@ -442,9 +442,23 @@
       <h2 id="diceTitle">Los dados están rodando…</h2>
       <p class="battle-route" id="battleRoute"></p>
       <div class="dice-arena">
-        <div><span id="attackerForceLabel">ATACANTE</span><div class="big-dice" id="attackerDice"></div></div>
-        <b class="versus">VS</b>
-        <div><span id="defenderForceLabel">DEFENSOR</span><div class="big-dice defender" id="defenderDice"></div></div>
+        <div class="dice-column attacker-side">
+          <span id="attackerForceLabel" class="force-title">ATACANTE</span>
+          <div class="big-dice" id="attackerDice"></div>
+        </div>
+        <div class="arena-matchup" id="arenaMatchup">
+          <div class="vs-container">
+            <div class="vs-badge">
+              <div class="vs-slashes"><span></span><span></span><span></span></div>
+              <span class="vs-v">V</span><span class="vs-s">S</span>
+            </div>
+          </div>
+        </div>
+        <div class="dice-column defender-side">
+          <span id="defenderForceLabel" class="force-title">DEFENSOR</span>
+          <div class="big-dice defender" id="defenderDice"></div>
+        </div>
+        <div class="arena-routes-overlay" id="arenaRoutesOverlay"></div>
       </div>
       <div class="comparison" id="comparison" aria-live="assertive"></div>
       <div class="modal-action-row">
@@ -485,6 +499,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div id="gameAnnouncements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-    <script type="module" src="./app.mjs?v=37"></script>
+    <script type="module" src="./app.mjs?v=38"></script>
 </body>
 </html>
