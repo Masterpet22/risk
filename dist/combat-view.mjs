@@ -2,7 +2,7 @@
  * @file combat-view.mjs
  * @description Módulo de presentación visual para la resolución de combates (P0.1).
  * Renderiza los dados atacantes y defensores con desglose de bonificaciones,
- * la comparación directa de tiradas, el cálculo de bajas y las figuras SVG
+ * el detalle de modificadores tácticos de combate y las figuras SVG
  * proporcionales al despliegue real de tropas.
  */
 
@@ -10,9 +10,7 @@ export function diceMarkup(values,raw=[]){return values.map((value,index)=>{cons
 
 export function comparisonMarkup(round){
   const attackerBonuses=round.bonus?.attackerReasons||[],defenderBonuses=round.bonus?.defenderReasons||[];
-  const rows=Array.from({length:Math.min(round.attackerDice.length,round.defenderDice.length)},(_,index)=>{const attacker=round.attackerDice[index],defender=round.defenderDice[index],rawAttacker=round.rawAttackerDice?.[index]??attacker,rawDefender=round.rawDefenderDice?.[index]??defender,win=attacker>defender,tie=attacker===defender,attackerNote=attacker!==rawAttacker?` <small class="cmp-breakdown">(base ${rawAttacker} +${attacker-rawAttacker})</small>`:'',defenderNote=defender!==rawDefender?` <small class="cmp-breakdown">(base ${rawDefender} +${defender-rawDefender})</small>`:'';return`<div class="compare-row"><span>🎲 ${attacker}${attackerNote}</span><b>${win?'vence a':tie?'empata con':'pierde ante'}</b><span>${defender}${defenderNote} 🎲</span><em>${win?'−1 defensor':tie?'−1 atacante (el defensor gana empates)':'−1 atacante'}</em></div>`}).join('');
-  const detail=attackerBonuses.length||defenderBonuses.length?`<div class="combat-bonuses-detail">${attackerBonuses.length?`<div class="bonus-detail-item attacker">⚔ <strong>Atacante:</strong> dado base ${round.rawAttackerDice[0]} + ${round.bonus.attacker} (${attackerBonuses.join(', ')}) = <strong>${round.attackerDice[0]}</strong>.</div>`:''}${defenderBonuses.length?`<div class="bonus-detail-item defender">🛡 <strong>Defensor:</strong> dado base ${round.rawDefenderDice[0]} + ${round.bonus.defender} (${defenderBonuses.join(', ')}) = <strong>${round.defenderDice[0]}</strong>.</div>`:''}</div>`:'';
-  return rows+detail;
+  return attackerBonuses.length||defenderBonuses.length?`<div class="combat-bonuses-detail">${attackerBonuses.length?`<div class="bonus-detail-item attacker">⚔ <strong>Atacante:</strong> dado base ${round.rawAttackerDice?.[0]??round.attackerDice?.[0]} + ${round.bonus.attacker} (${attackerBonuses.join(', ')}) = <strong>${round.attackerDice?.[0]}</strong>.</div>`:''}${defenderBonuses.length?`<div class="bonus-detail-item defender">🛡 <strong>Defensor:</strong> dado base ${round.rawDefenderDice?.[0]??round.defenderDice?.[0]} + ${round.bonus.defender} (${defenderBonuses.join(', ')}) = <strong>${round.defenderDice?.[0]}</strong>.</div>`:''}</div>`:'';
 }
 
 export function soldierFigures(count){const layouts={1:[[0,-2]],2:[[-9,1],[9,1]],3:[[-14,3],[0,-4],[14,3]]},points=layouts[Math.max(1,Math.min(3,count))]||layouts[1];return points.map(([x,y])=>`<g transform="translate(${x} ${y})"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g>`).join('')}

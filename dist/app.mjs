@@ -12,7 +12,7 @@ import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs
 import {routeGeometry} from './map-routes.mjs?v=1';
 import {createLiveAnnouncer,restoreFocus,escapeHtml} from './ui-accessibility.mjs?v=1';
 import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1';
-import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=1';
+import {diceMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=2';
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 import {getTutorialStatus,resetTutorialStatus,dismissTutorialStatus,advanceTutorialStatus,findNextTutorialStep,getTutorialProgress} from './tutorial-controller.mjs?v=1';
 import {chronicleCategory,chronicleModalMarkup,sidebarLogMarkup} from './chronicle-modal-view.mjs?v=1';

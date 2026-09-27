@@ -19,7 +19,8 @@ const curved=routeGeometry({id:'a',x:10,y:10},{id:'b',x:30,y:10},[{id:'x',x:20,y
 assert.equal(clampMoveAmount('0',6),1);assert.equal(clampMoveAmount('99',6),6);assert.equal(clampMoveAmount('x',6),null);
 const preview=movementPreview({originName:'Norte',destinationName:'Sur',originTroops:7,destinationTroops:2,amount:4});assert.match(preview.html,/7 → 3/);assert.match(preview.html,/2 → 6/);assert.match(preview.accessible,/Norte queda con 3/);
 assert.match(diceMarkup([7],[6]),/6 \+1/);assert.match(soldierFigures(3),/translate\(14 3\)/);assert.equal(roundTone({attackerLosses:0,defenderLosses:1},false),'victory');
-assert.match(comparisonMarkup({attackerDice:[6],defenderDice:[5],rawAttackerDice:[6],rawDefenderDice:[5],bonus:{attacker:0,defender:0,attackerReasons:[],defenderReasons:[]}}),/vence a/);
+assert.equal(comparisonMarkup({attackerDice:[6],defenderDice:[5],rawAttackerDice:[6],rawDefenderDice:[5],bonus:{attacker:0,defender:0,attackerReasons:[],defenderReasons:[]}}),'');
+assert.match(comparisonMarkup({attackerDice:[7],defenderDice:[5],rawAttackerDice:[6],rawDefenderDice:[5],bonus:{attacker:1,defender:0,attackerReasons:['Doctrina ofensiva'],defenderReasons:[]}}),/Doctrina ofensiva/);
 const storage=new MemoryStorage(),state=createGame({players:2,seed:6100,human:true});assert.equal(saveCampaign(state,'belico',storage),true);assert.equal(hasSavedCampaign(storage),true);assert.ok(storage.getItem(CAMPAIGN_SAVE_KEY));const loaded=loadCampaign(storage);assert.equal(loaded.difficulty,'belico');assert.equal(loaded.state.mapId,state.mapId);
 
 // Pruebas de tutorial-controller
