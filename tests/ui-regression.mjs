@@ -27,14 +27,17 @@ assert.match(controls,/\$\{originTroops\} → \$\{originTroops-amount\}/,'La man
 assert.match(controls,/\$\{destinationTroops\} → \$\{destinationTroops\+amount\}/,'La maniobra debe mostrar la vista previa de destino');
 assert.match(html,/id="gameAnnouncements"[^>]*aria-live="polite"/,'Debe existir una región de anuncios accesibles');
 assert.match(html,/class="combat-hud hidden" id="diceModal"/,'El combate debe usar un HUD que mantenga el mapa visible');
+assert.match(html,/id="orderCard"[\s\S]*?id="diceModal"[\s\S]*?id="actionControls"/,'La resolución debe aparecer dentro del área de Orden actual');
 assert.doesNotMatch(html,/id="diceModal"[^>]*modal-backdrop/,'El combate no debe volver a bloquear el mapa con un backdrop modal');
 assert.doesNotMatch(html,/id="defenseModal"/,'La defensa enemiga no debe abrir una segunda pantalla modal');
 assert.match(app,/amount<1\|\|!placeTroops\(state,id,amount\)/,'Un refuerzo inválido no debe producir feedback visual');
 assert.match(app,/round\.attackerLosses>0[\s\S]*?round\.defenderLosses>0/,'Las bajas deben mostrarse únicamente cuando sean mayores que cero');
+assert.doesNotMatch(app,/title\.textContent[\s\S]{0,240}TERRITORIO CONQUISTADO/,'El resultado no debe sustituir el título compacto por un letrero redundante');
+assert.match(css,/\.combat-hud\s*\{[\s\S]*?position:\s*static/,'La resolución de combate debe formar parte del panel y no flotar sobre el mapa');
 assert.match(app,/maneuverDepth\.has\(a\)&&maneuverDepth\.has\(b\)/,'Las rutas de maniobra deben iluminar toda la red propia alcanzable');
 assert.match(css,/prefers-reduced-motion:\s*reduce[\s\S]*?\.map-floating-text[\s\S]*?animation:\s*none/,'Los efectos del mapa deben respetar movimiento reducido');
 assert.match(html,/id="telemetrySummary"/);assert.match(html,/id="exportTelemetryBtn"/);assert.match(html,/id="clearTelemetryBtn"/);
 assert.match(css,/min-height:\s*44px/,'Los controles principales deben conservar objetivos táctiles de 44 px');
-assert.match(css,/@media \(max-width: 1200px\)[\s\S]*?#orderCard[\s\S]*?position:fixed/,'El panel móvil debe ser una hoja inferior');
+assert.match(css,/@media \(max-width: 1200px\)[\s\S]*?#orderCard[\s\S]*?position:\s*fixed/,'El panel móvil debe ser una hoja inferior');
 assert.match(css,/\.context-action-panel\.combat-ready[\s\S]*?\.combat-matchup[\s\S]*?\.combat-dice-choice/,'El tema debe incluir el estado visual completo del asalto preparado');
 console.log('OK: invariantes DOM/CSS de rutas, combate, maniobra, modales y controles táctiles verificadas.');

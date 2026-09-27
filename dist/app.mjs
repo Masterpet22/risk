@@ -12,7 +12,7 @@ import {saveCampaign,loadCampaign,hasSavedCampaign} from './campaign-storage.mjs
 import {routeGeometry} from './map-routes.mjs?v=1';
 import {createLiveAnnouncer,restoreFocus,escapeHtml} from './ui-accessibility.mjs?v=1';
 import {openStrategicModal as showStrategicModal} from './modal-service.mjs?v=1';
-import {diceMarkup,matchupMarkup,casualtyBarMarkup,comparisonMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=3';
+import {diceMarkup,matchupMarkup,casualtyBarMarkup,soldierFigures,roundTone} from './combat-view.mjs?v=4';
 import {clampMoveAmount,movementPreview} from './order-controls.mjs?v=1';
 import {getTutorialStatus,resetTutorialStatus,dismissTutorialStatus,advanceTutorialStatus,findNextTutorialStep,getTutorialProgress} from './tutorial-controller.mjs?v=1';
 import {chronicleCategory,chronicleModalMarkup,sidebarLogMarkup} from './chronicle-modal-view.mjs?v=1';
@@ -991,7 +991,9 @@ async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fas
   close.classList.remove('visible');
   skip.classList.add('hidden-control');
   close.textContent=defending?'Continuar turno enemigo':'Continuar';
+  $('#orderCard')?.classList.add('resolving-combat');
   els.diceModal.classList.remove('hidden');
+  if(mobileLayout())openMobileOrders();
   for(let i=0;i<rounds.length;i++){
     const round=rounds[i];
     setBattleTone('neutral');
@@ -1016,7 +1018,7 @@ async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fas
     setBattleTone(roundTone(round,defending));
     const roundLabel=rounds.length>1?`Tirada ${i+1}/${rounds.length}`:'';
     const casualtyBar=casualtyBarMarkup(round.attackerLosses,round.defenderLosses,roundLabel);
-    comparison.innerHTML=`${casualtyBar}${comparisonMarkup(round)}`;
+    comparison.innerHTML=casualtyBar;
     if(round.attackerLosses>0)spawnTerritoryFloat(fromId,`-${round.attackerLosses}`,'float-casualty',-18-(i%2)*10);
     if(round.defenderLosses>0)spawnTerritoryFloat(toId,`-${round.defenderLosses}`,'float-casualty',-18-(i%2)*10);
     if(round.probe&&Number.isFinite(round.revealedTroops))spawnTerritoryFloat(toId,`👁 ${round.revealedTroops}`,'float-intel',-34);
@@ -1029,12 +1031,9 @@ async function presentDiceRounds(rounds,{from,to,fromId,toId,defending=false,fas
   const finalTone=defending?(conquered?'defeat':'victory'):(conquered?'victory':fast?'defeat':roundTone(rounds.at(-1),false));
   setBattleTone(finalTone);
   const isProbe=!!rounds[0]?.probe;
-  title.textContent=isProbe?'SONDEO COMPLETADO':defending?(conquered?'TERRITORIO PERDIDO':'TERRITORIO DEFENDIDO'):(conquered?'¡TERRITORIO CONQUISTADO!':fast?'ATAQUE DETENIDO':'BATALLA FINALIZADA');
-  const moved=rounds.at(-1).movedTroops||0;
-  const probeInfo=isProbe?` Guarnición revelada: <b>${rounds[0]?.revealedTroops} tropa${rounds[0]?.revealedTroops===1?'':'s'}</b>. El Sondeo nunca conquista.`:'' ;
+  title.textContent=isProbe?'SONDEO TÁCTICO':(defending?'DEFENSA TERRITORIAL':'BATALLA TERRITORIAL');
   const totalBar=casualtyBarMarkup(totalA,totalD);
-  const conquestNote=conquered?`<div class="battle-conquest-note">⚔ <b>${moved} ${moved===1?'soldado ocupa':'soldados ocupan'} el territorio.</b></div>`:(probeInfo?`<div class="battle-conquest-note">${probeInfo}</div>`:'');
-  comparison.innerHTML=`${totalBar}${conquestNote}${comparisonMarkup(rounds.at(-1))}`;
+  comparison.innerHTML=totalBar;
   close.classList.add('visible');
   if(defending)skip.classList.remove('hidden-control');
   close.focus();
@@ -1203,7 +1202,7 @@ async function showDefenseAttack(battle){
   render(false);
   if(skipAiRequested)return;
 }
-function closeDiceResult(){els.diceModal.classList.add('hidden');restoreFocus(diceReturnFocus,'#mobileOrdersBtn');diceReturnFocus=null;if(diceResolve){const resolve=diceResolve;diceResolve=null;resolve()}}
+function closeDiceResult(){els.diceModal.classList.add('hidden');$('#orderCard')?.classList.remove('resolving-combat');restoreFocus(diceReturnFocus,'#mobileOrdersBtn');diceReturnFocus=null;if(diceResolve){const resolve=diceResolve;diceResolve=null;resolve()}}
 function requestAiSkip(close){skipAiRequested=true;close();showToast('Turnos enemigos en avance rápido')}
 $('#closeAi').onclick=closeAiSummary;
 $('#skipAiSummary').onclick=()=>requestAiSkip(closeAiSummary);

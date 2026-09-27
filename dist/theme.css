@@ -8328,3 +8328,205 @@ body:has(#startModal:not(.hidden)) {
     animation: none !important;
   }
 }
+
+/* Resolución de combate integrada en Orden actual. */
+.context-action-panel.resolving-combat .action-banner,
+.context-action-panel.resolving-combat .turn-status,
+.context-action-panel.resolving-combat .selection-info,
+.context-action-panel.resolving-combat .battle-result,
+.context-action-panel.resolving-combat .action-controls,
+.context-action-panel.resolving-combat>.context-action-body>.context-phase-btn {
+  display: none;
+}
+
+.context-action-panel.resolving-combat {
+  min-height: 0;
+  height: auto;
+}
+
+.context-action-panel.resolving-combat .context-action-body {
+  display: block;
+  min-height: 0;
+}
+
+.context-action-panel.resolving-combat .phase-indicator-pill {
+  color: #ffaaa4;
+  border-color: #ff7b7280;
+  background: #351b22;
+}
+
+.combat-hud {
+  position: static;
+  z-index: auto;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: 100%;
+  pointer-events: auto;
+  animation: combatInlineIn .2s ease-out both;
+}
+
+@keyframes combatInlineIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.combat-hud .dice-card,
+.combat-hud .dice-card[class*="outcome-"] {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  padding: 8px 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.combat-hud .eyebrow {
+  margin: 0 0 3px;
+  font-size: .57rem;
+  letter-spacing: .18em;
+}
+
+.combat-hud .dice-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: .025em;
+}
+
+.combat-hud .battle-route {
+  margin: 3px 0 10px;
+  font-size: .75rem;
+}
+
+.combat-hud .dice-arena {
+  grid-template-columns: minmax(0, 1.4fr) 36px minmax(0, 1fr);
+  gap: 5px;
+  padding: 12px 9px 18px;
+  border-radius: 12px;
+}
+
+.combat-hud .dice-column {
+  min-width: 0;
+}
+
+.combat-hud .force-title {
+  margin-bottom: 8px;
+  font-size: .62rem;
+  letter-spacing: .08em;
+}
+
+.combat-hud .big-dice {
+  gap: 5px;
+  min-height: 38px;
+}
+
+.combat-hud .big-die {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  font-size: 1.16rem;
+}
+
+.combat-hud .die-badge {
+  top: -6px;
+  right: -5px;
+  width: 17px;
+  height: 17px;
+  font-size: .55rem;
+}
+
+.combat-hud .arena-matchup {
+  min-width: 0;
+}
+
+.combat-hud .vs-container {
+  gap: 0;
+}
+
+.combat-hud .vs-badge {
+  font-size: 1.14rem;
+  padding: 0;
+}
+
+.combat-hud .matchup-indicators {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.combat-hud .matchup-indicators svg {
+  display: none;
+}
+
+.combat-hud .matchup-winner-tag {
+  font-size: .57rem;
+}
+
+.combat-hud .battle-casualty-bar {
+  margin-top: 10px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  font-size: .72rem;
+  gap: 4px;
+  box-shadow: none;
+}
+
+.combat-hud .modal-action-row {
+  margin-top: 10px;
+  gap: 7px;
+}
+
+.combat-hud .primary-btn,
+.combat-hud .secondary-btn {
+  min-height: 38px;
+  padding: 8px 16px !important;
+  font-size: .78rem !important;
+}
+
+@media (max-width: 600px) {
+  .combat-hud {
+    width: 100%;
+  }
+
+  .combat-hud .dice-card {
+    padding: 8px 0 2px;
+    border-radius: 0;
+  }
+
+  .combat-hud .dice-card h2 {
+    font-size: 1.05rem;
+  }
+
+  .combat-hud .dice-arena {
+    padding: 12px 9px 18px;
+    gap: 5px;
+  }
+
+  .combat-hud .big-die {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    font-size: 1.16rem;
+  }
+
+  .combat-hud .arena-matchup {
+    min-width: 0;
+  }
+
+  .combat-hud .battle-casualty-bar {
+    padding: 7px 9px;
+    font-size: .72rem;
+  }
+}

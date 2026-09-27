@@ -32,10 +32,10 @@ export function casualtyBarMarkup(lossesA, lossesD, roundLabel = '') {
   return `<div class="battle-casualty-bar"><strong class="casualty-label">Bajas:</strong> <span class="casualty-val">-${lossesA} Atacante | ${lossesD === 0 ? '0' : `-${lossesD}`} Defensor</span>${labelSuffix}</div>`;
 }
 
-// export function comparisonMarkup(round){
-//   const attackerBonuses=round.bonus?.attackerReasons||[],defenderBonuses=round.bonus?.defenderReasons||[];
-//   return attackerBonuses.length||defenderBonuses.length?`<div class="combat-bonuses-detail">${attackerBonuses.length?`<div class="bonus-detail-item attacker">⚔ <strong>Atacante:</strong> dado base ${round.rawAttackerDice?.[0]??round.attackerDice?.[0]} + ${round.bonus.attacker} (${attackerBonuses.join(', ')}) = <strong>${round.attackerDice?.[0]}</strong>.</div>`:''}${defenderBonuses.length?`<div class="bonus-detail-item defender">🛡 <strong>Defensor:</strong> dado base ${round.rawDefenderDice?.[0]??round.defenderDice?.[0]} + ${round.bonus.defender} (${defenderBonuses.join(', ')}) = <strong>${round.defenderDice?.[0]}</strong>.</div>`:''}</div>`:'';
-// }
+export function comparisonMarkup(round){
+  const attackerBonuses=round.bonus?.attackerReasons||[],defenderBonuses=round.bonus?.defenderReasons||[];
+  return attackerBonuses.length||defenderBonuses.length?`<div class="combat-bonuses-detail">${attackerBonuses.length?`<div class="bonus-detail-item attacker">⚔ <strong>Atacante:</strong> dado base ${round.rawAttackerDice?.[0]??round.attackerDice?.[0]} + ${round.bonus.attacker} (${attackerBonuses.join(', ')}) = <strong>${round.attackerDice?.[0]}</strong>.</div>`:''}${defenderBonuses.length?`<div class="bonus-detail-item defender">🛡 <strong>Defensor:</strong> dado base ${round.rawDefenderDice?.[0]??round.defenderDice?.[0]} + ${round.bonus.defender} (${defenderBonuses.join(', ')}) = <strong>${round.defenderDice?.[0]}</strong>.</div>`:''}</div>`:'';
+}
 
 export function soldierFigures(count) { const layouts = { 1: [[0, -2]], 2: [[-9, 1], [9, 1]], 3: [[-14, 3], [0, -4], [14, 3]] }, points = layouts[Math.max(1, Math.min(3, count))] || layouts[1]; return points.map(([x, y]) => `<g transform="translate(${x} ${y})"><circle cy="-10" r="4"/><path d="M-5-4h10l3 13H-8zM-4 8l-2 8m10-8 2 8"/></g>`).join('') }
 

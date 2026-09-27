@@ -153,6 +153,37 @@
             <div class="turn-status" id="turnStatus"></div>
             <div id="selectionInfo" class="selection-info"></div>
             <div id="battleResult" class="battle-result" aria-live="polite"></div>
+            <div class="combat-hud hidden" id="diceModal" aria-live="polite">
+              <section class="dice-card" role="region" aria-labelledby="diceTitle">
+                <p class="eyebrow">RESOLUCIÓN DEL COMBATE</p>
+                <h2 id="diceTitle">Batalla territorial</h2>
+                <p class="battle-route" id="battleRoute"></p>
+                <div class="dice-arena">
+                  <div class="dice-column attacker-side">
+                    <span id="attackerForceLabel" class="force-title">ATACANTE</span>
+                    <div class="big-dice" id="attackerDice"></div>
+                  </div>
+                  <div class="arena-matchup" id="arenaMatchup">
+                    <div class="vs-container">
+                      <div class="vs-badge">
+                        <div class="vs-slashes"><span></span><span></span><span></span></div>
+                        <span class="vs-v">V</span><span class="vs-s">S</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="dice-column defender-side">
+                    <span id="defenderForceLabel" class="force-title">DEFENSOR</span>
+                    <div class="big-dice defender" id="defenderDice"></div>
+                  </div>
+                  <div class="arena-routes-overlay" id="arenaRoutesOverlay"></div>
+                </div>
+                <div class="comparison" id="comparison" aria-live="assertive"></div>
+                <div class="modal-action-row">
+                  <button class="secondary-btn hidden-control" id="skipAiDice">Omitir turno enemigo</button>
+                  <button class="primary-btn hidden-control" id="closeDice">Continuar</button>
+                </div>
+              </section>
+            </div>
             <div id="actionControls" class="action-controls"></div>
             <button id="phaseBtn" class="primary-btn context-phase-btn">Terminar despliegue</button>
           </div>
@@ -436,38 +467,6 @@
     </section>
   </div>
 
-  <div class="combat-hud hidden" id="diceModal" aria-live="polite">
-    <section class="dice-card" role="region" aria-labelledby="diceTitle">
-      <p class="eyebrow">RESOLUCIÓN DEL COMBATE</p>
-      <h2 id="diceTitle">Los dados están rodando…</h2>
-      <p class="battle-route" id="battleRoute"></p>
-      <div class="dice-arena">
-        <div class="dice-column attacker-side">
-          <span id="attackerForceLabel" class="force-title">ATACANTE</span>
-          <div class="big-dice" id="attackerDice"></div>
-        </div>
-        <div class="arena-matchup" id="arenaMatchup">
-          <div class="vs-container">
-            <div class="vs-badge">
-              <div class="vs-slashes"><span></span><span></span><span></span></div>
-              <span class="vs-v">V</span><span class="vs-s">S</span>
-            </div>
-          </div>
-        </div>
-        <div class="dice-column defender-side">
-          <span id="defenderForceLabel" class="force-title">DEFENSOR</span>
-          <div class="big-dice defender" id="defenderDice"></div>
-        </div>
-        <div class="arena-routes-overlay" id="arenaRoutesOverlay"></div>
-      </div>
-      <div class="comparison" id="comparison" aria-live="assertive"></div>
-      <div class="modal-action-row">
-        <button class="secondary-btn hidden-control" id="skipAiDice">Omitir turno enemigo</button>
-        <button class="primary-btn hidden-control" id="closeDice">Continuar</button>
-      </div>
-    </section>
-  </div>
-
   <div class="modal-backdrop hidden" id="aiModal">
     <section class="modal ai-card" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
       <p class="eyebrow">INFORME DEL TURNO ENEMIGO</p>
@@ -499,6 +498,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div id="gameAnnouncements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-    <script type="module" src="./app.mjs?v=38"></script>
+    <script type="module" src="./app.mjs?v=39"></script>
 </body>
 </html>
