@@ -115,14 +115,32 @@ El mazo táctico sustituye por completo los canjes de cartas tradicionales:
 
 ## 6. Comandantes y Doctrinas
 
-Cada jugador asume el mando de un líder militar con una doctrina pasiva especializada:
+Cada jugador asume el mando de un líder militar con una doctrina asimétrica activa y pasiva, orientada a un estilo de juego profundamente diferenciado:
 
-1. **El Conquistador:** Recibe **+1 en su dado más alto** durante el primer combate de cada turno.
-2. **El Guardián:** El defensor gana los empates en territorios pertenecientes a una región cuyo Frente esté en estado de **Guerra**.
-3. **El Industrial:** Obtiene **+1 de producción adicional** en todos sus territorios al inicio de la ronda.
-4. **El Estratega:** Disfruta de un descuento de **$10** al adquirir cartas operativas (*Movilización* y *Bloqueo*).
-5. **El Espía:** Las cartas de *Espía* y *Contrainteligencia* no consumen dinero en el Mercado.
-6. **El Diplomático:** Aumenta en un **+40%** el rendimiento de Influencia obtenido al completar objetivos dinámicos.
+1. **El Conquistador (Asalto Ofensivo / Blitz):** 
+   - **Asalto de Vanguardia:** Recibe **+1 al dado más alto de ataque** en el primer combate de cada turno.
+   - **Vanguardia de Conquista:** En su primera conquista de territorio de cada turno, despliega automáticamente **+1 tropa de vanguardia gratuita** en la posición capturada y cobra **+$2 de botín de guerra** inmediato.
+2. **El Guardián (Bastión Territorial / Guerra de Desgaste):**
+   - **Muralla de Guerra:** Recibe **+1 al dado de defensa** en territorios situados en un Frente regional en estado de **Guerra**.
+   - **Logística Defensiva:** Dispone de **+1 maniobra de fortificación por turno** para redesplegar y asegurar sus fronteras.
+   - **Baluarte de Frontera:** Al reclutar, si mantiene algún frente en Conflicto o Guerra, recibe **+1 tropa de refuerzo defensivo** adicional.
+3. **El Industrial (Economía de Guerra / Masa y Producción):**
+   - **Economía Pesada:** Obtiene **+$1 de producción base** en cada uno de sus territorios conectados.
+   - **Ensamblaje Bélico:** En cada fase de Reclutamiento, recibe **+1 tropa fija de refuerzo industrial** adicional.
+   - **Contratos Masivos:** Al adquirir la oferta de Tropas en el Mercado Táctico, recibe **+1 tropa adicional** de bonificación industrial sin sobrecoste.
+4. **El Estratega (Maniobra y Flexibilidad Operativa):**
+   - **Maniobra Operativa Superior:** Dispone intrínsecamente de **+1 maniobra por turno** para desplazar tropas a través de sus territorios conectados.
+   - **Estado Mayor Ampliado:** Su capacidad máxima de mano de cartas aumenta en **+1 carta**.
+   - **Logística de Intendencia:** Descuento de **-$5** en todas las ofertas del Mercado Táctico (mínimo $5) e inicia la partida con 1 carta de **Movilización**.
+5. **El Espía (Información Imperfecta / Ataques Quirúrgicos / Guerra de Sombras):**
+   - **Reconocimiento Pasivo de Frontera:** En el sistema de niebla de guerra, todos los territorios enemigos limítrofes con sus fronteras se revelan con **visibilidad completa (full)** en todo momento (conoce tropas exactas sin incertidumbre).
+   - **Golpe Quirúrgico:** Recibe **+1 al dado de ataque** contra territorios enemigos que hayan sido sondeados con éxito o espiados mediante carta.
+   - **Red de Contrainteligencia:** Inmunidad total (**100%**) frente a la carta *Sabotaje* enemiga e inicia la partida con 1 carta de **Espía**.
+6. **El Diplomático (Paz Armada / Victoria por Hegemonía e Influencia):**
+   - **Prestigio Continental:** Multiplica por **+40%** los puntos de Influencia obtenidos al completar objetivos de campaña (vía óptima hacia la Condición de Victoria B).
+   - **Dividendos de Paz:** Recibe un **Subsidio Diplomático de +$3** al inicio de cada ronda si mantiene la paz en sus frentes de guerra.
+   - **Arbitraje y Desescalada Activa:** Al finalizar su turno sin haber realizado ningún ataque, todos los frentes regionales tensos o en conflicto en los que participa se enfrían automáticamente 1 nivel hacia la paz (`conflict` -> `tense`, `tense` -> `stable`).
+
 
 ---
 

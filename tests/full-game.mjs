@@ -637,6 +637,71 @@ dipGame.phase = 'close';
 endTurn(dipGame);
 if (dipGame.players[0].money < 3) throw new Error('El Diplomático debió recibir subsidio diplomático al mantenerse en paz');
 
+// 5. Verificación de Doctrinas Pulidas de Comandantes:
+// a) Conquistador: vanguardia gratuita y botín en conquista
+const cTest = createGame({players:2, seed:881, human:true, playerCommander:'conqueror'});
+const cFrom = ownedIds(cTest, 0).find(id => enemiesOf(cTest, id).length);
+const cTo = enemiesOf(cTest, cFrom)[0];
+cTest.territories[cFrom].troops = 15;
+cTest.territories[cTo].troops = 1;
+cTest.phase = 'attack';
+const cMoneyBefore = cTest.players[0].money;
+const cRes = attackRound(cTest, cFrom, cTo, 3);
+if (!cRes.conquered || cTest.territories[cTo].troops !== 4 || cTest.players[0].money !== cMoneyBefore + 2) {
+  throw new Error(`El Conquistador debe recibir vanguardia (+1 tropa = 4) y botín (+2), obtenido: tropas ${cTest.territories[cTo].troops}, dinero ${cTest.players[0].money}`);
+}
+
+// b) Industrial: +1 refuerzo fijo y +1 tropa en compra del mercado
+const indTest = createGame({players:2, seed:882, human:true, playerCommander:'industrial'});
+const indReinf = reinforcementCount(indTest, 0);
+indTest.players[0].commander = 'conqueror';
+const nonIndReinf = reinforcementCount(indTest, 0);
+if (indReinf !== nonIndReinf + 1) throw new Error('El Industrial debe otorgar +1 tropa fija de refuerzo industrial');
+indTest.players[0].commander = 'industrial';
+indTest.players[0].money = 100;
+const indTroopOffer = indTest.market.offers.find(o => o.type === 'troops');
+const indTroopsBefore = indTest.pendingReinforcements;
+buyMarketItem(indTest, indTroopOffer.id, 0);
+if (indTest.pendingReinforcements !== indTroopsBefore + indTroopOffer.value + 1) {
+  throw new Error('El Industrial debe recibir +1 tropa adicional al comprar tropas en el Mercado');
+}
+
+// c) Estratega: +1 maniobra y +1 límite de mano
+const stratTest = createGame({players:2, seed:883, human:true, playerCommander:'strategist'});
+if (maneuverLimit(stratTest, 0) !== 3) throw new Error(`El Estratega en diplomático debe tener 3 maniobras (2 base + 1), obtenido: ${maneuverLimit(stratTest, 0)}`);
+if (cardHandLimit(stratTest, 0) !== 4) throw new Error(`El Estratega en diplomático debe tener mano de 4 (3 base + 1), obtenido: ${cardHandLimit(stratTest, 0)}`);
+
+// d) Espía: visión de frontera pasiva, bono por sondeo previo e inmunidad total a sabotaje
+const spyTest = createGame({players:2, seed:884, human:true, playerCommander:'spy'});
+const spyDirectEnemy = ownedIds(spyTest, 0).flatMap(id => enemiesOf(spyTest, id))[0];
+if (getTerritoryVisibility(spyTest, spyDirectEnemy, 0) !== 'full') {
+  throw new Error('El Espía debe tener visión completa pasiva en todos los territorios enemigos fronterizos');
+}
+const spyFrom = ownedIds(spyTest, 0).find(id => enemiesOf(spyTest, id).includes(spyDirectEnemy));
+spyTest.territories[spyFrom].troops = 10;
+spyTest.phase = 'attack';
+const probeRes = probeTerritory(spyTest, spyFrom, spyDirectEnemy);
+if (!probeRes.ok) throw new Error('El sondeo del Espía falló');
+const spyAtk = attackRound(spyTest, spyFrom, spyDirectEnemy, 3);
+if (!spyAtk.bonus.attackerReasons.some(r => r.includes('El Espía'))) {
+  throw new Error('El Espía debe recibir +1 al dado de ataque tras sondear un territorio');
+}
+spyTest.current = 1;
+spyTest.players[1].cards = ['sabotage'];
+const sabRes = playTacticalCard(spyTest, 'sabotage', spyFrom, 1);
+if (!sabRes.countered) throw new Error('La contrainteligencia de El Espía debe neutralizar el Sabotaje');
+
+// e) Diplomático: desescalada pacífica de frentes al cerrar turno sin atacar
+const dipDeesc = createGame({players:2, seed:885, human:true, playerCommander:'diplomat'});
+const dipRegion = getTerritories(dipDeesc)[0].region;
+updateFrontTension(dipDeesc, 0, 1, dipRegion, 'conflict');
+if (getFrontState(dipDeesc, 0, 1, dipRegion) !== 'conflict') throw new Error('El frente no se fijó en conflicto');
+dipDeesc.phase = 'close';
+endTurn(dipDeesc);
+if (getFrontState(dipDeesc, 0, 1, dipRegion) !== 'tense') {
+  throw new Error(`El Diplomático debió desescalar el frente de conflicto a tenso al no atacar, obtenido: ${getFrontState(dipDeesc, 0, 1, dipRegion)}`);
+}
+
 }
 console.log('OK: Balance (§6, §7.3, §9.1, §9.2, §15, §16), Resistencia Nacional y Doctrinas reequilibradas verificados.');
 

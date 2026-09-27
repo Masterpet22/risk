@@ -76,7 +76,7 @@ function passiveCampaigns(difficulty){
   let survived=0,totalRounds=0;
   for(let seed=1;seed<=30;seed++){
     const state=createGame({players:3,seed:9100+seed,human:true,difficulty});let guard=0;
-    while(state.winner===null&&state.turn<=20&&guard++<400){
+    while(state.winner===null&&state.players[0].alive&&state.turn<=20&&guard++<400){
       if(state.players[state.current].human){
         while(state.pendingReinforcements){
           const own=ownedIds(state,0).sort((a,b)=>(enemiesOf(state,b).length*4-state.territories[b].troops)-(enemiesOf(state,a).length*4-state.territories[a].troops));

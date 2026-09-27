@@ -686,6 +686,7 @@ function bonusPreview(from,to){
   const defenderIntel=getTerritoryIntel(state,to,0,difficulty),defenseKnown=defenderIntel.visibility==='full';
   const hasTempDef=defenseKnown&&state.tempDefense?.[d.owner]>=state.turn;
   const isConqueror=state.players[a.owner]?.commander==='conqueror'&&!state.attackMadeThisTurn;
+  const isSpyAttacker=state.players[a.owner]?.commander==='spy'&&(isTerritorySpied(state,to,a.owner)||defenderIntel.isScouted);
   const isGuardian=defenseKnown&&state.players[d.owner]?.commander==='guardian'&&isTerritoryInWarFront(state,to);
   const attReasons=[];
   const defReasons=[];
@@ -694,6 +695,7 @@ function bonusPreview(from,to){
     if(defenseKnown&&terrainBonus&&(tById(to).terrain==='forest'||tById(to).terrain==='mountain'))defReasons.push(`${terrain.name} defensivo +${terrainBonus}`);
   }
   if(isConqueror)attReasons.push('doctrina El Conquistador (primer ataque)');
+  if(isSpyAttacker)attReasons.push('doctrina El Espía (objetivo revelado)');
   if(hasTempDef)defReasons.push('defensa temporal activa');
   if(isGuardian)defReasons.push('doctrina El Guardián (frente en guerra)');
 

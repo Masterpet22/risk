@@ -14,22 +14,22 @@ export const DIFFICULTY_PROFILES={
   pacifico:{name:'Pacífico',handLimit:4,maneuvers:3,marketMultiplier:.8,humanTerrainBonus:1,aiTerrainBonus:0,startBias:.10,attackThreshold:3,attackLimit:4,humanAttackBias:-100,pursuitBias:0,reinforceHumanBias:-6,summary:'La IA evita atacarte mientras tenga un rival alternativo. Tú recibes 4 cartas, 3 maniobras, terreno favorable y precios reducidos.'},
   diplomatico:{name:'Diplomático',handLimit:3,maneuvers:2,marketMultiplier:1,humanTerrainBonus:1,aiTerrainBonus:1,startBias:0,attackThreshold:0,attackLimit:16,humanAttackBias:0,pursuitBias:0,reinforceHumanBias:0,summary:'Todos compiten con las mismas prioridades. Dispones de 3 cartas, 2 maniobras y precios estándar.'},
   belico:{name:'Bélico',handLimit:3,maneuvers:1,marketMultiplier:1.2,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.08,attackThreshold:-1,attackLimit:30,humanAttackBias:6,pursuitBias:2,reinforceHumanBias:7,summary:'La IA dirige refuerzos, espionaje y ofensivas hacia ti. Dispones de 3 cartas, 1 maniobra y el Mercado es más caro.'},
-  aniquilacion:{name:'Aniquilación',handLimit:2,maneuvers:0,marketMultiplier:1.4,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.12,attackThreshold:-2,attackLimit:42,humanAttackBias:100,pursuitBias:6,reinforceHumanBias:14,summary:'Todas las IA te cazan, abren rutas hacia tus fronteras y concentran allí sus recursos. Mano de 2, sin maniobra base y precios máximos.'}
+  aniquilacion:{name:'Aniquilación',handLimit:2,maneuvers:0,marketMultiplier:1.4,humanTerrainBonus:0,aiTerrainBonus:1,startBias:-.12,attackThreshold:-1,attackLimit:42,humanAttackBias:100,pursuitBias:6,reinforceHumanBias:14,summary:'Todas las IA te cazan, abren rutas hacia tus fronteras y concentran allí sus recursos. Mano de 2, sin maniobra base y precios máximos.'}
 };
 const DIFFICULTY_ALIASES={'fácil':'pacifico',facil:'pacifico',normal:'diplomatico','difícil':'belico',dificil:'belico',odio:'aniquilacion'};
 export function normalizeDifficulty(value){const key=DIFFICULTY_ALIASES[value]||value;return DIFFICULTY_PROFILES[key]?key:'diplomatico'}
 export function difficultyProfile(stateOrDifficulty){const key=typeof stateOrDifficulty==='string'?stateOrDifficulty:stateOrDifficulty?.difficulty;return DIFFICULTY_PROFILES[normalizeDifficulty(key)]}
-export function cardHandLimit(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).handLimit:3}
-export function maneuverLimit(state,pid=state.current){return state.players[pid]?.human?difficultyProfile(state).maneuvers:1}
+export function cardHandLimit(state,pid=state.current){const p=state.players[pid],base=p?.human?difficultyProfile(state).handLimit:3;return base+(p?.commander==='strategist'?1:0)}
+export function maneuverLimit(state,pid=state.current){const p=state.players[pid],base=p?.human?difficultyProfile(state).maneuvers:1;return base+(p?.commander==='strategist'||p?.commander==='guardian'?1:0)}
 export function marketPrice(state,offer,pid=state.current){const p=state.players[pid],mult=p?.human?difficultyProfile(state).marketMultiplier:1,raw=offer.cost*mult,rounded=Math.max(5,Math.round(raw/5)*5);return Math.max(5,rounded-(p?.commander==='strategist'?5:0))}
 
 export const COMMANDERS={
-  conqueror:{id:'conqueror',name:'El Conquistador',icon:'⚔️',desc:'+1 al dado de ataque en el primer combate de cada turno.'},
-  guardian:{id:'guardian',name:'El Guardián',icon:'🛡️',desc:'+1 al dado de defensa en territorios con Frente en Guerra.'},
-  industrial:{id:'industrial',name:'El Industrial',icon:'⚙️',desc:'+1 de producción base en todos sus territorios.'},
-  strategist:{id:'strategist',name:'El Estratega',icon:'♟️',desc:'-$5 en todas las compras del Mercado Táctico y 1 Movilización inicial.'},
-  spy:{id:'spy',name:'El Espía',icon:'👁️',desc:'+1 al dado de ataque contra objetivos espiados, 1 Espía inicial y 50% anti-sabotaje.'},
-  diplomat:{id:'diplomat',name:'El Diplomático',icon:'🕊️',desc:'+40% de Influencia en objetivos y subsidio diplomático de +$3 por frentes pacíficos.'}
+  conqueror:{id:'conqueror',name:'El Conquistador',icon:'⚔️',desc:'+1 ataque en el primer combate de cada turno. Al conquistar, despliega +1 tropa de vanguardia gratuita y gana +$2 de botín de guerra.'},
+  guardian:{id:'guardian',name:'El Guardián',icon:'🛡️',desc:'+1 defensa en frentes en guerra, +1 maniobra de fortificación por turno y +1 refuerzo defensivo si hay frentes en conflicto o guerra.'},
+  industrial:{id:'industrial',name:'El Industrial',icon:'⚙️',desc:'+$1 de producción en cada territorio, +1 tropa de refuerzo fija por turno y +1 tropa extra al comprar tropas en el Mercado.'},
+  strategist:{id:'strategist',name:'El Estratega',icon:'♟️',desc:'+1 maniobra por turno, +1 al límite de mano, -$5 en todo el Mercado Táctico y 1 Movilización inicial.'},
+  spy:{id:'spy',name:'El Espía',icon:'👁️',desc:'Visión exacta de tropas en todas sus fronteras enemigas, +1 ataque en objetivos espiados o sondeados, 100% inmune a sabotaje y 1 Espía inicial.'},
+  diplomat:{id:'diplomat',name:'El Diplomático',icon:'🕊️',desc:'+40% de Influencia en objetivos, subsidio de paz de +$3 y desescalada pacífica de frentes al cerrar turnos sin atacar.'}
 };
 export const COMMANDER_IDS=Object.keys(COMMANDERS);
 export const INFLUENCE_TARGET=60;
@@ -249,6 +249,7 @@ export function getTerritoryVisibility(state,tid,observerId=0,difficulty='diplom
   if(state.territories[tid].owner===observerId)return 'full';
   if(isTerritorySpied(state,tid,observerId)||isTerritoryReconnoitered(state,tid,observerId))return 'full';
   const d=minDistanceToOwned(state,tid,observerId);
+  if(state.players[observerId]?.commander==='spy'&&d<=1)return 'full';
   const isObserverHuman=state.players[observerId]?.human;
   if(isObserverHuman||difficulty==='diplomatico'){
     if(d<=2)return 'partial';
@@ -384,8 +385,10 @@ export function buyMarketItem(state,offerId,pid=state.current){
   offer.boughtBy.push(pid);
   if(offer.type==='troops'){
     state.reinforcementHistory=[];
-    state.pendingReinforcements+=offer.value;
-    addLog(state,`${p.name} adquirió ${offer.name} en el Mercado por $${actualCost}: +${offer.value} a la reserva.`,pid);
+    const bonus=p.commander==='industrial'?1:0;
+    const total=offer.value+bonus;
+    state.pendingReinforcements+=total;
+    addLog(state,`${p.name} adquirió ${offer.name} en el Mercado por $${actualCost}: +${total} a la reserva${bonus?' (+1 tropa industrial)':''}.`,pid);
   }else if(offer.type==='card'){
     p.cards.push(offer.cardId);
     if(state.campaign)state.campaign.players[pid].cards++;
@@ -651,7 +654,15 @@ export function upgradeGame(state){
   if(state.winner===null&&state.players[state.current]?.lastIncomeRound===0)collectIncome(state,state.current);
   return state;
 }
-export function reinforcementCount(state,pid){const count=ownedIds(state,pid).length;if(!count)return 0;const emergency=count<=3?1:0;let total=Math.max(3,Math.floor(count/3))+emergency;for(const[key,r]of Object.entries(REGIONS)){const ids=getTerritories(state).filter(t=>t.region===key).map(t=>t.id);if(ids.length&&ids.every(id=>state.territories[id].owner===pid))total+=r.bonus}return total}
+export function reinforcementCount(state,pid){
+  const count=ownedIds(state,pid).length;if(!count)return 0;
+  const emergency=count<=3?1:0;let total=Math.max(3,Math.floor(count/3))+emergency;
+  const cmd=state.players[pid]?.commander;
+  if(cmd==='industrial')total+=1;
+  else if(cmd==='guardian'&&state.players.some(o=>o.id!==pid&&o.alive&&['conflict','war'].includes(getFrontState(state,pid,o.id))))total+=1;
+  for(const[key,r]of Object.entries(REGIONS)){const ids=getTerritories(state).filter(t=>t.region===key).map(t=>t.id);if(ids.length&&ids.every(id=>state.territories[id].owner===pid))total+=r.bonus}
+  return total;
+}
 export function canPlayerAttack(state,pid=state.current){return ownedIds(state,pid).some(id=>state.territories[id].troops>=2&&enemiesOf(state,id).length>0)}
 export function tradeCards(state,pid=state.current){return{ok:false,bonus:0}}
 export function placeTroops(state,id,amount=1){if(state.phase!=='reinforce'||state.pendingReinforcements<amount||state.territories[id]?.owner!==state.current||amount<1)return false;state.reinforcementHistory=Array.isArray(state.reinforcementHistory)?state.reinforcementHistory:[];const territory=state.territories[id];state.reinforcementHistory.push({id,amount});territory.troops+=amount;state.pendingReinforcements-=amount;return true}
@@ -799,7 +810,7 @@ function battleBonuses(state,from,to,includeAttackDoctrine=true){
   if(includeAttackDoctrine&&state.players[a.owner]?.commander==='conqueror'&&!state.attackMadeThisTurn){
     attackerBonus+=1;
     ar.push('doctrina El Conquistador (+1 primer ataque)');
-  }if(includeAttackDoctrine&&state.players[a.owner]?.commander==='spy'&&isTerritorySpied(state,to,a.owner)){attackerBonus+=1;ar.push('doctrina El Espía (+1 ataque en objetivo espiado)');}
+  }if(includeAttackDoctrine&&state.players[a.owner]?.commander==='spy'&&(isTerritorySpied(state,to,a.owner)||isTerritoryReconnoitered(state,to,a.owner))){attackerBonus+=1;ar.push('doctrina El Espía (+1 ataque en objetivo espiado/sondeado)');}
   if(state.players[d.owner]?.commander==='guardian'&&isTerritoryInWarFront(state,to)){
     defenderBonus+=1;
     dr.push('doctrina El Guardián (+1 defensa en frente en guerra)');
@@ -814,13 +825,14 @@ export function probeTerritory(state,from,to){
   let al=0,dl=0;
   if(ad[0]>dd[0]){if(d.troops>1){d.troops--;dl=1}}else{a.troops--;al=1}
   state.probeUsedThisTurn=true;
-  state.reconTerritories[to]={scoutedBy:attacker,expiresTurn:state.turn};
+  const isSpy=state.players[attacker]?.commander==='spy';
+  state.reconTerritories[to]={scoutedBy:attacker,expiresTurn:state.turn+(isSpy?1:0)};
   updateFrontTension(state,attacker,defender,terr(state,to).region,'tense');
   if(state.campaign){state.campaign.players[attacker].rolls++;state.campaign.players[attacker].lost+=al;state.campaign.players[defender].lost+=dl}
   addLog(state,`${state.players[attacker].name} sondeó ${terr(state,to).name}: guarnición revelada${dl?' y 1 baja enemiga':al?' con 1 baja propia':' sin bajas'}.`,attacker);
   return{ok:true,probe:true,from,to,deployedTroops:1,defendingTroops:1,movedTroops:0,attackerDice:ad,defenderDice:dd,rawAttackerDice:rawA,rawDefenderDice:rawD,bonus,attackerLosses:al,defenderLosses:dl,conquered:false,eliminated:null,revealedTroops:d.troops};
 }
-export function attackRound(state,from,to,attackerDiceCount=null){const a=state.territories[from],d=state.territories[to];if(state.phase!=='attack'||!a||!d||a.owner!==state.current||d.owner===a.owner||a.troops<2||!terr(state,from).n.includes(to)||isConnectionBlocked(state,from,to))return{ok:false};const max=Math.min(3,a.troops-1),chosen=attackerDiceCount===null?max:Number(attackerDiceCount);if(!Number.isInteger(chosen)||chosen<1||chosen>max)return{ok:false};const attacker=a.owner,defender=d.owner,region=terr(state,to).region,rawA=roll(state,chosen),rawD=roll(state,Math.min(2,d.troops)),bonus=battleBonuses(state,from,to),ad=applyBonus(rawA,bonus.attacker),dd=applyBonus(rawD,bonus.defender);state.attackMadeThisTurn=true;updateFrontTension(state,attacker,defender,region,'conflict');let al=0,dl=0;for(let i=0;i<Math.min(ad.length,dd.length);i++){if(ad[i]>dd[i]){d.troops--;dl++}else{a.troops--;al++}}if(state.campaign){state.campaign.players[attacker].rolls++;state.campaign.players[attacker].lost+=al;state.campaign.players[defender].lost+=dl}let conquered=false,eliminated=null,movedTroops=0;if(d.troops<=0){const intelConquest=isTerritorySpied(state,to,attacker)?1:0;movedTroops=Math.max(1,Math.min(chosen,a.troops-1));d.owner=attacker;d.troops=movedTroops;a.troops-=movedTroops;conquered=true;state.conqueredThisTurn=true;state.turnConquests=state.turnConquests||{};state.turnConquests[attacker]=(state.turnConquests[attacker]||0)+1;recordObjectiveAction(state,attacker,{intelConquest});updateFrontTension(state,attacker,defender,region,'war');if(state.campaign){state.campaign.players[attacker].conquests++;state.campaign.conquests.push({turn:state.turn,attacker,defender,from,to})}addLog(state,`${terr(state,from).name} conquistó ${terr(state,to).name}.`,attacker);if(!ownedIds(state,defender).length){state.players[defender].alive=false;eliminated=defender;state.players[attacker].eliminatedRivals=(state.players[attacker].eliminatedRivals||0)+1;if(state.campaign)state.campaign.players[attacker].defeated++;if(Array.isArray(state.players[defender].cards)){for(const c of state.players[defender].cards){if(state.players[attacker].cards.length<cardHandLimit(state,attacker))state.players[attacker].cards.push(c)}state.players[defender].cards=[]}addLog(state,`${state.players[defender].name} fue eliminado.`,attacker)}checkObjectives(state,attacker);state.players[attacker].influence=calculateInfluence(state,attacker);checkWinner(state)}return{ok:true,from,to,deployedTroops:chosen,defendingTroops:rawD.length,movedTroops,attackerDice:ad,defenderDice:dd,rawAttackerDice:rawA,rawDefenderDice:rawD,bonus,attackerLosses:al,defenderLosses:dl,conquered,eliminated}}
+export function attackRound(state,from,to,attackerDiceCount=null){const a=state.territories[from],d=state.territories[to];if(state.phase!=='attack'||!a||!d||a.owner!==state.current||d.owner===a.owner||a.troops<2||!terr(state,from).n.includes(to)||isConnectionBlocked(state,from,to))return{ok:false};const max=Math.min(3,a.troops-1),chosen=attackerDiceCount===null?max:Number(attackerDiceCount);if(!Number.isInteger(chosen)||chosen<1||chosen>max)return{ok:false};const attacker=a.owner,defender=d.owner,region=terr(state,to).region,rawA=roll(state,chosen),rawD=roll(state,Math.min(2,d.troops)),bonus=battleBonuses(state,from,to),ad=applyBonus(rawA,bonus.attacker),dd=applyBonus(rawD,bonus.defender);state.attackMadeThisTurn=true;updateFrontTension(state,attacker,defender,region,'conflict');let al=0,dl=0;for(let i=0;i<Math.min(ad.length,dd.length);i++){if(ad[i]>dd[i]){d.troops--;dl++}else{a.troops--;al++}}if(state.campaign){state.campaign.players[attacker].rolls++;state.campaign.players[attacker].lost+=al;state.campaign.players[defender].lost+=dl}let conquered=false,eliminated=null,movedTroops=0;if(d.troops<=0){const intelConquest=isTerritorySpied(state,to,attacker)?1:0;movedTroops=Math.max(1,Math.min(chosen,a.troops-1));d.owner=attacker;d.troops=movedTroops;a.troops-=movedTroops;conquered=true;state.conqueredThisTurn=true;state.turnConquests=state.turnConquests||{};state.turnConquests[attacker]=(state.turnConquests[attacker]||0)+1;if(state.players[attacker]?.commander==='conqueror'&&state.turnConquests[attacker]===1){d.troops+=1;state.players[attacker].money=(state.players[attacker].money||0)+2;addLog(state,`Doctrina Conquistador: vanguardia reforzada (+1 tropa) y +$2 de botín en ${terr(state,to).name}.`,attacker)}recordObjectiveAction(state,attacker,{intelConquest});updateFrontTension(state,attacker,defender,region,'war');if(state.campaign){state.campaign.players[attacker].conquests++;state.campaign.conquests.push({turn:state.turn,attacker,defender,from,to})}addLog(state,`${terr(state,from).name} conquistó ${terr(state,to).name}.`,attacker);if(!ownedIds(state,defender).length){state.players[defender].alive=false;eliminated=defender;state.players[attacker].eliminatedRivals=(state.players[attacker].eliminatedRivals||0)+1;if(state.campaign)state.campaign.players[attacker].defeated++;if(Array.isArray(state.players[defender].cards)){for(const c of state.players[defender].cards){if(state.players[attacker].cards.length<cardHandLimit(state,attacker))state.players[attacker].cards.push(c)}state.players[defender].cards=[]}addLog(state,`${state.players[defender].name} fue eliminado.`,attacker)}checkObjectives(state,attacker);state.players[attacker].influence=calculateInfluence(state,attacker);checkWinner(state)}return{ok:true,from,to,deployedTroops:chosen,defendingTroops:rawD.length,movedTroops,attackerDice:ad,defenderDice:dd,rawAttackerDice:rawA,rawDefenderDice:rawD,bonus,attackerLosses:al,defenderLosses:dl,conquered,eliminated}}
 export function blitz(state,from,to,maxRounds=50){const rounds=[];while(rounds.length<maxRounds&&state.winner===null&&state.territories[from]?.troops>1&&state.territories[to]?.owner!==state.current){const r=attackRound(state,from,to);if(!r.ok)break;rounds.push(r);if(r.conquered)break}return{ok:rounds.length>0,rounds,conquered:rounds.at(-1)?.conquered||false}}
 function connectedOwned(state,start,target,pid){const q=[start],seen=new Set(q);while(q.length){const id=q.shift();if(id===target)return true;for(const n of terr(state,id).n)if(!seen.has(n)&&state.territories[n].owner===pid&&!isConnectionBlocked(state,id,n)){seen.add(n);q.push(n)}}return false}
 export function fortify(state,from,to,amount){
@@ -969,7 +981,7 @@ export function playTacticalCard(state,cardId,target=null,pid=state.current){
     p.cards.splice(cardIndex,1);
     recordObjectiveAction(state,pid,{cardId});
     updateFrontTension(state,pid,defenderId,terr(state,target).region,'tense');
-    if(defender.commander==='spy'&&nextRand(state)<0.5){
+    if(defender.commander==='spy'){
       addLog(state,`¡Red de contrainteligencia de ${defender.name} (El Espía) neutralizó el Sabotaje de ${p.name}!`,defenderId);
       checkObjectives(state,pid);return{ok:true,countered:true,message:`Red de contrainteligencia de ${defender.name} neutralizó tu Sabotaje.`};
     }
@@ -1022,6 +1034,18 @@ export function endTurn(state){
 
   checkObjectives(state,state.current);
   state.players[state.current].influence=calculateInfluence(state,state.current);
+  const curP=state.players[state.current];
+  if(curP?.alive&&curP.commander==='diplomat'&&!state.attackMadeThisTurn&&state.fronts){
+    let cooled=false;
+    for(const[k,data]of Object.entries(state.fronts)){
+      const [pair]=k.split(':'),parts=pair.split('-'),p1=+parts[0],p2=+parts[1];
+      if(p1===curP.id||p2===curP.id){
+        if(data.state==='conflict'){data.state='tense';cooled=true}
+        else if(data.state==='tense'){data.state='stable';cooled=true}
+      }
+    }
+    if(cooled)addLog(state,`Arbitraje diplomático: ${curP.name} mantuvo la paz y desescaló tensiones fronterizas.`,curP.id);
+  }
 
   let next=state.current;
   do{
@@ -1210,6 +1234,8 @@ export function aiTurn(state,pid=state.current,difficulty='diplomatico'){
   const borders=ownedIds(state,pid).filter(id=>enemiesOf(state,id).length).sort((a,b)=>aiStrategicScore(state,b,pid,difficulty)-aiStrategicScore(state,a,pid,difficulty));
   if(sources.length&&borders.length&&connectedOwned(state,sources[0],borders[0],pid)){
     fortify(state,sources[0],borders[0],Math.max(1,state.territories[sources[0]].troops-1));
+    let extraMv=maneuverLimit(state,pid);
+    if(extraMv>1&&sources.length>1&&borders.length>1&&connectedOwned(state,sources[1],borders[1],pid)){fortify(state,sources[1],borders[1],Math.max(1,state.territories[sources[1]].troops-1));}
     if(p.cards.includes('mobilize')&&sources.length>1&&borders.length>1){
       if(playTacticalCard(state,'mobilize',null,pid).ok&&connectedOwned(state,sources[1],borders[1],pid)){
         fortify(state,sources[1],borders[1],Math.max(1,state.territories[sources[1]].troops-1));
